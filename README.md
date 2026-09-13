@@ -29,4 +29,4 @@ Open your `server.properties` and set `online-mode` to `false`.
 
 ## License
 
-This mod is available under the CC0 license.
+This mod is available under the MIT license.
