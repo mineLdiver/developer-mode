@@ -2,9 +2,8 @@
   "schemaVersion": 1,
   "id": "developermode",
   "version": "${version}",
-
   "name": "Developer Mode",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "description": "A cheat mod for mod developers: a hold-to-open radial menu and a floating window desktop for the tools you actually need while testing.",
   "authors": [
     "mine_diver"
   ],
@@ -12,25 +11,24 @@
     "homepage": "https://glass-launcher.net/",
     "sources": "https://github.com/mineLdiver/developer-mode"
   },
-
-  "license": "CC0-1.0",
+  "license": "MIT",
   "icon": "assets/developermode/icon.png",
-
   "environment": "*",
   "entrypoints": {
     "stationapi:event_bus": [
-      "net.mine_diver.developermode.events.init.InitListener"
+      "net.mine_diver.developermode.DeveloperMode"
     ],
     "stationapi:event_bus_client": [
+      "net.mine_diver.developermode.client.DeveloperModeClient"
     ],
-    "stationapi:event_bus_server": [
-    ]
+    "stationapi:event_bus_server": []
   },
   "mixins": [
     "developermode.mixins.json"
   ],
-
+  "accessWidener": "developermode.accesswidener",
   "depends": {
-    "minecraft": "1.0.0-beta.7.3"
+    "minecraft": "1.0.0-beta.7.3",
+    "stationapi": ">=2.0.0-alpha.6"
   }
 }

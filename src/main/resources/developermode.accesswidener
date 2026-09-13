@@ -1,0 +1,10 @@
+accessWidener	v2	named
+
+# The client singleton, needed to swap screens and reach the player from
+# outside a screen.
+accessible	field	net/minecraft/client/Minecraft	INSTANCE	Lnet/minecraft/client/Minecraft;
+
+# The entity type table. Private, and Beta offers no way to list what is
+# registered, which a summon picker needs. StationAPI mods register into this
+# same map, so reading it picks up modded entities too.
+accessible	field	net/minecraft/entity/EntityRegistry	idToClass	Ljava/util/Map;

@@ -15,7 +15,7 @@ version = project.properties["mod_version"] as String
 group = project.properties["maven_group"] as String
 
 loom {
-//	accessWidenerPath = file("src/main/resources/developermode.accesswidener")
+	accessWidenerPath = file("src/main/resources/developermode.accesswidener")
 
 	runs {
 		// If you want to make a testmod for your mod, right click on src, and create a new folder with the same name as source() below.
@@ -80,6 +80,12 @@ dependencies {
 	modImplementation("net.danygames2014:modmenu:${project.properties["modmenu_version"]}")
 	// https://github.com/Glass-Series/Always-More-Items
 	modImplementation("net.glasslauncher.mods:AlwaysMoreItems:${project.properties["alwaysmoreitems_version"]}")
+
+	// Test fixture only: a large, varied set of modded entities to exercise the
+	// summon picker, the entity previews and the NBT editor against something
+	// that is not vanilla. Runtime only, so it never becomes a dependency of
+	// this mod, and safe to delete.
+	modRuntimeOnly("maven.modrinth:mo-creatures-stationapi:1.0.6")
 }
 
 configurations.all {
