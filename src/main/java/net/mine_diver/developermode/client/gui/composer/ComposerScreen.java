@@ -6,7 +6,6 @@ import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
-import net.minecraft.client.Minecraft;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -45,7 +44,7 @@ public final class ComposerScreen extends DevScreen {
     }
 
     public static void open() {
-        Minecraft.INSTANCE.setScreen(INSTANCE);
+        DeveloperModeClient.minecraft().setScreen(INSTANCE);
     }
 
     /**

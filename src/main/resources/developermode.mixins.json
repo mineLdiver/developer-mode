@@ -4,6 +4,7 @@
   "package": "net.mine_diver.developermode.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "EntityRegistryAccessor",
     "WorldMixin"
   ],
   "server": [],

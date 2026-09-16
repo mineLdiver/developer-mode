@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.util.ScreenScaler;
@@ -252,7 +253,7 @@ public final class Draw {
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
         } else {
             int base = (scissorDepth - 1) * 4;
-            applyScissor(Minecraft.INSTANCE, SCISSOR_STACK[base], SCISSOR_STACK[base + 1],
+            applyScissor(DeveloperModeClient.minecraft(), SCISSOR_STACK[base], SCISSOR_STACK[base + 1],
                     SCISSOR_STACK[base + 2], SCISSOR_STACK[base + 3]);
         }
     }

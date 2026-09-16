@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.summon;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.minecraft.client.Minecraft;
@@ -89,7 +90,7 @@ public final class SummonMode {
     public static void update() {
         if (!active) return;
 
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         boolean available = minecraft != null && minecraft.world != null
                 && minecraft.player != null && minecraft.currentScreen == null;
         if (!available) {

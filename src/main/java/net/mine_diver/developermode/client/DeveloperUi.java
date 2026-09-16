@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -18,7 +19,7 @@ public final class DeveloperUi {
 
     /** True while any of the mod's own screens is the current one. */
     public static boolean isOnScreen() {
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         return minecraft != null && minecraft.currentScreen instanceof DevScreen;
     }
 
@@ -33,7 +34,7 @@ public final class DeveloperUi {
      * leaks the first time someone presses escape instead of the close cross.
      */
     public static void releaseUnusedFreezes() {
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft == null) return;
 
         // Entities do not survive a world change, and neither should anything

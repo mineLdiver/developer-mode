@@ -30,7 +30,7 @@ public final class InspectRenderer {
     public static void renderWorld(float tickDelta) {
         if (!InspectMode.isActive() || InspectMode.candidates().isEmpty()) return;
 
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         LivingEntity camera = minecraft.camera;
         if (camera == null) return;
 

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.radial;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -28,7 +29,7 @@ public final class EntityEntry extends RadialEntry {
     public EntityEntry() {
         super("Inspect", "Highlight entities and click one", null, returnTo -> {
             InspectMode.enter();
-            Minecraft.INSTANCE.setScreen(null);
+            DeveloperModeClient.minecraft().setScreen(null);
         });
     }
 

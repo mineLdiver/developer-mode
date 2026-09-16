@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
 import net.mine_diver.developermode.client.gui.TextField;
@@ -122,14 +123,14 @@ public final class SummonWindow extends DevWindow {
         // Anything whose icon could not be drawn would crash the world render
         // every frame once spawned, and there is no recovering from that
         // without quitting. Refuse it here, where a message is still possible.
-        if (unrenderable.contains(type) || previewOf(Minecraft.INSTANCE, type) == null) {
+        if (unrenderable.contains(type) || previewOf(DeveloperModeClient.minecraft(), type) == null) {
             status = type + " cannot be built without more setup";
             return;
         }
 
         status = "";
         SummonMode.arm(type);
-        Minecraft.INSTANCE.setScreen(null);
+        DeveloperModeClient.minecraft().setScreen(null);
     }
 
     @Override

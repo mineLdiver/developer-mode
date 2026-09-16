@@ -4,6 +4,7 @@ import net.mine_diver.developermode.client.gui.radial.RadialMenu;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
 import net.mine_diver.developermode.feature.entity.EntityTargeting;
 import net.mine_diver.unsafeevents.listener.EventListener;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.option.KeyBinding;
 import net.modificationstation.stationapi.api.client.event.keyboard.KeyStateChangedEvent;
@@ -36,6 +37,22 @@ public final class DeveloperModeClient {
      */
     public static final KeyBinding INSPECT_KEY = new KeyBinding("key.developermode.inspect", Keyboard.KEY_TAB);
 
+    /**
+     * The running client.
+     *
+     * <p>Null until the game has built it, so anything that can run before then
+     * has to check. Once a screen is up it cannot be null, and the call sites
+     * inside one do not check.
+     *
+     * <p>The loader marks its game instance experimental rather than pointing
+     * anywhere else, so the warning is answered here, at the one call, instead
+     * of at each of the places that want the client.
+     */
+    @SuppressWarnings("deprecation")
+    public static Minecraft minecraft() {
+        return (Minecraft) FabricLoader.getInstance().getGameInstance();
+    }
+
     @EventListener
     private static void registerKeyBindings(KeyBindingRegisterEvent event) {
         event.register(MENU_KEY);
@@ -52,7 +69,7 @@ public final class DeveloperModeClient {
         if (event.environment != KeyStateChangedEvent.Environment.IN_GAME) return;
         if (!Keyboard.getEventKeyState() || Keyboard.getEventKey() != MENU_KEY.code) return;
 
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = minecraft();
         if (minecraft == null || minecraft.world == null || minecraft.player == null) return;
 
         // Last chance to see where the crosshair is pointing: the screen that

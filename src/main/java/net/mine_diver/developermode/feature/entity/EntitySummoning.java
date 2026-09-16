@@ -1,5 +1,7 @@
 package net.mine_diver.developermode.feature.entity;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.mixin.EntityRegistryAccessor;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
@@ -37,10 +39,8 @@ public final class EntitySummoning {
      * abstract LivingEntity, and asking Beta to construct it only earns a stack
      * trace on stdout.
      */
-    @SuppressWarnings("unchecked")
     public static List<String> types() {
-        Map<String, Class<? extends Entity>> registry =
-                (Map<String, Class<? extends Entity>>) EntityRegistry.idToClass;
+        Map<String, Class<? extends Entity>> registry = EntityRegistryAccessor.getIdToClass();
 
         List<String> ids = new ArrayList<>();
         for (Map.Entry<String, Class<? extends Entity>> entry : registry.entrySet()) {
@@ -99,7 +99,7 @@ public final class EntitySummoning {
      * @return null on success, or a message saying why nothing was summoned
      */
     public static String summon(String id, double x, double feetY, double z, float yaw) {
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft == null || minecraft.world == null) return "Not in a world";
         if (minecraft.isWorldRemote()) return "Server side summoning is not implemented yet";
 

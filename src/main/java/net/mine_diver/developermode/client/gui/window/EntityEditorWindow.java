@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
@@ -84,7 +85,7 @@ public final class EntityEditorWindow extends DevWindow {
         if (statusTicks > 0 && --statusTicks == 0) status = "";
 
         // An entity from a world we have left is no more use than a dead one.
-        if (entity != null && entity.world != Minecraft.INSTANCE.world) {
+        if (entity != null && entity.world != DeveloperModeClient.minecraft().world) {
             FrozenEntities.stopEditing(entity);
             entity = null;
             reloadNbt();

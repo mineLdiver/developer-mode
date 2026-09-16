@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -119,7 +120,7 @@ public final class EntityListWindow extends DevWindow {
         refreshCountdown = REFRESH_INTERVAL_TICKS;
         entries.clear();
 
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft == null || minecraft.world == null) return;
 
         for (Object loaded : minecraft.world.getEntities()) {

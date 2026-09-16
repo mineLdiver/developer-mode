@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -32,7 +33,7 @@ public final class Give {
     private Give() {}
 
     public static Result give(ItemStack stack) {
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft == null || minecraft.world == null) return Result.NO_WORLD;
 
         PlayerEntity player = minecraft.player;

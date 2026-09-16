@@ -75,7 +75,7 @@ public final class InspectMode {
      * open by a screen appearing cannot get stuck.
      */
     public static void update() {
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         boolean available = minecraft != null && minecraft.world != null
                 && minecraft.player != null && minecraft.currentScreen == null;
 

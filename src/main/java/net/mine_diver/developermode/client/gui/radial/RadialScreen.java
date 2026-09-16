@@ -4,7 +4,6 @@ import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -65,7 +64,7 @@ public final class RadialScreen extends DevScreen {
     }
 
     public static void open(Screen returnTo) {
-        Minecraft.INSTANCE.setScreen(new RadialScreen(returnTo));
+        DeveloperModeClient.minecraft().setScreen(new RadialScreen(returnTo));
     }
 
     @Override

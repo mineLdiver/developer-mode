@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.entity;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -34,7 +35,7 @@ public final class EntityTargeting {
      * @return the entity now under the crosshair, or null
      */
     public static Entity capture() {
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft == null || minecraft.world == null || minecraft.camera == null) {
             target = null;
             return null;
@@ -83,7 +84,7 @@ public final class EntityTargeting {
     public static Entity current() {
         if (target == null) return null;
 
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         if (target.dead || minecraft == null || target.world != minecraft.world) {
             target = null;
         }

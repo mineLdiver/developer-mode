@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.summon;
 
+import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.WorldDraw;
@@ -24,7 +25,7 @@ public final class SummonRenderer {
     public static void renderWorld(float tickDelta) {
         if (!SummonMode.isActive()) return;
 
-        Minecraft minecraft = Minecraft.INSTANCE;
+        Minecraft minecraft = DeveloperModeClient.minecraft();
         Entity preview = SummonMode.preview();
         LivingEntity camera = minecraft.camera;
         if (preview == null || camera == null) return;
