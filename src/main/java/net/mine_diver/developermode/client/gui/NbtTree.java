@@ -12,6 +12,8 @@ import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtLong;
 import net.minecraft.nbt.NbtShort;
 import net.minecraft.nbt.NbtString;
+import net.modificationstation.stationapi.api.nbt.NbtIntArray;
+import net.modificationstation.stationapi.api.nbt.NbtLongArray;
 import org.lwjgl.input.Keyboard;
 
 import java.util.ArrayList;
@@ -30,6 +32,10 @@ import java.util.Set;
  *
  * <p>Structure is fixed: values can be changed, but tags cannot be added,
  * removed or retyped.
+ *
+ * <p>Arrays are shown but not edited: byte arrays from Beta, and int and long
+ * arrays from StationAPI, which registers those as tag ids 11 and 12 so they
+ * appear in anything it has loaded.
  */
 public final class NbtTree {
     public static final int ROW_HEIGHT = 10;
@@ -299,6 +305,8 @@ public final class NbtTree {
         if (element instanceof NbtDouble value) return value.value + "d";
         if (element instanceof NbtString value) return "\"" + value.value + "\"";
         if (element instanceof NbtByteArray value) return "[" + value.value.length + " bytes]";
+        if (element instanceof NbtIntArray value) return "[" + value.data.length + " ints]";
+        if (element instanceof NbtLongArray value) return "[" + value.data.length + " longs]";
         if (element instanceof NbtCompound value) return "{" + value.values().size() + "}";
         if (element instanceof NbtList value) return "[" + value.size() + "]";
         return "?";
@@ -307,7 +315,8 @@ public final class NbtTree {
     private static int colorOf(NbtElement element) {
         if (element instanceof NbtString) return Theme.NBT_STRING;
         if (element instanceof NbtCompound || element instanceof NbtList) return Theme.NBT_CONTAINER;
-        if (element instanceof NbtByteArray) return Theme.NBT_OPAQUE;
+        if (element instanceof NbtByteArray || element instanceof NbtIntArray
+                || element instanceof NbtLongArray) return Theme.NBT_OPAQUE;
         return Theme.NBT_NUMBER;
     }
 
@@ -320,6 +329,8 @@ public final class NbtTree {
         if (element instanceof NbtDouble) return "double";
         if (element instanceof NbtString) return "string";
         if (element instanceof NbtByteArray) return "byte array";
+        if (element instanceof NbtIntArray) return "int array";
+        if (element instanceof NbtLongArray) return "long array";
         if (element instanceof NbtCompound) return "compound";
         if (element instanceof NbtList) return "list";
         return "tag";
