@@ -78,3 +78,24 @@ Wideners are worth it when the point *is* to open something up for everyone:
 StationAPI's transitive wideners exist so mods can construct blocks and items,
 which is a deliberate API affordance. That is not the same as getting at a
 private field, and a widener that is not transitive does not propagate anyway.
+
+## Commits and branches
+
+Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org):
+`type: description`, lowercase after the colon, no trailing period. The types
+are `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `style`
+and `chore`; a breaking change is `type!:`. A scope in parentheses is allowed
+and rarely worth it.
+
+The subject completes "if applied, this commit will ___", so it is `add` and
+not `added`. Keep it short and put the reasoning in the body, which is free
+prose and has no format. The subject is not where to be thorough.
+
+`master` holds released code and `develop` is where work lands, so a release is
+a merge of `develop` into `master`. Everything else is a short lived branch off
+`develop`, named `feature/what-it-adds` or `fix/what-it-fixes`, merged by pull
+request.
+
+A fix that has to reach a released version before `develop` is ready branches
+off `master` instead, and merges into both. Otherwise `master` and `develop`
+drift apart and the next release quietly reverts it.

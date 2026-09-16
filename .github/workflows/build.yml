@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: gradle/actions/wrapper-validation@v4
+
+      # Babric loom needs a 21 or newer JVM to run on. The mod itself is still
+      # compiled to 17, which build.gradle.kts sets separately.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Loom's remapped Minecraft and mod jars cost minutes to rebuild and only
+      # change when the versions they are derived from do.
+      - name: Cache loom
+        uses: actions/cache@v4
+        with:
+          path: .gradle/loom-cache
+          key: loom-${{ hashFiles('gradle.properties', 'build.gradle.kts') }}
+
+      - run: ./gradlew build --stacktrace
+
+      # So a pull request can be tried in game without building it yourself.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jar
+          path: build/libs/*.jar
