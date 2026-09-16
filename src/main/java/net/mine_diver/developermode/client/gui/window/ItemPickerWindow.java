@@ -6,6 +6,7 @@ import net.mine_diver.developermode.client.gui.TextField;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.Give;
+import net.mine_diver.developermode.feature.net.DevStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.block.Block;
 import net.minecraft.client.resource.language.I18n;
@@ -45,6 +46,7 @@ public final class ItemPickerWindow extends DevWindow {
     private int hoveredY;
     private String status = "";
     private int statusTicks;
+    private int statusSequence = DevStatus.sequence();
 
     public ItemPickerWindow() {
         super("Items", COLUMNS * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 2, 178);
@@ -57,6 +59,13 @@ public final class ItemPickerWindow extends DevWindow {
     public void tick() {
         search.tick();
         if (statusTicks > 0 && --statusTicks == 0) status = "";
+
+        // Giving is a request, and the answer comes back as a packet long after
+        // the click that asked for it has returned.
+        if (DevStatus.sequence() != statusSequence) {
+            statusSequence = DevStatus.sequence();
+            setStatus(DevStatus.message());
+        }
     }
 
     @Override
@@ -129,10 +138,7 @@ public final class ItemPickerWindow extends DevWindow {
         ItemStack stack = hovered.stack.copy();
         stack.count = button == 1 ? 1 : Math.max(1, stack.getItem().getMaxCount());
 
-        Give.Result result = Give.give(stack);
-        setStatus(result == Give.Result.GIVEN
-                ? "Gave " + stack.count + "x " + hovered.name
-                : result.message());
+        Give.give(stack);
     }
 
     @Override

@@ -1,46 +1,25 @@
 package net.mine_diver.developermode.feature;
 
-import net.mine_diver.developermode.client.DeveloperModeClient;
-import net.minecraft.client.Minecraft;
-import net.minecraft.entity.player.PlayerEntity;
+import net.mine_diver.developermode.feature.net.packet.GiveC2SPacket;
 import net.minecraft.item.ItemStack;
+import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 
 /**
  * Puts a stack in the player's inventory.
  *
  * <p>Beta has no creative mode and no packet that lets a client conjure items,
- * so on a server this needs a mod side counterpart to actually take effect.
- * Until that exists, multiplayer is reported as unsupported rather than
- * silently handing out items that the server rolls straight back.
+ * so the stack is asked for rather than taken: the request goes to whoever has
+ * the authority to grant it, which on a server is the server and in a local
+ * world is this same process a moment later.
+ *
+ * <p>The answer arrives as a packet rather than a return value, so it lands in
+ * {@link net.mine_diver.developermode.feature.net.DevStatus} instead of coming
+ * back from here.
  */
 public final class Give {
-    public enum Result {
-        GIVEN,
-        INVENTORY_FULL,
-        NEEDS_SERVER,
-        NO_WORLD;
-
-        public String message() {
-            switch (this) {
-                case GIVEN: return "Given";
-                case INVENTORY_FULL: return "Inventory full";
-                case NEEDS_SERVER: return "Server side giving is not implemented yet";
-                default: return "Not in a world";
-            }
-        }
-    }
-
     private Give() {}
 
-    public static Result give(ItemStack stack) {
-        Minecraft minecraft = DeveloperModeClient.minecraft();
-        if (minecraft == null || minecraft.world == null) return Result.NO_WORLD;
-
-        PlayerEntity player = minecraft.player;
-        if (player == null) return Result.NO_WORLD;
-
-        if (minecraft.isWorldRemote()) return Result.NEEDS_SERVER;
-
-        return player.inventory.addStack(stack.copy()) ? Result.GIVEN : Result.INVENTORY_FULL;
+    public static void give(ItemStack stack) {
+        PacketHelper.send(new GiveC2SPacket(stack));
     }
 }
