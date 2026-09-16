@@ -12,6 +12,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.painting.PaintingEntity;
 import net.minecraft.entity.decoration.painting.PaintingVariants;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
@@ -96,9 +97,19 @@ public final class EntitySummoning {
     }
 
     /**
+     * Builds one of these, loads {@code preset} into it if there is one, and
+     * puts it in the world.
+     *
+     * <p>The preset goes on before {@link #place}, so where you clicked wins
+     * over whatever {@code Pos} and {@code Rotation} it carries, and everything
+     * else in it survives. A preset that will not load stops the summon rather
+     * than quietly producing a default one: silently ignoring an edit is how an
+     * afternoon disappears.
+     *
+     * @param preset NBT to load into it first, or null to summon it as built
      * @return null on success, or a message saying why nothing was summoned
      */
-    public static String summon(String id, double x, double feetY, double z, float yaw) {
+    public static String summon(String id, double x, double feetY, double z, float yaw, NbtCompound preset) {
         Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft == null || minecraft.world == null) return "Not in a world";
         if (minecraft.isWorldRemote()) return "Server side summoning is not implemented yet";
@@ -106,9 +117,28 @@ public final class EntitySummoning {
         Entity entity = create(id, minecraft.world);
         if (entity == null) return "Could not build a " + id;
 
+        if (preset != null) {
+            String failure = applyPreset(entity, preset);
+            if (failure != null) return "preset: " + failure;
+        }
+
         place(entity, x, feetY, z, yaw);
 
         return minecraft.world.spawnEntity(entity) ? null : "The world refused it, is that chunk loaded?";
+    }
+
+    /**
+     * Loads NBT into a freshly built entity.
+     *
+     * <p>A copy goes in rather than the compound itself. Beta's own read
+     * methods only pull values out, but one armed preset is handed to every
+     * entity it places, and a mod that keeps hold of a tag it was passed would
+     * quietly rewrite what the next click puts down.
+     *
+     * @return null on success, or a message describing what went wrong
+     */
+    public static String applyPreset(Entity entity, NbtCompound preset) {
+        return EntityNbt.apply(entity, preset.copy());
     }
 
     /**

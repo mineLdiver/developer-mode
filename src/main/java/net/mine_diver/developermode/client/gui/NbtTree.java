@@ -63,6 +63,7 @@ public final class NbtTree {
     private Row editing;
     private String error = "";
     private boolean dirty;
+    private int revision;
     private int scrollRow;
 
     private int x;
@@ -82,12 +83,24 @@ public final class NbtTree {
         this.editing = null;
         this.error = "";
         this.dirty = false;
+        this.revision++;
         rebuild();
     }
 
     /** True once a value has been changed and not yet reloaded away. */
     public boolean isDirty() {
         return dirty;
+    }
+
+    /**
+     * Changes with every committed edit, and with every new root.
+     *
+     * <p>{@link #isDirty} says whether anything has been touched; this says
+     * whether anything has been touched <em>since you last looked</em>, which
+     * is what a view that has to rebuild itself off the tree actually needs.
+     */
+    public int revision() {
+        return revision;
     }
 
     public String error() {
@@ -201,6 +214,7 @@ public final class NbtTree {
             else if (element instanceof NbtString value) value.value = text;
             error = "";
             dirty = true;
+            revision++;
         } catch (NumberFormatException failure) {
             error = "\"" + text + "\" is not a " + typeName(row.element);
         }

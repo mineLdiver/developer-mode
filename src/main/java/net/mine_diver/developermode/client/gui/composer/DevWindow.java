@@ -36,7 +36,7 @@ public abstract class DevWindow {
     public int width;
     public int height;
 
-    private final String title;
+    private String title;
 
     protected DevWindow(String title, int width, int height) {
         this.title = title;
@@ -89,6 +89,11 @@ public abstract class DevWindow {
     /** Gives up text focus. Returns true if there was any to give up. */
     public boolean clearTypingFocus() {
         return false;
+    }
+
+    /** For a window that retargets, so the title bar can say what at. */
+    protected final void setTitle(String title) {
+        this.title = title;
     }
 
     public final boolean contains(int pointX, int pointY) {

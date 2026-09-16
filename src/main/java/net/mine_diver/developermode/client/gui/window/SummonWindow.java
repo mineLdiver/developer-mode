@@ -9,6 +9,7 @@ import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
+import net.mine_diver.developermode.feature.entity.SummonPresets;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
@@ -22,14 +23,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Every registered entity type, with a live model beside each name. Choosing
- * one arms {@link SummonMode} and hands you back to the world to place it.
+ * Every registered entity type, with a live model beside each name. Left click
+ * arms {@link SummonMode} with a plain one and hands you back to the world to
+ * place it; right click opens {@link SummonPresetWindow} instead, to set up the
+ * NBT it will be born with before there is anything to edit.
  */
 public final class SummonWindow extends DevWindow {
     private static final int ROW_HEIGHT = 22;
     private static final int ICON_WIDTH = 20;
     private static final int GAP = 3;
-    private static final int FOOTER_HEIGHT = 10;
+    private static final int FOOTER_HEIGHT = 21;
+    /** Marks a type that has saved presets waiting behind a right click. */
+    private static final String PRESET_MARKER = "nbt";
 
     private final List<String> types = new ArrayList<>();
     private final List<String> matches = new ArrayList<>();
@@ -44,7 +49,7 @@ public final class SummonWindow extends DevWindow {
     private String status = "";
 
     public SummonWindow() {
-        super("Summon", 168, 190);
+        super("Summon", 168, 200);
         types.addAll(EntitySummoning.types());
         applyFilter();
         search.setFocused(true);
@@ -90,18 +95,27 @@ public final class SummonWindow extends DevWindow {
                 }
             }
 
+            // Saved presets are otherwise invisible until you right click
+            // every type in turn to find out which of them has any.
+            int markerWidth = 0;
+            if (SummonPresets.any(type)) {
+                markerWidth = Draw.textWidth(minecraft, PRESET_MARKER) + 4;
+                Draw.text(minecraft, PRESET_MARKER,
+                        contentX() + contentWidth() - markerWidth, rowY + 7, Theme.ACCENT);
+            }
+
             boolean broken = preview == null || unrenderable.contains(type);
             int ink = broken ? Theme.TEXT_FAINT : hovered ? Theme.ACCENT : Theme.TEXT;
-            Draw.text(minecraft, Draw.ellipsize(minecraft, type, contentWidth() - ICON_WIDTH - 8),
+            Draw.text(minecraft, Draw.ellipsize(minecraft, type, contentWidth() - ICON_WIDTH - 8 - markerWidth),
                     contentX() + ICON_WIDTH + 5, rowY + 7, ink);
         }
 
         renderScrollbar(listTop, listHeight, visible);
 
         int footerY = contentY() + contentHeight() - FOOTER_HEIGHT + 1;
-        String footer = status.isEmpty() ? "click a type, then click in the world" : status;
-        Draw.text(minecraft, Draw.ellipsize(minecraft, footer, contentWidth()), contentX(), footerY,
-                status.isEmpty() ? Theme.TEXT_FAINT : Theme.DANGER);
+        Draw.text(minecraft, Draw.ellipsize(minecraft, status.isEmpty() ? "left click summons a plain one" : status, contentWidth()),
+                contentX(), footerY, status.isEmpty() ? Theme.TEXT_FAINT : Theme.DANGER);
+        Draw.text(minecraft, "right click sets up its NBT", contentX(), footerY + 10, Theme.TEXT_FAINT);
     }
 
     @Override
@@ -120,6 +134,13 @@ public final class SummonWindow extends DevWindow {
         if (index < 0 || index >= matches.size()) return;
 
         String type = matches.get(index);
+        if (button == 1) {
+            // Allowed even for types the list has greyed out: seeing what a
+            // broken one is actually made of is half of finding out why.
+            SummonPresetWindow.open(type);
+            return;
+        }
+
         // Anything whose icon could not be drawn would crash the world render
         // every frame once spawned, and there is no recovering from that
         // without quitting. Refuse it here, where a message is still possible.
@@ -129,7 +150,7 @@ public final class SummonWindow extends DevWindow {
         }
 
         status = "";
-        SummonMode.arm(type);
+        SummonMode.arm(type, null);
         DeveloperModeClient.minecraft().setScreen(null);
     }
 
@@ -154,6 +175,8 @@ public final class SummonWindow extends DevWindow {
         if (previews.containsKey(type)) return previews.get(type);
 
         Entity preview = EntitySummoning.create(type, minecraft.world);
+        // Plain, with nothing loaded into it, because that is what left
+        // clicking the row summons. A preset is previewed where it is edited.
         if (preview != null) EntitySummoning.place(preview, 0, 0, 0, 0);
         previews.put(type, preview);
         return preview;

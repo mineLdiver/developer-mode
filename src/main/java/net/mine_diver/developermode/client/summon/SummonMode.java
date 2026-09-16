@@ -6,6 +6,7 @@ import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.hit.HitResultType;
 import net.minecraft.util.math.Vec3d;
@@ -28,6 +29,8 @@ public final class SummonMode {
 
     private static boolean active;
     private static String type;
+    /** NBT this arming was set up with, or null to summon them as built. */
+    private static NbtCompound preset;
     private static Entity preview;
 
     private static double targetX;
@@ -51,6 +54,10 @@ public final class SummonMode {
         return type;
     }
 
+    public static boolean hasPreset() {
+        return preset != null;
+    }
+
     public static Entity preview() {
         return preview;
     }
@@ -67,10 +74,17 @@ public final class SummonMode {
         return error;
     }
 
-    public static void arm(String entityType) {
+    /**
+     * @param nbt what every entity this arming places is loaded with, or null
+     *            for whatever the registry builds
+     */
+    public static void arm(String entityType, NbtCompound nbt) {
         InspectMode.exit();
         active = true;
         type = entityType;
+        // Copied, so the arming is fixed at the moment it was taken. The window
+        // that handed this over stays open and goes on being edited.
+        preset = nbt == null ? null : nbt.copy();
         preview = null;
         placed = 0;
         error = "";
@@ -83,6 +97,7 @@ public final class SummonMode {
     public static void exit() {
         active = false;
         type = null;
+        preset = null;
         preview = null;
     }
 
@@ -131,10 +146,22 @@ public final class SummonMode {
     }
 
     private static void updatePreview(Minecraft minecraft) {
-        if (preview == null || preview.world != minecraft.world) {
-            preview = EntitySummoning.create(type, minecraft.world);
-        }
+        if (preview == null || preview.world != minecraft.world) rebuildPreview(minecraft);
         if (preview != null) EntitySummoning.place(preview, targetX, targetY, targetZ, yaw);
+    }
+
+    /**
+     * Builds the ghost the same way the summon itself is built, preset and all,
+     * so what is standing there before the click is what lands after it.
+     */
+    private static void rebuildPreview(Minecraft minecraft) {
+        preview = EntitySummoning.create(type, minecraft.world);
+        if (preview == null || preset == null) return;
+
+        String failure = EntitySummoning.applyPreset(preview, preset);
+        // Placing would fail the same way for the same reason, so this is not
+        // stepping on a placement error, it is getting ahead of one.
+        if (failure != null) error = "preset: " + failure;
     }
 
     private static void handleButtons() {
@@ -151,7 +178,7 @@ public final class SummonMode {
     }
 
     private static void place() {
-        String failure = EntitySummoning.summon(type, targetX, targetY, targetZ, yaw);
+        String failure = EntitySummoning.summon(type, targetX, targetY, targetZ, yaw, preset);
         if (failure == null) {
             placed++;
             error = "";

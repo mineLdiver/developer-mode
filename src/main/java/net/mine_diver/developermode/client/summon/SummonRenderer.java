@@ -74,7 +74,8 @@ public final class SummonRenderer {
         int width = scaler.getScaledWidth();
         int height = scaler.getScaledHeight();
 
-        String title = "Summoning " + SummonMode.type();
+        String title = "Summoning " + SummonMode.type()
+                + (SummonMode.hasPreset() ? " with preset" : "");
         String detail = !SummonMode.error().isEmpty()
                 ? SummonMode.error()
                 : SummonMode.isGrounded() ? "on a surface" : "in mid air";
