@@ -5,6 +5,7 @@ import net.minecraft.entity.Entity;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -22,11 +23,18 @@ import java.util.Set;
  * <p>Held by identity rather than by entity id: ids are recycled between
  * worlds, and a stale entry must never freeze some unrelated entity later.
  *
+ * <p>Each freeze records who asked for it. On a server that is the player, so
+ * that a client which drops does not leave an entity stopped with nobody left
+ * who can see it or release it. A local world passes nobody, and nobody owns
+ * everything.
+ *
  * @see net.mine_diver.developermode.mixin.WorldMixin
  */
 public final class FrozenEntities {
     private static final Set<Entity> held = Collections.newSetFromMap(new IdentityHashMap<>());
     private static final Set<Entity> automatic = Collections.newSetFromMap(new IdentityHashMap<>());
+    /** Who asked, per entity. Absent means nobody in particular did. */
+    private static final Map<Entity, Object> owners = new IdentityHashMap<>();
 
     private FrozenEntities() {}
 
@@ -42,14 +50,20 @@ public final class FrozenEntities {
 
     /** Deliberate and sticky. Survives closing every screen. */
     public static void hold(Entity entity) {
+        hold(entity, null);
+    }
+
+    public static void hold(Entity entity, Object owner) {
         automatic.remove(entity);
         if (held.add(entity)) snap(entity);
+        if (owner != null) owners.put(entity, owner);
     }
 
     /** Drops both kinds for one entity. */
     public static void release(Entity entity) {
         held.remove(entity);
         automatic.remove(entity);
+        owners.remove(entity);
     }
 
     /**
@@ -58,12 +72,18 @@ public final class FrozenEntities {
      * still interested.
      */
     public static void freezeWhileEditing(Entity entity) {
+        freezeWhileEditing(entity, null);
+    }
+
+    public static void freezeWhileEditing(Entity entity, Object owner) {
         if (held.contains(entity)) return;
         if (automatic.add(entity)) snap(entity);
+        if (owner != null) owners.put(entity, owner);
     }
 
     public static void stopEditing(Entity entity) {
         automatic.remove(entity);
+        if (!held.contains(entity)) owners.remove(entity);
     }
 
     /**
@@ -72,12 +92,31 @@ public final class FrozenEntities {
      * quietly holding a mob still for the rest of the session.
      */
     public static void releaseAutomatic() {
-        automatic.clear();
+        releaseAutomatic(null);
+    }
+
+    /** @param owner whose freezes to drop, or null for everyone's */
+    public static void releaseAutomatic(Object owner) {
+        drop(automatic, owner);
     }
 
     public static void releaseAll() {
-        held.clear();
-        automatic.clear();
+        releaseAll(null);
+    }
+
+    /** @param owner whose freezes to drop, or null for everyone's */
+    public static void releaseAll(Object owner) {
+        drop(held, owner);
+        drop(automatic, owner);
+    }
+
+    private static void drop(Set<Entity> entities, Object owner) {
+        for (Iterator<Entity> iterator = entities.iterator(); iterator.hasNext(); ) {
+            Entity entity = iterator.next();
+            if (owner != null && owners.get(entity) != owner) continue;
+            iterator.remove();
+            if (!held.contains(entity) && !automatic.contains(entity)) owners.remove(entity);
+        }
     }
 
     public static int heldCount() {
@@ -102,7 +141,10 @@ public final class FrozenEntities {
 
     private static void removeDead(Set<Entity> entities) {
         for (Iterator<Entity> iterator = entities.iterator(); iterator.hasNext(); ) {
-            if (iterator.next().dead) iterator.remove();
+            Entity entity = iterator.next();
+            if (!entity.dead) continue;
+            iterator.remove();
+            owners.remove(entity);
         }
     }
 

@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Freezing;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
@@ -78,15 +79,15 @@ public final class EntityEditorWindow extends DevWindow {
     }
 
     public void setTarget(Entity entity) {
-        if (this.entity != null) FrozenEntities.stopEditing(this.entity);
+        if (this.entity != null) Freezing.stopEditing(this.entity);
         this.entity = entity;
-        if (entity != null && !entity.dead && ownsTicking()) FrozenEntities.freezeWhileEditing(entity);
+        if (entity != null && !entity.dead) Freezing.freezeWhileEditing(entity);
         reloadNbt();
     }
 
     @Override
     public void onClosed() {
-        if (entity != null) FrozenEntities.stopEditing(entity);
+        if (entity != null) Freezing.stopEditing(entity);
     }
 
     @Override
@@ -98,7 +99,7 @@ public final class EntityEditorWindow extends DevWindow {
 
         // An entity from a world we have left is no more use than a dead one.
         if (entity != null && entity.world != DeveloperModeClient.minecraft().world) {
-            FrozenEntities.stopEditing(entity);
+            Freezing.stopEditing(entity);
             entity = null;
             reloadNbt();
         }
@@ -106,8 +107,9 @@ public final class EntityEditorWindow extends DevWindow {
 
         // tick only runs while the composer is the screen, so re-asserting here
         // is this window saying it is still looking. DeveloperUi drops the
-        // freeze again the moment the UI goes away.
-        if (ownsTicking()) FrozenEntities.freezeWhileEditing(entity);
+        // freeze again the moment the UI goes away, and this puts it back when
+        // the UI returns. Local only: the world was told once already.
+        FrozenEntities.freezeWhileEditing(entity);
 
         // Between the UI closing and opening again the entity was free to walk
         // off, which would leave Apply writing a stale Pos and teleporting it
@@ -152,7 +154,7 @@ public final class EntityEditorWindow extends DevWindow {
 
         int buttonY = previewY + PREVIEW_HEIGHT - Button.HEIGHT;
         freezeButton.bounds(infoX, buttonY, BUTTON_WIDTH);
-        freezeButton.enabled = alive && ownsTicking();
+        freezeButton.enabled = alive;
         freezeButton.toggled = alive && FrozenEntities.isHeld(entity);
         freezeButton.label = freezeButton.toggled ? "Held" : "Hold";
         freezeButton.render(minecraft, mouseX, mouseY);
@@ -192,10 +194,10 @@ public final class EntityEditorWindow extends DevWindow {
             if (FrozenEntities.isHeld(entity)) {
                 // Back to a plain automatic freeze, which lasts only as long as
                 // this window is on screen.
-                FrozenEntities.release(entity);
-                FrozenEntities.freezeWhileEditing(entity);
+                Freezing.release(entity);
+                Freezing.freezeWhileEditing(entity);
             } else {
-                FrozenEntities.hold(entity);
+                Freezing.hold(entity);
             }
             return;
         }
@@ -286,21 +288,8 @@ public final class EntityEditorWindow extends DevWindow {
                 + Math.abs(entity.z - dumpedZ) > 0.01;
     }
 
-    /**
-     * Whether stopping an entity here would actually stop it.
-     *
-     * <p>Suppressing ticks on a client only suppresses them on the copy, which
-     * the server goes on moving and goes on sending updates for. The result is
-     * an entity that looks still and is not, so the button says so instead.
-     */
-    private static boolean ownsTicking() {
-        Minecraft minecraft = DeveloperModeClient.minecraft();
-        return minecraft != null && !minecraft.isWorldRemote();
-    }
-
     private String freezeState() {
         if (entity == null) return "";
-        if (!ownsTicking()) return "server side, not yet";
         if (FrozenEntities.isHeld(entity)) return "held";
         return FrozenEntities.isFrozen(entity) ? "frozen while open" : "ticking";
     }

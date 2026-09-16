@@ -1,6 +1,5 @@
 package net.mine_diver.developermode.client;
 
-import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -14,6 +13,7 @@ import net.minecraft.world.World;
  */
 public final class DeveloperUi {
     private static World lastWorld;
+    private static boolean wasOnScreen;
 
     private DeveloperUi() {}
 
@@ -44,7 +44,15 @@ public final class DeveloperUi {
             FrozenEntities.releaseAll();
         }
 
-        if (!isOnScreen()) FrozenEntities.releaseAutomatic();
+        boolean onScreen = isOnScreen();
+        if (!onScreen) {
+            FrozenEntities.releaseAutomatic();
+            // Locally every frame, since that costs nothing and a window may
+            // have re-asserted one since the last. Over a wire only on the
+            // frame the UI went away, since that is the only one that is news.
+            if (wasOnScreen) Freezing.releaseAutomatic();
+        }
+        wasOnScreen = onScreen;
     }
 
     /**

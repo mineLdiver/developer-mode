@@ -7,7 +7,9 @@
     "EntityRegistryAccessor",
     "WorldMixin"
   ],
-  "server": [],
+  "server": [
+    "PlayerManagerMixin"
+  ],
   "client": [
     "GameRendererMixin",
     "InGameHudMixin",

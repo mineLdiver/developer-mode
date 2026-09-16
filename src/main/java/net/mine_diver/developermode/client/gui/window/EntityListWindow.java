@@ -8,6 +8,7 @@ import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.entity.Entities;
 import net.mine_diver.developermode.client.EntityTargeting;
+import net.mine_diver.developermode.client.Freezing;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
@@ -96,7 +97,7 @@ public final class EntityListWindow extends DevWindow {
     @Override
     public void mouseClicked(int mouseX, int mouseY, int button) {
         if (thawAllButton.enabled && thawAllButton.contains(mouseX, mouseY)) {
-            FrozenEntities.releaseAll();
+            Freezing.releaseAll();
             return;
         }
 
