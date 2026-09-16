@@ -3,6 +3,7 @@ package net.mine_diver.developermode.feature.net;
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.feature.net.packet.GiveC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.StatusS2CPacket;
+import net.mine_diver.developermode.feature.net.packet.SummonC2SPacket;
 import net.mine_diver.unsafeevents.listener.EventListener;
 import net.modificationstation.stationapi.api.event.network.packet.PacketRegisterEvent;
 import net.modificationstation.stationapi.api.mod.entrypoint.EntrypointManager;
@@ -22,6 +23,7 @@ public final class DevPackets {
     @EventListener
     private static void registerPackets(PacketRegisterEvent event) {
         event.register(DeveloperMode.NAMESPACE.id("give"), GiveC2SPacket.TYPE);
+        event.register(DeveloperMode.NAMESPACE.id("summon"), SummonC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("status"), StatusS2CPacket.TYPE);
     }
 }

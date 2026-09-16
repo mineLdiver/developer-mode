@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
@@ -71,23 +72,22 @@ public class GiveC2SPacket extends Packet implements ManagedPacket<GiveC2SPacket
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator");
+            reply(player, "Requires operator", false);
             return;
         }
         if (itemId < 0 || itemId >= Item.ITEMS.length || Item.ITEMS[itemId] == null) {
-            reply(player, "No such item");
+            reply(player, "No such item", false);
             return;
         }
 
         Item item = Item.ITEMS[itemId];
         int given = Math.max(1, Math.min(count, item.getMaxCount()));
-        reply(player, player.inventory.addStack(new ItemStack(itemId, given, damage))
-                ? "Given " + given
-                : "Inventory full");
+        boolean added = player.inventory.addStack(new ItemStack(itemId, given, damage));
+        reply(player, added ? "Given " + given : "Inventory full", added);
     }
 
-    private static void reply(PlayerEntity player, String text) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(text));
+    private static void reply(PlayerEntity player, String text, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.GIVE, text, ok));
     }
 
     @Override

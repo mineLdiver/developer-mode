@@ -46,7 +46,7 @@ public final class ItemPickerWindow extends DevWindow {
     private int hoveredY;
     private String status = "";
     private int statusTicks;
-    private int statusSequence = DevStatus.sequence();
+    private int statusSequence = DevStatus.sequence(DevStatus.GIVE);
 
     public ItemPickerWindow() {
         super("Items", COLUMNS * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 2, 178);
@@ -62,9 +62,9 @@ public final class ItemPickerWindow extends DevWindow {
 
         // Giving is a request, and the answer comes back as a packet long after
         // the click that asked for it has returned.
-        if (DevStatus.sequence() != statusSequence) {
-            statusSequence = DevStatus.sequence();
-            setStatus(DevStatus.message());
+        if (DevStatus.sequence(DevStatus.GIVE) != statusSequence) {
+            statusSequence = DevStatus.sequence(DevStatus.GIVE);
+            setStatus(DevStatus.message(DevStatus.GIVE));
         }
     }
 

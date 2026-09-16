@@ -3,6 +3,8 @@ package net.mine_diver.developermode.client.summon;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
+import net.mine_diver.developermode.feature.net.DevStatus;
+import net.mine_diver.developermode.feature.net.packet.SummonC2SPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -10,6 +12,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.hit.HitResultType;
 import net.minecraft.util.math.Vec3d;
+import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 import org.lwjgl.input.Mouse;
 
 /**
@@ -43,6 +46,7 @@ public final class SummonMode {
     private static boolean cancelWasDown;
     private static int placed;
     private static String error = "";
+    private static int statusSequence = DevStatus.sequence(DevStatus.SUMMON);
 
     private SummonMode() {}
 
@@ -88,6 +92,7 @@ public final class SummonMode {
         preview = null;
         placed = 0;
         error = "";
+        statusSequence = DevStatus.sequence(DevStatus.SUMMON);
         // The click that chose the type is probably still held. Require a
         // release before the first placement, or it lands one immediately.
         buttonWasDown = true;
@@ -118,6 +123,7 @@ public final class SummonMode {
 
         updateTarget(minecraft);
         updatePreview(minecraft);
+        readAnswers();
         handleButtons();
     }
 
@@ -178,12 +184,25 @@ public final class SummonMode {
     }
 
     private static void place() {
-        String failure = EntitySummoning.summon(type, targetX, targetY, targetZ, yaw, preset);
-        if (failure == null) {
+        PacketHelper.send(new SummonC2SPacket(type, targetX, targetY, targetZ, yaw, preset));
+    }
+
+    /**
+     * Picks up what came of the last placement.
+     *
+     * <p>Nothing is counted until the world that owns the entity says it took
+     * one, so the tally is of entities that exist rather than of clicks. In a
+     * local world the answer is already waiting by the time this runs.
+     */
+    private static void readAnswers() {
+        if (DevStatus.sequence(DevStatus.SUMMON) == statusSequence) return;
+        statusSequence = DevStatus.sequence(DevStatus.SUMMON);
+
+        if (DevStatus.ok(DevStatus.SUMMON)) {
             placed++;
             error = "";
         } else {
-            error = failure;
+            error = DevStatus.message(DevStatus.SUMMON);
         }
     }
 

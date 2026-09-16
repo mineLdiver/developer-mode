@@ -1,9 +1,7 @@
 package net.mine_diver.developermode.feature.entity;
 
-import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.mixin.EntityRegistryAccessor;
 import net.minecraft.block.Block;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityRegistry;
 import net.minecraft.entity.FallingBlockEntity;
@@ -106,15 +104,16 @@ public final class EntitySummoning {
      * than quietly producing a default one: silently ignoring an edit is how an
      * afternoon disappears.
      *
+     * <p>Runs wherever the world is authoritative, which on a server is the
+     * server. Nothing here reaches for a client.
+     *
      * @param preset NBT to load into it first, or null to summon it as built
      * @return null on success, or a message saying why nothing was summoned
      */
-    public static String summon(String id, double x, double feetY, double z, float yaw, NbtCompound preset) {
-        Minecraft minecraft = DeveloperModeClient.minecraft();
-        if (minecraft == null || minecraft.world == null) return "Not in a world";
-        if (minecraft.isWorldRemote()) return "Server side summoning is not implemented yet";
+    public static String summon(World world, String id, double x, double feetY, double z, float yaw, NbtCompound preset) {
+        if (world == null) return "Not in a world";
 
-        Entity entity = create(id, minecraft.world);
+        Entity entity = create(id, world);
         if (entity == null) return "Could not build a " + id;
 
         if (preset != null) {
@@ -124,7 +123,7 @@ public final class EntitySummoning {
 
         place(entity, x, feetY, z, yaw);
 
-        return minecraft.world.spawnEntity(entity) ? null : "The world refused it, is that chunk loaded?";
+        return world.spawnEntity(entity) ? null : "The world refused it, is that chunk loaded?";
     }
 
     /**
