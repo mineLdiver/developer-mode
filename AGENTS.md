@@ -13,7 +13,7 @@ Do not write:
 - that a class or method does *not* do a thing, when the only reason to mention
   it is that an earlier version did
 - changelog entries, migration notes, or "formerly X" asides
-- a defence of the current design against an alternative that was never shipped
+- a defense of the current design against an alternative that was never shipped
 
 A doc comment is read by someone meeting the code for the first time, with no
 memory of any earlier version of it. Write for them. The history is in

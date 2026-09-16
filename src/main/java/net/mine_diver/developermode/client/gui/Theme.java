@@ -1,7 +1,7 @@
 package net.mine_diver.developermode.client.gui;
 
 /**
- * Every colour the developer UI uses, as ARGB.
+ * Every color the developer UI uses, as ARGB.
  */
 public final class Theme {
     public static final int SCRIM          = 0x77000000;
@@ -18,7 +18,7 @@ public final class Theme {
 
     public static final int ACCENT         = 0xFF4EC9B0;
     public static final int ACCENT_FILL    = 0x664EC9B0;
-    /** Alpha is the brightness at the centre of the glow, not an opacity. */
+    /** Alpha is the brightness at the center of the glow, not an opacity. */
     public static final int GLOW           = 0x8C6FF0D6;
     public static final int DANGER         = 0xFFE06C75;
 

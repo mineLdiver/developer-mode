@@ -61,7 +61,7 @@ public final class SummonPresetWindow extends DevWindow {
     private NbtCompound working;
     private int lastRevision;
     /** Whether this is still just a dump of a plain one. */
-    private boolean customised;
+    private boolean customized;
     private int savedScroll;
 
     private Entity preview;
@@ -105,7 +105,7 @@ public final class SummonPresetWindow extends DevWindow {
         if (statusTicks > 0 && --statusTicks == 0) status = "";
         if (tree.revision() != lastRevision) {
             lastRevision = tree.revision();
-            customised = true;
+            customized = true;
             rebuildPreview();
         }
     }
@@ -193,7 +193,7 @@ public final class SummonPresetWindow extends DevWindow {
             // An untouched dump is handed over as nothing at all, so opening
             // this window and changing your mind does not leave the readout
             // claiming a preset that would summon a perfectly ordinary one.
-            SummonMode.arm(type, customised ? working : null);
+            SummonMode.arm(type, customized ? working : null);
             // A prompt that stayed open would sit there afterwards showing NBT
             // that is no longer connected to anything.
             ComposerScreen.instance().close(this);
@@ -303,7 +303,7 @@ public final class SummonPresetWindow extends DevWindow {
         working = loaded;
         tree.setRoot(working);
         lastRevision = tree.revision();
-        customised = true;
+        customized = true;
         nameField.setText(name);
         rebuildPreview();
         setStatus("Loaded " + name, false);
@@ -325,7 +325,7 @@ public final class SummonPresetWindow extends DevWindow {
 
         tree.setRoot(working);
         lastRevision = tree.revision();
-        customised = false;
+        customized = false;
         rebuildPreview();
     }
 

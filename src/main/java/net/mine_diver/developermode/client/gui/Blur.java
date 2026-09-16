@@ -70,7 +70,7 @@ public final class Blur {
         }
 
         // Redrawing at the same size but sampling half a texel off makes the
-        // bilinear filter average neighbours, which widens the blur without
+        // bilinear filter average neighbors, which widens the blur without
         // shrinking the image further. The direction alternates so the passes
         // cancel out instead of walking the picture across the screen.
         for (int i = 0; i < SMEAR_PASSES; i++) {

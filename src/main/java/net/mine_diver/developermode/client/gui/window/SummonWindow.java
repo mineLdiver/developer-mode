@@ -141,7 +141,7 @@ public final class SummonWindow extends DevWindow {
 
         String type = matches.get(index);
         if (button == 1) {
-            // Allowed even for types the list has greyed out: seeing what a
+            // Allowed even for types the list has grayed out: seeing what a
             // broken one is actually made of is half of finding out why.
             SummonPresetWindow.open(type);
             return;

@@ -4,7 +4,7 @@ import net.minecraft.client.gui.screen.Screen;
 import org.lwjgl.input.Mouse;
 
 /**
- * Shared behaviour for the developer UI: the world keeps ticking underneath,
+ * Shared behavior for the developer UI: the world keeps ticking underneath,
  * the background is blurred rather than dimmed, and the scroll wheel is
  * delivered instead of being swallowed.
  */

@@ -36,7 +36,7 @@ public final class DevStorage {
      * Stamped into every document and checked on the way back in.
      *
      * <p>Not a tenant's schema version, the envelope's. It is here so that a
-     * document written by a later Developer Mode is recognised as one and left
+     * document written by a later Developer Mode is recognized as one and left
      * alone rather than read as though its keys still mean what they mean
      * today. Cheap now and impossible to add later: once unstamped documents
      * exist, nothing can tell them from documents that never needed a stamp.

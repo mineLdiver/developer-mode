@@ -104,11 +104,11 @@ public final class Draw {
     /**
      * A soft disc of light, brightest in the middle and fading out at the rim.
      *
-     * <p>Built from concentric fans of one flat colour rather than a single fan
-     * with interpolated vertex colours: same shape, but it only uses the draw
+     * <p>Built from concentric fans of one flat color rather than a single fan
+     * with interpolated vertex colors: same shape, but it only uses the draw
      * path everything else here already uses. Blended additively, so it reads
      * as light rather than paint. The alpha of {@code argb} is the brightness
-     * at the very centre.
+     * at the very center.
      */
     public static void glow(double centerX, double centerY, double radius, int argb) {
         int layers = 10;
