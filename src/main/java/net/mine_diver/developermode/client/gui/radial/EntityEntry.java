@@ -6,7 +6,7 @@ import net.mine_diver.developermode.client.gui.EntityPreview;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.feature.entity.Entities;
-import net.mine_diver.developermode.feature.entity.EntityTargeting;
+import net.mine_diver.developermode.client.EntityTargeting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 

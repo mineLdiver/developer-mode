@@ -3,7 +3,7 @@ package net.mine_diver.developermode.client.inspect;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.window.EntityEditorWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
-import net.mine_diver.developermode.feature.entity.EntityTargeting;
+import net.mine_diver.developermode.client.EntityTargeting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;

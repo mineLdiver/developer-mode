@@ -1,6 +1,5 @@
-package net.mine_diver.developermode.feature.entity;
+package net.mine_diver.developermode.client;
 
-import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;

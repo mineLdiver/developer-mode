@@ -2,7 +2,6 @@ package net.mine_diver.developermode.client;
 
 import net.mine_diver.developermode.client.gui.radial.RadialMenu;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
-import net.mine_diver.developermode.feature.entity.EntityTargeting;
 import net.mine_diver.unsafeevents.listener.EventListener;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
