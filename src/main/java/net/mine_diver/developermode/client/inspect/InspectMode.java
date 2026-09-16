@@ -20,8 +20,8 @@ import java.util.List;
  *
  * <p>This is deliberately not a {@link net.minecraft.client.gui.screen.Screen}.
  * A screen would take the mouse, stop you aiming, and sit behind the composer's
- * blur, which is the whole reason picking through the radial felt detached from
- * what you were looking at. Instead the mode is a flag: the world keeps
+ * blur, which is what makes picking through a window feel detached from
+ * whatever you are aiming at. Instead the mode is a flag: the world keeps
  * rendering and you keep aiming normally, entities in front of you outline, and
  * a click takes the one under the crosshair.
  *

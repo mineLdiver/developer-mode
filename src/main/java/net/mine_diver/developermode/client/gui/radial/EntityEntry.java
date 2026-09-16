@@ -14,7 +14,7 @@ import net.minecraft.entity.Entity;
  * The slot that drops you into {@link InspectMode}.
  *
  * <p>It does not open the editor itself. Picking an entity from behind the
- * composer's blur never felt connected to what was actually in front of you, so
+ * composer's blur is disconnected from whatever is actually in front of you, so
  * this hands control back to the world instead, with entities outlined and a
  * click to take one.
  *

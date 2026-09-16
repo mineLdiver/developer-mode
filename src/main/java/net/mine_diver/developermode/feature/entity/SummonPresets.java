@@ -9,12 +9,9 @@ import java.util.List;
 /**
  * Saved spawn templates: named NBT, per entity type, on disk.
  *
- * <p>Saving is deliberate, and that is the whole design. The NBT you edit on
- * the way to summoning something does not come through here at all: that
- * compound belongs to the arming and is gone when you disarm. Only a preset
- * you named and saved comes back. A tool that remembers what it was asked to
- * remember is a different thing from one that quietly changes what a left
- * click does.
+ * <p>Saving is deliberate. The NBT you edit on the way to summoning something
+ * does not come through here at all: that compound belongs to the arming and is
+ * gone when you disarm. Only a preset you named and saved comes back.
  *
  * <p>Held as one {@link DevStorage} document, shaped entity id to name to
  * preset. Read once and written on every change, since presets are small and
