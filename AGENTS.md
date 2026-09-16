@@ -26,6 +26,18 @@ state, including a negative one: "a type with nothing left under it would
 promise saved presets it no longer has" is about the program, not about the
 commit that changed it.
 
+## American English
+
+Spell in American English, in prose and identifiers alike: color, behavior,
+gray, initialize, canceled, center.
+
+Either spelling would have done. Having both is what costs: a name you cannot
+guess, and a grep you have to run twice.
+
+Names that belong to something else keep their own spelling. Beta's fields and
+methods are what they are, and so is anything a mod already calls by a British
+name.
+
 ## Breaking a published API
 
 The rule above is about code that nobody outside this repository compiles
