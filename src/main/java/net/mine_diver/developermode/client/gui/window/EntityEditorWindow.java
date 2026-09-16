@@ -9,11 +9,15 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.entity.Entities;
-import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
+import net.mine_diver.developermode.feature.net.DevStatus;
+import net.mine_diver.developermode.feature.net.EntityNbtInbox;
+import net.mine_diver.developermode.feature.net.packet.ApplyEntityNbtC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.RequestEntityNbtC2SPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.nbt.NbtCompound;
+import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 
 /**
  * Dumps an entity to NBT, lets you edit the values, and writes them back.
@@ -31,6 +35,8 @@ public final class EntityEditorWindow extends DevWindow {
     private static final int BUTTON_WIDTH = 54;
     private static final int GAP = 4;
     private static final int STATUS_DURATION_TICKS = 80;
+    /** A drifting entity would otherwise ask for a fresh dump every tick. */
+    private static final int REQUEST_INTERVAL_TICKS = 10;
 
     private final Button freezeButton = new Button("Freeze");
     private final Button pickButton = new Button("Pick");
@@ -44,6 +50,10 @@ public final class EntityEditorWindow extends DevWindow {
     private double dumpedX;
     private double dumpedY;
     private double dumpedZ;
+
+    private int nbtSequence = EntityNbtInbox.sequence();
+    private int statusSequence = DevStatus.sequence(DevStatus.ENTITY);
+    private int requestCooldown;
 
     private float turntable;
     private String status = "";
@@ -70,7 +80,7 @@ public final class EntityEditorWindow extends DevWindow {
     public void setTarget(Entity entity) {
         if (this.entity != null) FrozenEntities.stopEditing(this.entity);
         this.entity = entity;
-        if (entity != null && !entity.dead) FrozenEntities.freezeWhileEditing(entity);
+        if (entity != null && !entity.dead && ownsTicking()) FrozenEntities.freezeWhileEditing(entity);
         reloadNbt();
     }
 
@@ -83,6 +93,8 @@ public final class EntityEditorWindow extends DevWindow {
     public void tick() {
         tree.tick();
         if (statusTicks > 0 && --statusTicks == 0) status = "";
+        if (requestCooldown > 0) requestCooldown--;
+        takeAnswers();
 
         // An entity from a world we have left is no more use than a dead one.
         if (entity != null && entity.world != DeveloperModeClient.minecraft().world) {
@@ -95,13 +107,13 @@ public final class EntityEditorWindow extends DevWindow {
         // tick only runs while the composer is the screen, so re-asserting here
         // is this window saying it is still looking. DeveloperUi drops the
         // freeze again the moment the UI goes away.
-        FrozenEntities.freezeWhileEditing(entity);
+        if (ownsTicking()) FrozenEntities.freezeWhileEditing(entity);
 
         // Between the UI closing and opening again the entity was free to walk
         // off, which would leave Apply writing a stale Pos and teleporting it
         // back. Silently re-read when nothing has been typed; say so when
         // something has, rather than throwing away the edit.
-        if (hasDrifted() && !tree.isDirty()) reloadNbt();
+        if (hasDrifted() && !tree.isDirty() && requestCooldown == 0) reloadNbt();
     }
 
     @Override
@@ -140,7 +152,7 @@ public final class EntityEditorWindow extends DevWindow {
 
         int buttonY = previewY + PREVIEW_HEIGHT - Button.HEIGHT;
         freezeButton.bounds(infoX, buttonY, BUTTON_WIDTH);
-        freezeButton.enabled = alive;
+        freezeButton.enabled = alive && ownsTicking();
         freezeButton.toggled = alive && FrozenEntities.isHeld(entity);
         freezeButton.label = freezeButton.toggled ? "Held" : "Hold";
         freezeButton.render(minecraft, mouseX, mouseY);
@@ -219,25 +231,51 @@ public final class EntityEditorWindow extends DevWindow {
     }
 
     private void applyNbt() {
-        String error = EntityNbt.apply(entity, working);
-        if (error == null) {
-            setStatus("Applied", false);
-            // Re-dump so the tree shows what the entity actually accepted,
-            // which is not always what was typed.
-            reloadNbt();
-        } else {
-            setStatus(error, true);
-        }
+        if (entity == null || working == null) return;
+        PacketHelper.send(new ApplyEntityNbtC2SPacket(entity.id, working));
+        // The answer carries a fresh dump with it, so the tree ends up showing
+        // what the entity accepted rather than what was typed at it.
+        takeAnswers();
     }
 
+    /**
+     * Asks the world that owns the entity for its NBT.
+     *
+     * <p>Asks even in a local world, where the answer is already waiting by the
+     * time this returns. A client's copy of an entity is something kept roughly
+     * in step by position updates rather than the entity itself, so reading it
+     * here would show values the world does not agree with.
+     */
     private void reloadNbt() {
-        working = entity == null || entity.dead ? null : EntityNbt.dump(entity);
-        tree.setRoot(working);
+        working = null;
+        tree.setRoot(null);
 
         if (entity != null) {
             dumpedX = entity.x;
             dumpedY = entity.y;
             dumpedZ = entity.z;
+        }
+        if (entity == null || entity.dead) return;
+
+        requestCooldown = REQUEST_INTERVAL_TICKS;
+        PacketHelper.send(new RequestEntityNbtC2SPacket(entity.id));
+        takeAnswers();
+    }
+
+    /** Picks up whatever has come back for the entity being edited. */
+    private void takeAnswers() {
+        if (EntityNbtInbox.sequence() != nbtSequence) {
+            nbtSequence = EntityNbtInbox.sequence();
+            // An answer can arrive after the window has been pointed somewhere
+            // else, which is why the id comes back with it.
+            if (entity != null && EntityNbtInbox.entityId() == entity.id) {
+                working = EntityNbtInbox.nbt();
+                tree.setRoot(working);
+            }
+        }
+        if (DevStatus.sequence(DevStatus.ENTITY) != statusSequence) {
+            statusSequence = DevStatus.sequence(DevStatus.ENTITY);
+            setStatus(DevStatus.message(DevStatus.ENTITY), !DevStatus.ok(DevStatus.ENTITY));
         }
     }
 
@@ -248,8 +286,21 @@ public final class EntityEditorWindow extends DevWindow {
                 + Math.abs(entity.z - dumpedZ) > 0.01;
     }
 
+    /**
+     * Whether stopping an entity here would actually stop it.
+     *
+     * <p>Suppressing ticks on a client only suppresses them on the copy, which
+     * the server goes on moving and goes on sending updates for. The result is
+     * an entity that looks still and is not, so the button says so instead.
+     */
+    private static boolean ownsTicking() {
+        Minecraft minecraft = DeveloperModeClient.minecraft();
+        return minecraft != null && !minecraft.isWorldRemote();
+    }
+
     private String freezeState() {
         if (entity == null) return "";
+        if (!ownsTicking()) return "server side, not yet";
         if (FrozenEntities.isHeld(entity)) return "held";
         return FrozenEntities.isFrozen(entity) ? "frozen while open" : "ticking";
     }
