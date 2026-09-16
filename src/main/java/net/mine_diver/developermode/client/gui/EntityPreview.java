@@ -22,15 +22,25 @@ public final class EntityPreview {
     private static final float FILL = 0.62F;
     /** Stops very small entities being blown up to fill the frame. */
     private static final float MAX_SCALE = 45;
+    /** Plain white: the model's own colors, unmodulated. */
+    public static final int UNTINTED = 0xFFFFFFFF;
 
     private EntityPreview() {}
 
+    /** Renders untinted. */
+    public static boolean render(Minecraft minecraft, Entity entity, int x, int y, int width, int height, float turntable) {
+        return render(minecraft, entity, x, y, width, height, turntable, UNTINTED);
+    }
+
     /**
+     * @param tint ARGB the model is modulated by, {@link #UNTINTED} to leave it
+     *             alone. Renderers that set their own color ignore it.
      * @return false if the entity's renderer threw, which means this type
      *         cannot be drawn from a bare construction and should not be
      *         offered for summoning either
      */
-    public static boolean render(Minecraft minecraft, Entity entity, int x, int y, int width, int height, float turntable) {
+    public static boolean render(Minecraft minecraft, Entity entity, int x, int y, int width, int height,
+                                 float turntable, int tint) {
         if (entity == null) return false;
 
         // Own the clip: the depth clear below would otherwise wipe the whole
@@ -44,6 +54,15 @@ public final class EntityPreview {
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         GL11.glEnable(GL12.GL_RESCALE_NORMAL);
         GL11.glEnable(GL11.GL_COLOR_MATERIAL);
+
+        // Set, not assumed. Beta's text renderer leaves the color it drew with
+        // on the GL state, so a model that does not state its own is modulated
+        // by whatever text was last drawn near it.
+        GL11.glColor4f(
+                (tint >> 16 & 0xFF) / 255F,
+                (tint >> 8 & 0xFF) / 255F,
+                (tint & 0xFF) / 255F,
+                (tint >>> 24) / 255F);
 
         GL11.glPushMatrix();
         GL11.glTranslatef(anchorX, anchorY, 50);

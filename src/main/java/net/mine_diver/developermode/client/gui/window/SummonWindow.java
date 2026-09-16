@@ -84,13 +84,11 @@ public final class SummonWindow extends DevWindow {
             int rowY = listTop + i * ROW_HEIGHT;
             boolean hovered = mouseX >= contentX() && mouseX < contentX() + contentWidth()
                     && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT;
-            if (hovered) {
-                Draw.rect(contentX(), rowY, contentX() + contentWidth(), rowY + ROW_HEIGHT, Theme.HOVER);
-            }
 
             Entity preview = previewOf(minecraft, type);
             if (preview != null && !unrenderable.contains(type)) {
-                if (!EntityPreview.render(minecraft, preview, contentX() + 1, rowY + 1, ICON_WIDTH, ROW_HEIGHT - 2, 0)) {
+                if (!EntityPreview.render(minecraft, preview, contentX() + 1, rowY + 1, ICON_WIDTH, ROW_HEIGHT - 2, 0,
+                        hovered ? Theme.ACCENT : EntityPreview.UNTINTED)) {
                     unrenderable.add(type);
                 }
             }
@@ -108,6 +106,14 @@ public final class SummonWindow extends DevWindow {
             int ink = broken ? Theme.TEXT_FAINT : hovered ? Theme.ACCENT : Theme.TEXT;
             Draw.text(minecraft, Draw.ellipsize(minecraft, type, contentWidth() - ICON_WIDTH - 8 - markerWidth),
                     contentX() + ICON_WIDTH + 5, rowY + 7, ink);
+
+            // Over the row's own contents, not under them. A wash laid down
+            // first is painted over by the model that follows it, which leaves
+            // the hovered row as the one row whose model is not tinted, and an
+            // untinted model in a lit band reads as the neighbor being picked.
+            if (hovered) {
+                Draw.rect(contentX(), rowY, contentX() + contentWidth(), rowY + ROW_HEIGHT, Theme.HOVER);
+            }
         }
 
         renderScrollbar(listTop, listHeight, visible);
