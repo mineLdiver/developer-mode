@@ -10,6 +10,7 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -80,6 +81,11 @@ public final class ComposerScreen extends DevScreen {
         if (windows.remove(window)) window.onClosed();
         unplaced.remove(window);
         if (dragging == window) dragging = null;
+    }
+
+    /** Back to front, as they are stacked. */
+    public List<DevWindow> windows() {
+        return Collections.unmodifiableList(windows);
     }
 
     public DevWindow focused() {

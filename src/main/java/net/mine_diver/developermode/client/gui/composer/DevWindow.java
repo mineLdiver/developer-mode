@@ -91,6 +91,11 @@ public abstract class DevWindow {
         return false;
     }
 
+    /** What it calls itself, for anything listing windows from outside. */
+    public final String title() {
+        return title;
+    }
+
     /** For a window that retargets, so the title bar can say what at. */
     protected final void setTitle(String title) {
         this.title = title;
