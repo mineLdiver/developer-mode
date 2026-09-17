@@ -265,7 +265,9 @@ public final class NbtTree {
 
     public void mouseScrolled(int direction) {
         if (choices.mouseScrolled(direction)) return;
-        scrollRow -= direction * 3;
+        // Floored here rather than only in the clamp, because everything that
+        // reads it walks the rows from it and would walk off the front.
+        scrollRow = Math.max(0, scrollRow - direction * 3);
         clampScroll();
     }
 
@@ -488,7 +490,7 @@ public final class NbtTree {
     private int visibleRows() {
         int used = 0;
         int count = 0;
-        for (int i = scrollRow; i < rows.size(); i++) {
+        for (int i = Math.max(0, scrollRow); i < rows.size(); i++) {
             used += rows.get(i).height;
             if (used > height) break;
             count++;
@@ -497,7 +499,10 @@ public final class NbtTree {
     }
 
     private void clampScroll() {
-        scrollRow = Math.max(0, Math.min(scrollRow, Math.max(0, rows.size() - visibleRows())));
+        // In two steps on purpose. How many rows fit is found by walking them
+        // from here, so this has to be somewhere real before that is asked.
+        scrollRow = Math.max(0, scrollRow);
+        scrollRow = Math.min(scrollRow, Math.max(0, rows.size() - visibleRows()));
     }
 
     private static boolean isEditable(NbtElement element) {
