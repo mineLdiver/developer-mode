@@ -7,76 +7,52 @@ import net.minecraft.client.Minecraft;
 import java.util.List;
 
 /**
- * The desktop, tucked along the top of the screen as a row of tabs.
+ * Where the desktop waits while you are out in the world.
  *
- * <p>So that the composer is somewhere you can see from the state that can
- * reach it, rather than something you have to already know about. What is open
- * is named, and how many are open is countable, without any of it covering the
- * world.
+ * <p>Something to flick at rather than something to click: it sits across the
+ * top middle, wide and shallow, and reaching it opens the desktop with no
+ * second action. A row of things to aim at individually would be a window
+ * picker, which is a different job and a slower one.
  *
- * <p>The tabs sit inside the viewport rather than against its edge. Reaching
- * for an edge means aiming at the boundary of the window, and in a windowed
- * game that is a good way to leave it.
+ * <p>It stops short of the top of the screen on purpose. Aiming at the edge of
+ * the viewport means aiming at the edge of the window, and windowed that is
+ * how a pointer leaves the game.
  */
 public final class WindowDock {
-    public static final int HEIGHT = 11;
-
-    private static final int MARGIN = 4;
-    private static final int GAP = 3;
-    private static final int PADDING = 4;
-    /** Shown when nothing is open, so the way in is still visible. */
-    private static final String EMPTY = "Composer";
+    private static final int HEIGHT = 13;
+    private static final int WIDTH = 124;
+    private static final int CARET_SIZE = 5;
 
     private WindowDock() {}
 
-    public static void render(Minecraft minecraft, int mouseX, int mouseY) {
+    public static void render(Minecraft minecraft, int screenWidth, int mouseX, int mouseY) {
+        boolean lit = reached(screenWidth, mouseX, mouseY);
+        int left = left(screenWidth);
+
+        Draw.rect(left, 0, left + WIDTH, HEIGHT, lit ? Theme.PANEL_RAISED : Theme.PANEL);
+        Draw.rect(left, HEIGHT - 1, left + WIDTH, HEIGHT, lit ? Theme.BORDER_FOCUSED : Theme.BORDER);
+        Draw.caret(left + 6, 4, CARET_SIZE, true, lit ? Theme.ACCENT : Theme.TEXT_FAINT);
+
+        Draw.text(minecraft, label(), left + 16, 3, lit ? Theme.ACCENT : Theme.TEXT_DIM);
+    }
+
+    /** Whether the pointer has got to it, which is the whole of the gesture. */
+    public static boolean reached(int screenWidth, int mouseX, int mouseY) {
+        int left = left(screenWidth);
+        return mouseY >= 0 && mouseY < HEIGHT && mouseX >= left && mouseX < left + WIDTH;
+    }
+
+    /** Says what is waiting, so the count is known without opening it. */
+    private static String label() {
         List<DevWindow> windows = ComposerScreen.instance().windows();
-        int hovered = tabAt(minecraft, windows, mouseX, mouseY);
+        if (windows.isEmpty()) return "Composer";
 
-        int x = MARGIN;
-        for (int i = 0; i < Math.max(1, windows.size()); i++) {
-            String label = windows.isEmpty() ? EMPTY : windows.get(i).title();
-            int tabWidth = width(minecraft, label);
-            boolean lit = i == hovered;
-
-            Draw.rect(x, 0, x + tabWidth, HEIGHT, lit ? Theme.PANEL_RAISED : Theme.PANEL);
-            Draw.rect(x, HEIGHT - 1, x + tabWidth, HEIGHT, lit ? Theme.BORDER_FOCUSED : Theme.BORDER);
-            Draw.text(minecraft, label, x + PADDING, 2, lit ? Theme.ACCENT : Theme.TEXT_DIM);
-
-            x += tabWidth + GAP;
-        }
+        return windows.size() == 1
+                ? "Composer   1 window"
+                : "Composer   " + windows.size() + " windows";
     }
 
-    /**
-     * Opens the desktop, with whatever was clicked brought to the front.
-     *
-     * @return true if a tab was clicked rather than the world behind it
-     */
-    public static boolean clicked(Minecraft minecraft, int mouseX, int mouseY) {
-        List<DevWindow> windows = ComposerScreen.instance().windows();
-        int index = tabAt(minecraft, windows, mouseX, mouseY);
-        if (index < 0) return false;
-
-        if (index < windows.size()) ComposerScreen.instance().focus(windows.get(index));
-        ComposerScreen.open();
-        return true;
-    }
-
-    /** Which tab a point is on, or -1. */
-    private static int tabAt(Minecraft minecraft, List<DevWindow> windows, int pointX, int pointY) {
-        if (pointY < 0 || pointY >= HEIGHT) return -1;
-
-        int x = MARGIN;
-        for (int i = 0; i < Math.max(1, windows.size()); i++) {
-            String label = windows.isEmpty() ? EMPTY : windows.get(i).title();
-            int tabWidth = width(minecraft, label);
-            if (pointX >= x && pointX < x + tabWidth) return i;
-            x += tabWidth + GAP;
-        }
-        return -1;
-    }
-
-    private static int width(Minecraft minecraft, String label) {
-        return Draw.textWidth(minecraft, label) + PADDING * 2;
+    private static int left(int screenWidth) {
+        return screenWidth / 2 - WIDTH / 2;
     }
 }

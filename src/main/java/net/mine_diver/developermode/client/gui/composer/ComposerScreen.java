@@ -5,6 +5,7 @@ import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
+import net.mine_diver.developermode.client.inspect.InspectScreen;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -218,6 +219,14 @@ public final class ComposerScreen extends DevScreen {
 
         if (keyCode == Keyboard.KEY_ESCAPE) {
             if (focused != null && focused.clearTypingFocus()) return;
+
+            // Back to inspecting if that is still held, so opening this by
+            // brushing the top of the screen costs one key rather than a trip
+            // out to the world and back.
+            if (Keyboard.isKeyDown(DeveloperModeClient.INSPECT_KEY.code)) {
+                InspectScreen.open();
+                return;
+            }
             minecraft.setScreen(null);
             return;
         }

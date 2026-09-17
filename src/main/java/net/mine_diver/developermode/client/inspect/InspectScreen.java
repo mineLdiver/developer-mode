@@ -3,6 +3,7 @@ package net.mine_diver.developermode.client.inspect;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
+import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.WindowDock;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
 import org.lwjgl.input.Keyboard;
@@ -22,12 +23,10 @@ import org.lwjgl.input.Mouse;
  * <p>Left click opens whatever is under the pointer. Right click opens the
  * radial, held by that button, and letting it go comes back here.
  *
- * <p>The desktop is tucked along the top as tabs, so it is visible from the
- * one state that can reach it.
+ * <p>The desktop waits across the top, visible from the one state that can
+ * reach it, and reaching it is all it takes to open.
  */
 public final class InspectScreen extends DevScreen {
-    private boolean pointerPlaced;
-
     public static void open() {
         DeveloperModeClient.minecraft().setScreen(new InspectScreen());
     }
@@ -38,17 +37,10 @@ public final class InspectScreen extends DevScreen {
         // back when the ring goes away.
         InspectMode.enter();
 
-        if (!pointerPlaced) {
-            pointerPlaced = true;
-            // Where the crosshair was, so that holding control and clicking is
-            // one motion at what you were already looking at. Left where it
-            // lies after that, and the ring puts it back itself.
-            int centerX = minecraft.displayWidth / 2;
-            int centerY = minecraft.displayHeight / 2;
-            Mouse.setCursorPosition(centerX, centerY);
-            InspectMode.aimAt(centerX, centerY);
-            return;
-        }
+        // The pointer is already where the crosshair was: opening any screen
+        // centres the cursor before letting go of it. Measuring that again from
+        // displayWidth would be worse, since outside the applet path that is
+        // the desktop's size rather than the window's.
         InspectMode.aimAt(Mouse.getX(), Mouse.getY());
     }
 
@@ -73,8 +65,14 @@ public final class InspectScreen extends DevScreen {
         // Window pixels, which is what the mouse reports and what turning a
         // pixel back into a ray through the world needs.
         InspectMode.aimAt(Mouse.getX(), Mouse.getY());
+
+        if (WindowDock.reached(width, mouseX, mouseY)) {
+            ComposerScreen.open();
+            return;
+        }
+
         InspectRenderer.renderReadout(minecraft, width, height);
-        WindowDock.render(minecraft, mouseX, mouseY);
+        WindowDock.render(minecraft, width, mouseX, mouseY);
     }
 
     @Override
@@ -83,8 +81,6 @@ public final class InspectScreen extends DevScreen {
             RadialScreen.open(this, RadialScreen.Hold.RIGHT_BUTTON);
             return;
         }
-        if (button != 0) return;
-        if (WindowDock.clicked(minecraft, mouseX, mouseY)) return;
-        InspectMode.pick();
+        if (button == 0) InspectMode.pick();
     }
 }
