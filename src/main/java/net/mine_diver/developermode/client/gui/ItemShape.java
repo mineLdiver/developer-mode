@@ -6,6 +6,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtByte;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtShort;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtString;
 import net.modificationstation.stationapi.api.registry.ItemRegistry;
 import net.modificationstation.stationapi.api.util.Identifier;
@@ -40,6 +41,28 @@ public final class ItemShape implements NbtShape {
     private static List<Choice> choices;
 
     private ItemShape() {}
+
+    @Override
+    public String labelFor(NbtCompound compound, String key) {
+        if (FLATTENED_ID.equals(key) || LEGACY_ID.equals(key)) return "Item";
+
+        // Damage is a durability on a tool and a variant on everything else,
+        // and calling both of them damage is how a white wool ends up looking
+        // broken.
+        if (DAMAGE.equals(key)) {
+            Item item = item(compound);
+            return item != null && item.getMaxDamage() > 0 ? "Damage" : "Variant";
+        }
+        return null;
+    }
+
+    @Override
+    public String displayFor(NbtCompound compound, String key, NbtElement element) {
+        if (!FLATTENED_ID.equals(key) && !LEGACY_ID.equals(key)) return null;
+
+        Item item = item(compound);
+        return item == null ? null : name(item, compound.getShort(DAMAGE));
+    }
 
     @Override
     public List<Choice> choicesFor(NbtCompound compound, String key) {

@@ -106,6 +106,8 @@ public final class NbtTree {
      */
     public void setRaw(boolean raw) {
         this.raw = raw;
+        // Rows are ordered by what they read as, which raw changes.
+        rebuild();
     }
 
     public boolean isRaw() {
@@ -185,14 +187,15 @@ public final class NbtTree {
             }
 
             int keyX = indent + CARET_SIZE + 3;
-            Draw.text(minecraft, row.key, keyX, rowY + 1, Theme.NBT_KEY);
+            String label = labelOf(row);
+            Draw.text(minecraft, label, keyX, rowY + 1, Theme.NBT_KEY);
 
-            int valueX = keyX + Draw.textWidth(minecraft, row.key) + KEY_GAP;
+            int valueX = keyX + Draw.textWidth(minecraft, label) + KEY_GAP;
             if (row == editing) {
                 editor.bounds(valueX, rowY - 1, Math.max(30, x + width - valueX - 2));
                 editor.render(minecraft, "");
             } else {
-                Draw.text(minecraft, Draw.ellipsize(minecraft, describe(row.element), x + width - valueX - 2),
+                Draw.text(minecraft, Draw.ellipsize(minecraft, displayOf(row), x + width - valueX - 2),
                         valueX, rowY + 1, colorOf(row.element));
             }
         }
@@ -333,8 +336,10 @@ public final class NbtTree {
             List<NbtElement> children = new ArrayList<>();
             for (Object child : compound.values()) children.add((NbtElement) child);
             // HashMap order is arbitrary, and a tree that reshuffles itself is
-            // unusable, so impose one.
-            children.sort(Comparator.comparing(NbtElement::getKey));
+            // unusable, so impose one. By what the rows read as rather than
+            // what they are keyed by, or a renamed field sorts somewhere its
+            // name does not explain.
+            children.sort(Comparator.comparing(child -> sortKeyOf(compound, child)));
 
             for (NbtElement child : children) {
                 append(child, path + "/" + child.getKey(), child.getKey(), depth, compound);
@@ -350,6 +355,12 @@ public final class NbtTree {
         boolean container = element instanceof NbtCompound || element instanceof NbtList;
         rows.add(new Row(path, key, element, depth, container, owner));
         if (container && expanded.contains(path)) appendChildren(element, path, depth + 1);
+    }
+
+    private String sortKeyOf(NbtCompound owner, NbtElement child) {
+        NbtShape shape = shapeOf(owner);
+        String label = shape == null ? null : shape.labelFor(owner, child.getKey());
+        return label == null ? child.getKey() : label;
     }
 
     /** The shape a compound was recognized as, or null. */
@@ -399,15 +410,35 @@ public final class NbtTree {
         return "";
     }
 
-    /** What goes on screen: suffixed the way SNBT would write it. */
+    /** What a field is called here, which is not always what it is keyed by. */
+    private String labelOf(Row row) {
+        NbtShape shape = shapeOf(row.owner);
+        String label = shape == null ? null : shape.labelFor(row.owner, row.key);
+        return label == null ? row.key : label;
+    }
+
+    /** What a field reads as here, which is not always what it stores. */
+    private String displayOf(Row row) {
+        NbtShape shape = shapeOf(row.owner);
+        String display = shape == null ? null : shape.displayFor(row.owner, row.key, row.element);
+        return display == null ? describe(row.element) : display;
+    }
+
+    /**
+     * What goes on screen.
+     *
+     * <p>Raw suffixes numbers and quotes strings the way SNBT writes them, so
+     * a byte reads as a byte. Otherwise the type is noise between a person and
+     * the value, and it is still there in the error when something will not fit.
+     */
     private String describe(NbtElement element) {
-        if (element instanceof NbtByte value) return value.value + "b";
-        if (element instanceof NbtShort value) return value.value + "s";
+        if (element instanceof NbtByte value) return raw ? value.value + "b" : String.valueOf(value.value);
+        if (element instanceof NbtShort value) return raw ? value.value + "s" : String.valueOf(value.value);
         if (element instanceof NbtInt value) return String.valueOf(value.value);
-        if (element instanceof NbtLong value) return value.value + "L";
-        if (element instanceof NbtFloat value) return value.value + "f";
-        if (element instanceof NbtDouble value) return value.value + "d";
-        if (element instanceof NbtString value) return "\"" + value.value + "\"";
+        if (element instanceof NbtLong value) return raw ? value.value + "L" : String.valueOf(value.value);
+        if (element instanceof NbtFloat value) return raw ? value.value + "f" : String.valueOf(value.value);
+        if (element instanceof NbtDouble value) return raw ? value.value + "d" : String.valueOf(value.value);
+        if (element instanceof NbtString value) return raw ? "\"" + value.value + "\"" : value.value;
         if (element instanceof NbtByteArray value) return "[" + value.value.length + " bytes]";
         if (element instanceof NbtIntArray value) return "[" + value.data.length + " ints]";
         if (element instanceof NbtLongArray value) return "[" + value.data.length + " longs]";
