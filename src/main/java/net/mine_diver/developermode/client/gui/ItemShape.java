@@ -10,6 +10,10 @@ import net.minecraft.nbt.NbtString;
 import net.modificationstation.stationapi.api.registry.ItemRegistry;
 import net.modificationstation.stationapi.api.util.Identifier;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
 /**
  * An item stack, as one is actually written down.
  *
@@ -32,7 +36,34 @@ public final class ItemShape implements NbtShape {
     private static final String COUNT = "Count";
     private static final String DAMAGE = "Damage";
 
+    /** Every item there is, built once. A registry does not change after start. */
+    private static List<Choice> choices;
+
     private ItemShape() {}
+
+    @Override
+    public List<Choice> choicesFor(NbtCompound compound, String key) {
+        return FLATTENED_ID.equals(key) ? everyItem() : null;
+    }
+
+    private static synchronized List<Choice> everyItem() {
+        if (choices != null) return choices;
+
+        List<Choice> built = new ArrayList<>();
+        for (Item item : ItemRegistry.INSTANCE) {
+            if (item == null) continue;
+
+            Identifier identifier = ItemRegistry.INSTANCE.getId(item);
+            if (identifier == null) continue;
+
+            String label = name(item, 0);
+            built.add(new Choice(identifier.toString(), label == null ? identifier.path : label));
+        }
+        built.sort(Comparator.comparing(Choice::label));
+
+        choices = built;
+        return choices;
+    }
 
     @Override
     public boolean matches(NbtCompound compound) {

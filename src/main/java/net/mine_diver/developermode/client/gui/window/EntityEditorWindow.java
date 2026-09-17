@@ -173,6 +173,11 @@ public final class EntityEditorWindow extends DevWindow {
     }
 
     @Override
+    public void renderOverlay(Minecraft minecraft, int mouseX, int mouseY) {
+        panel.renderOverlay(minecraft, mouseX, mouseY);
+    }
+
+    @Override
     public void mouseScrolled(int mouseX, int mouseY, int direction) {
         panel.mouseScrolled(direction);
     }

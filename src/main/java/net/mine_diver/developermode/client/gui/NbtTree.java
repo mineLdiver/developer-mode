@@ -64,6 +64,7 @@ public final class NbtTree {
         }
     }
 
+    private final ChoiceList choices = new ChoiceList();
     private final Set<String> expanded = new HashSet<>();
     private final List<Row> rows = new ArrayList<>();
     private final TextField editor = new TextField(64);
@@ -136,6 +137,10 @@ public final class NbtTree {
     }
 
     public boolean cancelEditing() {
+        if (choices.isOpen()) {
+            choices.close();
+            return true;
+        }
         if (editing == null) return false;
         editing = null;
         editor.setFocused(false);
@@ -145,6 +150,20 @@ public final class NbtTree {
 
     public void tick() {
         editor.tick();
+        choices.tick();
+    }
+
+    /** Whether a field is being picked from a list rather than typed into. */
+    public boolean isChoosing() {
+        return choices.isOpen();
+    }
+
+    /**
+     * Drawn after the window, so a list longer than the row it belongs to is
+     * not cut off by the panel it opened in.
+     */
+    public void renderOverlay(Minecraft minecraft, int mouseX, int mouseY) {
+        choices.render(minecraft, mouseX, mouseY);
     }
 
     public void render(Minecraft minecraft, int mouseX, int mouseY) {
@@ -182,6 +201,7 @@ public final class NbtTree {
     }
 
     public void mouseClicked(int mouseX, int mouseY, int button) {
+        if (choices.mouseClicked(mouseX, mouseY, button)) return;
         if (editing != null && editor.contains(mouseX, mouseY)) return;
         commitEdit();
 
@@ -195,6 +215,8 @@ public final class NbtTree {
             if (!expanded.remove(row.path)) expanded.add(row.path);
             rebuild();
         } else if (isEditable(row.element)) {
+            if (offerChoices(row, index)) return;
+
             editing = row;
             editor.setText(rawValue(row.element));
             editor.setFocused(true);
@@ -205,11 +227,13 @@ public final class NbtTree {
     }
 
     public void mouseScrolled(int direction) {
+        if (choices.mouseScrolled(direction)) return;
         scrollRow -= direction * 3;
         clampScroll();
     }
 
     public void keyPressed(char character, int keyCode) {
+        if (choices.keyPressed(character, keyCode)) return;
         if (editing == null) return;
 
         if (keyCode == Keyboard.KEY_RETURN) {
@@ -217,6 +241,29 @@ public final class NbtTree {
             return;
         }
         editor.keyPressed(character, keyCode);
+    }
+
+    /**
+     * Opens the list of what a field is allowed to hold, if it has one.
+     *
+     * @return true if the field is picked from rather than typed into
+     */
+    private boolean offerChoices(Row row, int index) {
+        NbtShape shape = shapeOf(row.owner);
+        if (shape == null) return false;
+
+        List<NbtShape.Choice> options = shape.choicesFor(row.owner, row.key);
+        if (options == null || options.isEmpty()) return false;
+
+        int rowY = y + (index - scrollRow) * ROW_HEIGHT;
+        choices.open(options, x, rowY + ROW_HEIGHT, x, y, width, height, picked -> {
+            // Through the same path as typing, so the value is parsed, bounded
+            // and marked changed exactly as it would have been by hand.
+            editing = row;
+            editor.setText(picked);
+            commitEdit();
+        });
+        return true;
     }
 
     private void commitEdit() {

@@ -131,8 +131,21 @@ public final class NbtPanel {
         }
     }
 
+    /**
+     * Drawn after the window, for anything the tree opened that is taller than
+     * the row it belongs to.
+     */
+    public void renderOverlay(Minecraft minecraft, int mouseX, int mouseY) {
+        tree.renderOverlay(minecraft, mouseX, mouseY);
+    }
+
     /** @return true if the click was the panel's rather than the window's */
     public boolean mouseClicked(int mouseX, int mouseY, int button) {
+        // An open list is drawn over the buttons, so it answers before they do.
+        if (tree.isChoosing()) {
+            tree.mouseClicked(mouseX, mouseY, button);
+            return true;
+        }
         if (applyButton.enabled && applyButton.contains(mouseX, mouseY)) {
             apply();
             return true;

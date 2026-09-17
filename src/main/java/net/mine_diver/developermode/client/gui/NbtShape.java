@@ -3,6 +3,8 @@ package net.mine_diver.developermode.client.gui;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 
+import java.util.List;
+
 /**
  * A compound that is recognizably something, so it can be shown as that thing.
  *
@@ -21,6 +23,28 @@ public interface NbtShape {
      * @return null to leave the default alone
      */
     String summarize(NbtCompound compound);
+
+    /**
+     * The values a field is expected to hold, for fields that draw from
+     * somewhere countable like a registry.
+     *
+     * <p>A field with choices is picked from rather than typed into. That is
+     * the whole of the constraint: raw switches it off and hands the field
+     * back, for a value the registry does not have or does not have yet.
+     *
+     * @return null when the field is free text, which is most of them
+     */
+    default List<Choice> choicesFor(NbtCompound compound, String key) {
+        return null;
+    }
+
+    /**
+     * One option, as it is stored and as it reads.
+     *
+     * @param value what goes in the tag
+     * @param label what a person recognizes it by
+     */
+    record Choice(String value, String label) {}
 
     /**
      * Brings a number typed into one of this compound's fields into range.
