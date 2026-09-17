@@ -190,9 +190,13 @@ public final class NbtTree {
                     && mouseY >= rowY && mouseY < rowY + row.height;
 
             int indent = x + row.depth * INDENT;
+            // Where a row's own content starts, past the space a caret needs.
+            // A view of a thing lines up with the fields beside it.
+            int contentX = indent + CARET_SIZE + 3;
+
             if (row.card != null) {
                 row.card.renderCard(minecraft, (NbtCompound) row.element,
-                        indent, rowY, x + width - indent, hovered);
+                        contentX, rowY, x + width - contentX, hovered);
                 rowY += row.height;
                 continue;
             }
@@ -201,11 +205,10 @@ public final class NbtTree {
                 Draw.caret(indent + 1, rowY + 2, CARET_SIZE, expanded.contains(row.path), Theme.NBT_CONTAINER);
             }
 
-            int keyX = indent + CARET_SIZE + 3;
             String label = labelOf(row);
-            Draw.text(minecraft, label, keyX, rowY + 1, Theme.NBT_KEY);
+            Draw.text(minecraft, label, contentX, rowY + 1, Theme.NBT_KEY);
 
-            int valueX = keyX + Draw.textWidth(minecraft, label) + KEY_GAP;
+            int valueX = contentX + Draw.textWidth(minecraft, label) + KEY_GAP;
 
             ItemStack icon = iconOf(row);
             if (icon != null) {
