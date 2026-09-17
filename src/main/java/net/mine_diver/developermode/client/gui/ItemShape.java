@@ -6,22 +6,29 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtByte;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtShort;
+import net.minecraft.nbt.NbtString;
+import net.modificationstation.stationapi.api.registry.ItemRegistry;
+import net.modificationstation.stationapi.api.util.Identifier;
 
 /**
- * An item stack, as Beta writes one: an id, a count and a damage value.
+ * An item stack, as one is actually written down.
  *
- * <p>Three keys with three particular types is a strong enough test that a
- * compound matching by accident is not worth worrying about, and the raw
- * switch is there for when one does.
+ * <p>Two spellings, because Station Flattening replaces the numeric id with an
+ * identifier on the way out. What a running game writes carries
+ * {@code stationapi:id} as a string; what a world written before flattening
+ * carries is a short under {@code id}, and the data fixer has not necessarily
+ * reached it yet. Both are item stacks and both are worth naming.
  *
- * <p>What this buys is mostly the id. A short reading 264 says nothing about
- * what it is, and the whole point of looking at an item's NBT is usually to
- * find out.
+ * <p>What this buys is mostly the id. Neither {@code 264} nor
+ * {@code minecraft:wool} alongside a damage of 1 tells you it is orange wool,
+ * and finding that out is usually why the NBT was opened.
  */
 public final class ItemShape implements NbtShape {
     public static final ItemShape INSTANCE = new ItemShape();
 
-    private static final String ID = "id";
+    /** What Station Flattening writes in place of the numeric id. */
+    private static final String FLATTENED_ID = "stationapi:id";
+    private static final String LEGACY_ID = "id";
     private static final String COUNT = "Count";
     private static final String DAMAGE = "Damage";
 
@@ -29,30 +36,36 @@ public final class ItemShape implements NbtShape {
 
     @Override
     public boolean matches(NbtCompound compound) {
-        return NbtShape.get(compound, ID) instanceof NbtShort
-                && NbtShape.get(compound, COUNT) instanceof NbtByte
-                && NbtShape.get(compound, DAMAGE) instanceof NbtShort;
+        if (!(NbtShape.get(compound, COUNT) instanceof NbtByte)) return false;
+        if (!(NbtShape.get(compound, DAMAGE) instanceof NbtShort)) return false;
+
+        return NbtShape.get(compound, FLATTENED_ID) instanceof NbtString
+                || NbtShape.get(compound, LEGACY_ID) instanceof NbtShort;
     }
 
     @Override
     public String summarize(NbtCompound compound) {
-        int id = compound.getShort(ID);
         int count = compound.getByte(COUNT);
         int damage = compound.getShort(DAMAGE);
 
-        String name = name(id, damage);
+        Item item = item(compound);
+        if (item == null) return null;
+
+        String name = name(item, damage);
         return name == null ? null : count + "x " + name;
     }
 
     @Override
     public long clamp(NbtCompound compound, String key, long value) {
-        Item item = item(compound.getShort(ID));
+        Item item = item(compound);
 
         return switch (key) {
-            case ID -> bound(value, 0, Item.ITEMS.length - 1);
+            // Only the old spelling is a number. The new one is a string, and
+            // nothing numeric is ever typed into it.
+            case LEGACY_ID -> bound(value, 0, Item.ITEMS.length - 1);
             case COUNT -> bound(value, 1, item == null ? 64 : item.getMaxCount());
-            // A damage value is a durability on a tool and a variant on
-            // everything else, so only the tools have a ceiling worth applying.
+            // A damage value is durability on a tool and a variant on
+            // everything else, so only tools have a ceiling worth applying.
             case DAMAGE -> item != null && item.getMaxDamage() > 0
                     ? bound(value, 0, item.getMaxDamage())
                     : bound(value, 0, Short.MAX_VALUE);
@@ -60,13 +73,25 @@ public final class ItemShape implements NbtShape {
         };
     }
 
-    /** What the item is called, or null when the id is not one. */
-    private static String name(int id, int damage) {
-        Item item = item(id);
-        if (item == null) return null;
+    /** The item this compound names, whichever way it names it. */
+    private static Item item(NbtCompound compound) {
+        if (NbtShape.get(compound, FLATTENED_ID) instanceof NbtString) {
+            try {
+                return ItemRegistry.INSTANCE.get(Identifier.of(compound.getString(FLATTENED_ID)));
+            } catch (Exception error) {
+                // An identifier that does not parse names no item, which is a
+                // compound this cannot speak for rather than a problem.
+                return null;
+            }
+        }
 
+        int id = compound.getShort(LEGACY_ID);
+        return id < 0 || id >= Item.ITEMS.length ? null : Item.ITEMS[id];
+    }
+
+    private static String name(Item item, int damage) {
         try {
-            String key = new ItemStack(id, 1, damage).getTranslationKey();
+            String key = new ItemStack(item, 1, damage).getTranslationKey();
             if (key == null) return null;
 
             String translated = I18n.getTranslation(key + ".name");
@@ -78,10 +103,6 @@ public final class ItemShape implements NbtShape {
             // and a row that cannot be summarized is just a row.
             return null;
         }
-    }
-
-    private static Item item(int id) {
-        return id < 0 || id >= Item.ITEMS.length ? null : Item.ITEMS[id];
     }
 
     private static long bound(long value, long low, long high) {

@@ -68,16 +68,16 @@ public final class SlotEditorWindow extends DevWindow {
 
     @Override
     protected void renderContent(Minecraft minecraft, int mouseX, int mouseY, float delta, boolean focused) {
+        // The title bar already carries the name, so this says the part it
+        // cannot: which slot of which container is being written to.
         int textX = contentX();
         if (icon != null) {
             ItemDraw.single(minecraft, icon, contentX(), contentY());
             textX = contentX() + ItemDraw.SIZE + GAP;
         }
 
-        Draw.text(minecraft, Draw.ellipsize(minecraft, name, contentX() + contentWidth() - textX),
-                textX, contentY() + 1, Theme.TEXT);
         Draw.text(minecraft, "slot " + slotId + "   container " + syncId,
-                textX, contentY() + 12, Theme.TEXT_FAINT);
+                textX, contentY() + 5, Theme.TEXT_FAINT);
 
         panel.render(minecraft, contentX(), contentY() + HEADER_HEIGHT, contentWidth(),
                 contentHeight() - HEADER_HEIGHT, mouseX, mouseY);

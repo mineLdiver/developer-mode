@@ -1,9 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
-import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.NbtPanel;
-import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.net.NbtTarget;
@@ -19,8 +17,6 @@ import net.minecraft.client.Minecraft;
  * is holding.
  */
 public final class BlockEntityEditorWindow extends DevWindow {
-    private static final int HEADER_HEIGHT = 26;
-
     private final NbtPanel panel = new NbtPanel();
 
     private int blockX;
@@ -59,13 +55,9 @@ public final class BlockEntityEditorWindow extends DevWindow {
 
     @Override
     protected void renderContent(Minecraft minecraft, int mouseX, int mouseY, float delta, boolean focused) {
-        Draw.text(minecraft, Draw.ellipsize(minecraft, name(), contentWidth()),
-                contentX(), contentY() + 1, Theme.TEXT);
-        Draw.text(minecraft, blockX + " " + blockY + " " + blockZ,
-                contentX(), contentY() + 13, Theme.TEXT_FAINT);
-
-        panel.render(minecraft, contentX(), contentY() + HEADER_HEIGHT, contentWidth(),
-                contentHeight() - HEADER_HEIGHT, mouseX, mouseY);
+        // The title bar already says what and where. Everything below it is
+        // the NBT, which is what the window is for.
+        panel.render(minecraft, contentX(), contentY(), contentWidth(), contentHeight(), mouseX, mouseY);
     }
 
     @Override
