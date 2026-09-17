@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.mixin;
 
 import net.mine_diver.developermode.client.DeveloperUi;
+import net.mine_diver.developermode.client.gui.Projection;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.client.inspect.InspectRenderer;
 import net.mine_diver.developermode.client.summon.SummonMode;
@@ -29,7 +30,10 @@ class GameRendererMixin {
     )
     private void developermode_renderInspectOverlay(float tickDelta, long time, CallbackInfo ci) {
         DeveloperUi.releaseUnusedFreezes();
-        InspectMode.update();
+        // The matrices here are the ones the world was drawn with, which is
+        // what lets a pointer be turned back into a direction through it.
+        Projection.capture();
+        InspectMode.update(tickDelta);
         SummonMode.update();
         InspectRenderer.renderWorld(tickDelta);
         SummonRenderer.renderWorld(tickDelta);

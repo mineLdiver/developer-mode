@@ -7,7 +7,6 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.entity.Entities;
-import net.mine_diver.developermode.client.EntityTargeting;
 import net.mine_diver.developermode.client.Freezing;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
 import net.minecraft.client.Minecraft;
@@ -108,7 +107,6 @@ public final class EntityListWindow extends DevWindow {
         if (index < 0 || index >= entries.size()) return;
 
         Entity entity = entries.get(index);
-        EntityTargeting.set(entity);
         EntityEditorWindow.open(entity);
     }
 

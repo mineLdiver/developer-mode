@@ -1,10 +1,10 @@
 package net.mine_diver.developermode.client.inspect;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.gui.Projection;
 import net.mine_diver.developermode.client.gui.window.BlockEntityEditorWindow;
 import net.mine_diver.developermode.client.gui.window.EntityEditorWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
-import net.mine_diver.developermode.client.EntityTargeting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -12,7 +12,6 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.hit.HitResultType;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import org.lwjgl.input.Keyboard;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,15 +19,9 @@ import java.util.List;
 /**
  * Picking an entity by looking at it, with the world still there.
  *
- * <p>This is deliberately not a {@link net.minecraft.client.gui.screen.Screen}.
- * A screen would take the mouse, stop you aiming, and sit behind the composer's
- * blur, which is what makes picking through a window feel detached from
- * whatever you are aiming at. Instead the mode is a flag: the world keeps
- * rendering and you keep aiming normally, entities in front of you outline, and
- * a click takes the one under the crosshair.
- *
- * <p>Entered either by holding the inspect key or from the radial's Inspect
- * slot. Left click picks, right click backs out.
+ * <p>Picking is done with a pointer rather than the crosshair, so what is
+ * under it is found by turning that pixel back into a ray through the world
+ * instead of asking the camera where it is looking.
  *
  * <p>Block entities are picked the same way and compete on distance, so a chest
  * two blocks away wins over a cow ten blocks behind it. A block with nothing
@@ -36,7 +29,7 @@ import java.util.List;
  * through walls the way they were.
  */
 public final class InspectMode {
-    /** Shorter than {@link EntityTargeting#REACH}: this runs every frame. */
+    /** How far the pointer's ray looks. This runs every frame. */
     private static final double REACH = 32;
     /** Cosine of the half angle that counts as "in front of you". */
     private static final double CONE = 0.9;
@@ -45,8 +38,9 @@ public final class InspectMode {
     private static final List<Entity> candidates = new ArrayList<>();
 
     private static boolean active;
-    private static boolean heldByKey;
-    private static boolean keyWasDown;
+    /** Where the pointer is, in window pixels as the mouse reports them. */
+    private static int pointerX;
+    private static int pointerY;
     private static Entity focused;
     private static boolean blockFocused;
     private static int blockX;
@@ -87,75 +81,52 @@ public final class InspectMode {
     public static void enter() {
         SummonMode.exit();
         active = true;
-        heldByKey = false;
+    }
+
+    /** Told each frame by the screen that owns the pointer. */
+    public static void aimAt(int windowX, int windowY) {
+        pointerX = windowX;
+        pointerY = windowY;
     }
 
     public static void exit() {
         active = false;
-        heldByKey = false;
         focused = null;
         blockFocused = false;
         candidates.clear();
     }
 
     /**
-     * Polled once a frame from the world render, rather than driven off key
-     * events, so entering and leaving track the key exactly and a mode left
-     * open by a screen appearing cannot get stuck.
+     * Polled once a frame from the world render, where the pointer's ray can
+     * be worked out from the matrices the world was just drawn with.
      */
-    public static void update() {
-        Minecraft minecraft = DeveloperModeClient.minecraft();
-        boolean available = minecraft != null && minecraft.world != null
-                && minecraft.player != null && minecraft.currentScreen == null;
-
-        boolean keyDown = available && Keyboard.isKeyDown(DeveloperModeClient.INSPECT_KEY.code);
-        if (keyDown && !keyWasDown) {
-            SummonMode.exit();
-            active = true;
-            heldByKey = true;
-        } else if (!keyDown && keyWasDown && heldByKey) {
-            exit();
-        }
-        keyWasDown = keyDown;
-
+    public static void update(float tickDelta) {
         if (!active) return;
-        if (!available) {
+
+        Minecraft minecraft = DeveloperModeClient.minecraft();
+        if (minecraft == null || minecraft.world == null || minecraft.player == null) {
             exit();
             return;
         }
-        recompute(minecraft);
+        recompute(minecraft, tickDelta);
     }
 
-    /**
-     * @return true if the click belonged to this mode and vanilla should not
-     *         see it, which is what stops picking a mob from also punching it
-     */
-    public static boolean click(int button) {
-        if (!active) return false;
-
-        if (button == 1) {
-            exit();
-            return true;
-        }
-        if (button != 0) return false;
-
+    /** Opens whatever is under the pointer. */
+    public static void pick() {
         Entity picked = focused;
         boolean pickedBlock = blockFocused;
-        int x = blockX;
-        int y = blockY;
-        int z = blockZ;
-        exit();
+        int blockAtX = blockX;
+        int blockAtY = blockY;
+        int blockAtZ = blockZ;
 
         if (pickedBlock) {
-            BlockEntityEditorWindow.open(x, y, z);
+            BlockEntityEditorWindow.open(blockAtX, blockAtY, blockAtZ);
         } else if (picked != null) {
-            EntityTargeting.set(picked);
             EntityEditorWindow.open(picked);
         }
-        return true;
     }
 
-    private static void recompute(Minecraft minecraft) {
+    private static void recompute(Minecraft minecraft, float tickDelta) {
         candidates.clear();
         focused = null;
         blockFocused = false;
@@ -163,8 +134,23 @@ public final class InspectMode {
         LivingEntity camera = minecraft.camera;
         if (camera == null) return;
 
-        Vec3d origin = camera.getPosition(1);
-        Vec3d look = camera.getLookVector(1);
+        // Camera relative, because that is the space the world is drawn in.
+        Vec3d near = Projection.at(pointerX, pointerY, 0);
+        Vec3d far = Projection.at(pointerX, pointerY, 1);
+        if (near == null || far == null) return;
+
+        double towardX = far.x - near.x;
+        double towardY = far.y - near.y;
+        double towardZ = far.z - near.z;
+        double span = Math.sqrt(towardX * towardX + towardY * towardY + towardZ * towardZ);
+        if (span < 1.0E-6) return;
+
+        double eyeX = camera.lastTickX + (camera.x - camera.lastTickX) * tickDelta;
+        double eyeY = camera.lastTickY + (camera.y - camera.lastTickY) * tickDelta;
+        double eyeZ = camera.lastTickZ + (camera.z - camera.lastTickZ) * tickDelta;
+
+        Vec3d origin = Vec3d.create(eyeX + near.x, eyeY + near.y, eyeZ + near.z);
+        Vec3d look = Vec3d.create(towardX / span, towardY / span, towardZ / span);
         Vec3d end = origin.add(look.x * REACH, look.y * REACH, look.z * REACH);
 
         Box sweep = camera.boundingBox
@@ -209,7 +195,7 @@ public final class InspectMode {
             }
         }
 
-        focusBlockEntity(minecraft, camera, origin, bestDistance);
+        focusBlockEntity(minecraft, origin, end, bestDistance);
     }
 
     /**
@@ -220,9 +206,9 @@ public final class InspectMode {
      * does not shadow an entity standing behind it, which is the same rule the
      * outlines already draw by.
      */
-    private static void focusBlockEntity(Minecraft minecraft, LivingEntity camera,
-                                         Vec3d origin, double bestDistance) {
-        HitResult hit = camera.raycast(REACH, 1);
+    private static void focusBlockEntity(Minecraft minecraft, Vec3d origin, Vec3d end,
+                                         double bestDistance) {
+        HitResult hit = minecraft.world.raycast(origin, end);
         if (hit == null || hit.type != HitResultType.BLOCK) return;
         if (minecraft.world.getBlockEntity(hit.blockX, hit.blockY, hit.blockZ) == null) return;
 

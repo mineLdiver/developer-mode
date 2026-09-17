@@ -2,6 +2,7 @@ package net.mine_diver.developermode.client;
 
 import net.mine_diver.developermode.client.gui.radial.RadialMenu;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
+import net.mine_diver.developermode.client.inspect.InspectScreen;
 import net.mine_diver.unsafeevents.listener.EventListener;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -27,14 +28,15 @@ public final class DeveloperModeClient {
     public static final KeyBinding MENU_KEY = new KeyBinding("key.developermode.menu", Keyboard.KEY_GRAVE);
 
     /**
-     * Held to inspect entities in the world.
+     * Held to get a pointer and inspect what is in front of you. The way in.
      *
-     * <p>Tab, because it is under the left hand, unbound in Beta, and unlike
-     * the obvious choice of Alt it is not stolen by window managers that use
-     * Alt plus click to drag windows. Rebindable, and entirely skippable: the
-     * radial's Inspect slot does the same thing.
+     * <p>Control, because holding it means "modify what I am doing", which is
+     * what it does. Unbound in Beta, and unlike the obvious choice of Alt it is
+     * not stolen by window managers that use Alt plus click to drag windows,
+     * which matters for a mode that is driven by clicking. Rebindable.
      */
-    public static final KeyBinding INSPECT_KEY = new KeyBinding("key.developermode.inspect", Keyboard.KEY_TAB);
+    public static final KeyBinding INSPECT_KEY =
+            new KeyBinding("key.developermode.inspect", Keyboard.KEY_LCONTROL);
 
     /**
      * The running client.
@@ -71,9 +73,23 @@ public final class DeveloperModeClient {
         Minecraft minecraft = minecraft();
         if (minecraft == null || minecraft.world == null || minecraft.player == null) return;
 
-        // Last chance to see where the crosshair is pointing: the screen that
-        // is about to open takes the mouse, and aiming stops being possible.
-        EntityTargeting.capture();
         RadialScreen.open(null);
+    }
+
+    /**
+     * Opens the pointer state from the world.
+     *
+     * <p>The screen it opens watches the key itself, so holding and letting go
+     * are one gesture rather than two events that could get out of step.
+     */
+    @EventListener
+    private static void inspectKeyChanged(KeyStateChangedEvent event) {
+        if (event.environment != KeyStateChangedEvent.Environment.IN_GAME) return;
+        if (!Keyboard.getEventKeyState() || Keyboard.getEventKey() != INSPECT_KEY.code) return;
+
+        Minecraft minecraft = minecraft();
+        if (minecraft == null || minecraft.world == null || minecraft.player == null) return;
+
+        InspectScreen.open();
     }
 }

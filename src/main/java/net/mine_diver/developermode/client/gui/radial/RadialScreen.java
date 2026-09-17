@@ -22,6 +22,30 @@ import org.lwjgl.input.Mouse;
  * rather than as drifting furniture.
  */
 public final class RadialScreen extends DevScreen {
+    /**
+     * What has to stay down for the ring to stay up.
+     *
+     * <p>The ring is a hold, and what is being held depends on how it was
+     * opened: a key from the world, or the button that asked for it from
+     * somewhere that already had a pointer.
+     */
+    public enum Hold {
+        MENU_KEY {
+            @Override
+            boolean isDown() {
+                return Keyboard.isKeyDown(DeveloperModeClient.MENU_KEY.code);
+            }
+        },
+        RIGHT_BUTTON {
+            @Override
+            boolean isDown() {
+                return Mouse.isButtonDown(1);
+            }
+        };
+
+        abstract boolean isDown();
+    }
+
     private static final float INNER_RADIUS = 26;
     private static final float OUTER_RADIUS = 74;
     private static final float SLOT_GAP_DEGREES = 3;
@@ -59,12 +83,19 @@ public final class RadialScreen extends DevScreen {
     private int restoreCursorX;
     private int restoreCursorY;
 
-    private RadialScreen(Screen returnTo) {
+    private final Hold hold;
+
+    private RadialScreen(Screen returnTo, Hold hold) {
         this.returnTo = returnTo;
+        this.hold = hold;
     }
 
     public static void open(Screen returnTo) {
-        DeveloperModeClient.minecraft().setScreen(new RadialScreen(returnTo));
+        open(returnTo, Hold.MENU_KEY);
+    }
+
+    public static void open(Screen returnTo, Hold hold) {
+        DeveloperModeClient.minecraft().setScreen(new RadialScreen(returnTo, hold));
     }
 
     @Override
@@ -102,9 +133,9 @@ public final class RadialScreen extends DevScreen {
         hovered = slotUnderPull();
         updateSnap(elapsed);
 
-        // Polled here rather than off a key event so the ring closes on the
-        // frame the key comes up instead of on the next twentieth of a second.
-        if (!Keyboard.isKeyDown(DeveloperModeClient.MENU_KEY.code)) {
+        // Polled here rather than off an event so the ring closes on the frame
+        // the hold ends instead of on the next twentieth of a second.
+        if (!hold.isDown()) {
             commit();
             return;
         }

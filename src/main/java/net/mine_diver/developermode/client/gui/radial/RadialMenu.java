@@ -42,8 +42,6 @@ public final class RadialMenu {
                 new ItemStack(Block.CHEST),
                 returnTo -> ComposerScreen.reveal(ItemPickerWindow.class, ItemPickerWindow::new)));
 
-        put(LEFT, new EntityEntry());
-
         put(DOWN_LEFT, new RadialEntry(
                 "Summon", "Place a new entity in the world",
                 new ItemStack(Item.EGG),

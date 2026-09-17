@@ -6,7 +6,6 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.WorldDraw;
 import net.mine_diver.developermode.feature.entity.Entities;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.util.ScreenScaler;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.Box;
@@ -73,14 +72,10 @@ public final class InspectRenderer {
     }
 
     /**
-     * Called after the HUD, in scaled GUI space.
+     * The readout under the pointer, drawn by the screen that owns it.
      */
-    public static void renderHud(Minecraft minecraft) {
-        if (!InspectMode.isActive() || minecraft.currentScreen != null) return;
-
-        ScreenScaler scaler = new ScreenScaler(minecraft.options, minecraft.displayWidth, minecraft.displayHeight);
-        int width = scaler.getScaledWidth();
-        int height = scaler.getScaledHeight();
+    public static void renderReadout(Minecraft minecraft, int width, int height) {
+        if (!InspectMode.isActive()) return;
 
         Entity focused = InspectMode.focused();
         boolean block = InspectMode.isBlockFocused();
