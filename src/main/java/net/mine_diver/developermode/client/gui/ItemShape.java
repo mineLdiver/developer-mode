@@ -84,10 +84,14 @@ public final class ItemShape implements NbtShape {
 
     @Override
     public String displayFor(NbtCompound compound, String key, NbtElement element) {
-        if (!FLATTENED_ID.equals(key) && !LEGACY_ID.equals(key)) return null;
-
         Item item = item(compound);
-        return item == null ? null : name(item, compound.getShort(DAMAGE));
+        if (item == null) return null;
+
+        // Each field says what it holds. The identifier is the item, which for
+        // wool is wool; the damage is which wool, which is the orange part.
+        if (FLATTENED_ID.equals(key) || LEGACY_ID.equals(key)) return baseName(item);
+        if (DAMAGE.equals(key) && item.hasSubtypes()) return name(item, compound.getShort(DAMAGE));
+        return null;
     }
 
     @Override
@@ -157,7 +161,7 @@ public final class ItemShape implements NbtShape {
             Identifier identifier = ItemRegistry.INSTANCE.getId(item);
             if (identifier == null) continue;
 
-            String label = name(item, 0);
+            String label = baseName(item);
             built.add(new Choice(identifier.toString(), label == null ? identifier.path : label));
         }
         built.sort(Comparator.comparing(Choice::label));
@@ -219,6 +223,29 @@ public final class ItemShape implements NbtShape {
 
         int id = compound.getShort(LEGACY_ID);
         return id < 0 || id >= Item.ITEMS.length ? null : Item.ITEMS[id];
+    }
+
+    /**
+     * What the item is called with no variant applied.
+     *
+     * <p>Asked of the item rather than of a stack, so that wool is wool rather
+     * than whichever wool a damage value of zero happens to be.
+     */
+    private static String baseName(Item item) {
+        try {
+            String key = item.getTranslationKey();
+            if (key != null) {
+                String translated = I18n.getTranslation(key + ".name");
+                if (translated != null && !translated.isEmpty() && !translated.equals(key + ".name")) {
+                    return translated;
+                }
+            }
+        } catch (Exception ignored) {
+            // Fall through to the identifier, which is always there.
+        }
+
+        Identifier identifier = ItemRegistry.INSTANCE.getId(item);
+        return identifier == null ? null : identifier.path;
     }
 
     private static String name(Item item, int damage) {
