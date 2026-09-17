@@ -383,6 +383,15 @@ public final class NbtTree {
     private void rebuild() {
         rows.clear();
         if (root == null) return;
+
+        // The root can be a recognized thing in its own right, as a stack in a
+        // slot is, and then there is no header row above it that opening could
+        // have come from. Its view goes at the top instead.
+        NbtShape shape = shapeOf(root);
+        if (shape != null && shape.cardHeight() > 0) {
+            rows.add(new Row("/view", "", root, 0, false, root, shape.cardHeight(), shape));
+        }
+
         appendChildren(root, "", 0);
         clampScroll();
     }
