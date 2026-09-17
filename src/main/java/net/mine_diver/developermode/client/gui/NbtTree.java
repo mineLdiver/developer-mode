@@ -51,13 +51,16 @@ public final class NbtTree {
         final NbtElement element;
         final int depth;
         final boolean container;
+        /** The compound this element sits in, so a shape can speak for it. */
+        final NbtCompound owner;
 
-        Row(String path, String key, NbtElement element, int depth, boolean container) {
+        Row(String path, String key, NbtElement element, int depth, boolean container, NbtCompound owner) {
             this.path = path;
             this.key = key;
             this.element = element;
             this.depth = depth;
             this.container = container;
+            this.owner = owner;
         }
     }
 
@@ -65,7 +68,10 @@ public final class NbtTree {
     private final List<Row> rows = new ArrayList<>();
     private final TextField editor = new TextField(64);
 
+    private static final NbtShape[] SHAPES = { ItemShape.INSTANCE };
+
     private NbtCompound root;
+    private boolean raw;
     private Row editing;
     private String error = "";
     private boolean dirty;
@@ -91,6 +97,18 @@ public final class NbtTree {
         this.dirty = false;
         this.revision++;
         rebuild();
+    }
+
+    /**
+     * Whether to show compounds as themselves rather than as whatever they
+     * were recognized as.
+     */
+    public void setRaw(boolean raw) {
+        this.raw = raw;
+    }
+
+    public boolean isRaw() {
+        return raw;
     }
 
     /** True once a value has been changed and not yet reloaded away. */
@@ -211,19 +229,49 @@ public final class NbtTree {
 
         try {
             NbtElement element = row.element;
-            if (element instanceof NbtByte value) value.value = Byte.parseByte(text.trim());
-            else if (element instanceof NbtShort value) value.value = Short.parseShort(text.trim());
-            else if (element instanceof NbtInt value) value.value = Integer.parseInt(text.trim());
-            else if (element instanceof NbtLong value) value.value = Long.parseLong(text.trim());
-            else if (element instanceof NbtFloat value) value.value = Float.parseFloat(text.trim());
-            else if (element instanceof NbtDouble value) value.value = Double.parseDouble(text.trim());
-            else if (element instanceof NbtString value) value.value = text;
+            if (element instanceof NbtString value) {
+                value.value = text;
+            } else if (element instanceof NbtFloat value) {
+                value.value = Float.parseFloat(text.trim());
+            } else if (element instanceof NbtDouble value) {
+                value.value = Double.parseDouble(text.trim());
+            } else if (!commitWhole(row, Long.parseLong(text.trim()))) {
+                error = "\"" + text + "\" does not fit in a " + typeName(row.element);
+                return;
+            }
             error = "";
             dirty = true;
             revision++;
         } catch (NumberFormatException failure) {
             error = "\"" + text + "\" is not a " + typeName(row.element);
         }
+    }
+
+    /**
+     * Stores a whole number, after whatever recognized the compound has had a
+     * say about what the field will accept.
+     *
+     * @return false if it will not fit the tag's own type, which no shape can
+     *         excuse
+     */
+    private boolean commitWhole(Row row, long parsed) {
+        NbtShape shape = shapeOf(row.owner);
+        long value = shape == null ? parsed : shape.clamp(row.owner, row.key, parsed);
+
+        NbtElement element = row.element;
+        if (element instanceof NbtByte typed) {
+            if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) return false;
+            typed.value = (byte) value;
+        } else if (element instanceof NbtShort typed) {
+            if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) return false;
+            typed.value = (short) value;
+        } else if (element instanceof NbtInt typed) {
+            if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) return false;
+            typed.value = (int) value;
+        } else if (element instanceof NbtLong typed) {
+            typed.value = value;
+        }
+        return true;
     }
 
     private void rebuild() {
@@ -242,19 +290,28 @@ public final class NbtTree {
             children.sort(Comparator.comparing(NbtElement::getKey));
 
             for (NbtElement child : children) {
-                append(child, path + "/" + child.getKey(), child.getKey(), depth);
+                append(child, path + "/" + child.getKey(), child.getKey(), depth, compound);
             }
         } else if (parent instanceof NbtList list) {
             for (int i = 0; i < list.size(); i++) {
-                append(list.get(i), path + "/" + i, "[" + i + "]", depth);
+                append(list.get(i), path + "/" + i, "[" + i + "]", depth, null);
             }
         }
     }
 
-    private void append(NbtElement element, String path, String key, int depth) {
+    private void append(NbtElement element, String path, String key, int depth, NbtCompound owner) {
         boolean container = element instanceof NbtCompound || element instanceof NbtList;
-        rows.add(new Row(path, key, element, depth, container));
+        rows.add(new Row(path, key, element, depth, container, owner));
         if (container && expanded.contains(path)) appendChildren(element, path, depth + 1);
+    }
+
+    /** The shape a compound was recognized as, or null. */
+    private NbtShape shapeOf(NbtCompound compound) {
+        if (raw || compound == null) return null;
+        for (NbtShape shape : SHAPES) {
+            if (shape.matches(compound)) return shape;
+        }
+        return null;
     }
 
     private void renderScrollbar() {
@@ -296,7 +353,7 @@ public final class NbtTree {
     }
 
     /** What goes on screen: suffixed the way SNBT would write it. */
-    private static String describe(NbtElement element) {
+    private String describe(NbtElement element) {
         if (element instanceof NbtByte value) return value.value + "b";
         if (element instanceof NbtShort value) return value.value + "s";
         if (element instanceof NbtInt value) return String.valueOf(value.value);
@@ -307,7 +364,11 @@ public final class NbtTree {
         if (element instanceof NbtByteArray value) return "[" + value.value.length + " bytes]";
         if (element instanceof NbtIntArray value) return "[" + value.data.length + " ints]";
         if (element instanceof NbtLongArray value) return "[" + value.data.length + " longs]";
-        if (element instanceof NbtCompound value) return "{" + value.values().size() + "}";
+        if (element instanceof NbtCompound value) {
+            NbtShape shape = shapeOf(value);
+            String summary = shape == null ? null : shape.summarize(value);
+            return summary == null ? "{" + value.values().size() + "}" : summary;
+        }
         if (element instanceof NbtList value) return "[" + value.size() + "]";
         return "?";
     }

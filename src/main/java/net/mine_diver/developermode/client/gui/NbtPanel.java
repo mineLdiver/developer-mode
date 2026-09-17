@@ -16,11 +16,17 @@ import net.modificationstation.stationapi.api.network.packet.PacketHelper;
  * dump, waits for one, and sends edits back. A window supplies the target and
  * whatever heading makes sense for it, and this handles the rest, which is
  * most of it and is the same for an entity as for a block entity.
+ *
+ * <p>Raw turns off the guessing. A compound that was recognized as something
+ * goes back to being a count of keys, and a number typed into one stops being
+ * brought into range, which is what you want when the guess is wrong or when
+ * the range is the thing you are testing.
  */
 public final class NbtPanel {
     public static final int FOOTER_HEIGHT = 26;
 
     private static final int BUTTON_WIDTH = 54;
+    private static final int TOGGLE_WIDTH = 34;
     private static final int GAP = 4;
     private static final int STATUS_DURATION_TICKS = 80;
     /** A subject that keeps moving would otherwise ask again every tick. */
@@ -29,6 +35,7 @@ public final class NbtPanel {
     private final NbtTree tree = new NbtTree();
     private final Button applyButton = new Button("Apply");
     private final Button reloadButton = new Button("Reload");
+    private final Button rawButton = new Button("Raw");
 
     private NbtTarget target;
     private NbtCompound working;
@@ -111,10 +118,14 @@ public final class NbtPanel {
         reloadButton.enabled = target != null;
         reloadButton.render(minecraft, mouseX, mouseY);
 
+        rawButton.bounds(x + (BUTTON_WIDTH + GAP) * 2, footerY, TOGGLE_WIDTH);
+        rawButton.toggled = tree.isRaw();
+        rawButton.render(minecraft, mouseX, mouseY);
+
         String message = tree.error().isEmpty() ? status : tree.error();
         int ink = !tree.error().isEmpty() || statusIsError ? Theme.DANGER : Theme.ACCENT;
         if (!message.isEmpty()) {
-            int messageX = x + (BUTTON_WIDTH + GAP) * 2;
+            int messageX = x + (BUTTON_WIDTH + GAP) * 2 + TOGGLE_WIDTH + GAP;
             Draw.text(minecraft, Draw.ellipsize(minecraft, message, x + width - messageX),
                     messageX, footerY + 2, ink);
         }
@@ -129,6 +140,10 @@ public final class NbtPanel {
         if (reloadButton.enabled && reloadButton.contains(mouseX, mouseY)) {
             reload();
             setStatus("Reloaded", false);
+            return true;
+        }
+        if (rawButton.contains(mouseX, mouseY)) {
+            tree.setRaw(!tree.isRaw());
             return true;
         }
         tree.mouseClicked(mouseX, mouseY, button);
