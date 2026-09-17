@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.inspect;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.gui.window.BlockEntityEditorWindow;
 import net.mine_diver.developermode.client.gui.window.EntityEditorWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
 import net.mine_diver.developermode.client.EntityTargeting;
@@ -8,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.hit.HitResultType;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.input.Keyboard;
@@ -27,6 +29,11 @@ import java.util.List;
  *
  * <p>Entered either by holding the inspect key or from the radial's Inspect
  * slot. Left click picks, right click backs out.
+ *
+ * <p>Block entities are picked the same way and compete on distance, so a chest
+ * two blocks away wins over a cow ten blocks behind it. A block with nothing
+ * behind its face is not a candidate at all, which leaves entities reachable
+ * through walls the way they were.
  */
 public final class InspectMode {
     /** Shorter than {@link EntityTargeting#REACH}: this runs every frame. */
@@ -41,6 +48,10 @@ public final class InspectMode {
     private static boolean heldByKey;
     private static boolean keyWasDown;
     private static Entity focused;
+    private static boolean blockFocused;
+    private static int blockX;
+    private static int blockY;
+    private static int blockZ;
 
     private InspectMode() {}
 
@@ -50,6 +61,23 @@ public final class InspectMode {
 
     public static Entity focused() {
         return focused;
+    }
+
+    /** Whether a block entity, rather than an entity, is under the crosshair. */
+    public static boolean isBlockFocused() {
+        return blockFocused;
+    }
+
+    public static int blockX() {
+        return blockX;
+    }
+
+    public static int blockY() {
+        return blockY;
+    }
+
+    public static int blockZ() {
+        return blockZ;
     }
 
     public static List<Entity> candidates() {
@@ -66,6 +94,7 @@ public final class InspectMode {
         active = false;
         heldByKey = false;
         focused = null;
+        blockFocused = false;
         candidates.clear();
     }
 
@@ -111,8 +140,15 @@ public final class InspectMode {
         if (button != 0) return false;
 
         Entity picked = focused;
+        boolean pickedBlock = blockFocused;
+        int x = blockX;
+        int y = blockY;
+        int z = blockZ;
         exit();
-        if (picked != null) {
+
+        if (pickedBlock) {
+            BlockEntityEditorWindow.open(x, y, z);
+        } else if (picked != null) {
             EntityTargeting.set(picked);
             EntityEditorWindow.open(picked);
         }
@@ -122,6 +158,7 @@ public final class InspectMode {
     private static void recompute(Minecraft minecraft) {
         candidates.clear();
         focused = null;
+        blockFocused = false;
 
         LivingEntity camera = minecraft.camera;
         if (camera == null) return;
@@ -171,5 +208,30 @@ public final class InspectMode {
                 bestDistance = hitDistance;
             }
         }
+
+        focusBlockEntity(minecraft, camera, origin, bestDistance);
+    }
+
+    /**
+     * Lets the block under the crosshair compete with the entity, on distance.
+     *
+     * <p>Only a block that has a block entity is a candidate, since a block
+     * with nothing behind its face has no NBT to open. A plain wall therefore
+     * does not shadow an entity standing behind it, which is the same rule the
+     * outlines already draw by.
+     */
+    private static void focusBlockEntity(Minecraft minecraft, LivingEntity camera,
+                                         Vec3d origin, double bestDistance) {
+        HitResult hit = camera.raycast(REACH, 1);
+        if (hit == null || hit.type != HitResultType.BLOCK) return;
+        if (minecraft.world.getBlockEntity(hit.blockX, hit.blockY, hit.blockZ) == null) return;
+
+        if (origin.distanceTo(hit.pos) >= bestDistance) return;
+
+        focused = null;
+        blockFocused = true;
+        blockX = hit.blockX;
+        blockY = hit.blockY;
+        blockZ = hit.blockZ;
     }
 }

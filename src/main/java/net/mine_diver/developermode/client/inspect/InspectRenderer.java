@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.util.ScreenScaler;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.Box;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -28,7 +29,8 @@ public final class InspectRenderer {
      * so boxes are given in world space relative to the camera.
      */
     public static void renderWorld(float tickDelta) {
-        if (!InspectMode.isActive() || InspectMode.candidates().isEmpty()) return;
+        if (!InspectMode.isActive()) return;
+        if (InspectMode.candidates().isEmpty() && !InspectMode.isBlockFocused()) return;
 
         Minecraft minecraft = DeveloperModeClient.minecraft();
         LivingEntity camera = minecraft.camera;
@@ -57,6 +59,16 @@ public final class InspectRenderer {
                     .offset(interpolatedX - cameraX, interpolatedY - cameraY, interpolatedZ - cameraZ));
         }
 
+        if (InspectMode.isBlockFocused()) {
+            GL11.glLineWidth(2.5F);
+            WorldDraw.color(FOCUSED_COLOR);
+            WorldDraw.outline(Box.create(
+                            InspectMode.blockX(), InspectMode.blockY(), InspectMode.blockZ(),
+                            InspectMode.blockX() + 1, InspectMode.blockY() + 1, InspectMode.blockZ() + 1)
+                    .expand(GROW, GROW, GROW)
+                    .offset(-cameraX, -cameraY, -cameraZ));
+        }
+
         WorldDraw.endLines();
     }
 
@@ -71,11 +83,17 @@ public final class InspectRenderer {
         int height = scaler.getScaledHeight();
 
         Entity focused = InspectMode.focused();
-        String title = focused == null ? "Nothing under the crosshair" : Entities.name(focused);
-        String detail = focused == null
-                ? InspectMode.candidates().size() + " in range"
-                : String.format("%.1fm   id %d", distanceTo(minecraft, focused), focused.id);
-        String help = focused == null ? "right click to cancel" : "left click to edit    right click to cancel";
+        boolean block = InspectMode.isBlockFocused();
+        boolean anything = block || focused != null;
+
+        String title = block ? blockName(minecraft)
+                : focused == null ? "Nothing under the crosshair" : Entities.name(focused);
+        String detail = block
+                ? InspectMode.blockX() + " " + InspectMode.blockY() + " " + InspectMode.blockZ()
+                : focused == null
+                        ? InspectMode.candidates().size() + " in range"
+                        : String.format("%.1fm   id %d", distanceTo(minecraft, focused), focused.id);
+        String help = anything ? "left click to edit    right click to cancel" : "right click to cancel";
 
         int panelWidth = Math.max(Math.max(Draw.textWidth(minecraft, title), Draw.textWidth(minecraft, detail)),
                 Draw.textWidth(minecraft, help)) + 10;
@@ -83,14 +101,23 @@ public final class InspectRenderer {
         int panelY = height / 2 + 14;
 
         Draw.rect(panelX, panelY, panelX + panelWidth, panelY + 36, Theme.PANEL);
-        Draw.outline(panelX, panelY, panelWidth, 36, focused == null ? Theme.BORDER : Theme.BORDER_FOCUSED);
+        Draw.outline(panelX, panelY, panelWidth, 36, anything ? Theme.BORDER_FOCUSED : Theme.BORDER);
 
-        Draw.textCentered(minecraft, title, width / 2, panelY + 4, focused == null ? Theme.TEXT_DIM : Theme.ACCENT);
+        Draw.textCentered(minecraft, title, width / 2, panelY + 4, anything ? Theme.ACCENT : Theme.TEXT_DIM);
         Draw.textCentered(minecraft, detail, width / 2, panelY + 14, Theme.TEXT_DIM);
         Draw.textCentered(minecraft, help, width / 2, panelY + 25, Theme.TEXT_FAINT);
 
         String mode = "inspecting   " + Keyboard.getKeyName(DeveloperModeClient.INSPECT_KEY.code);
         Draw.text(minecraft, mode, 4, 4, Theme.ACCENT);
+    }
+
+    /** What the client calls the block entity it is looking at, if it has one. */
+    private static String blockName(Minecraft minecraft) {
+        if (minecraft.world == null) return "Block entity";
+
+        var blockEntity = minecraft.world.getBlockEntity(
+                InspectMode.blockX(), InspectMode.blockY(), InspectMode.blockZ());
+        return blockEntity == null ? "Block entity" : blockEntity.getClass().getSimpleName();
     }
 
     private static double distanceTo(Minecraft minecraft, Entity entity) {
