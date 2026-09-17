@@ -4,8 +4,12 @@ import net.mine_diver.developermode.feature.entity.Entities;
 import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
+import net.mine_diver.developermode.feature.storage.Nbt;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.slot.Slot;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -19,13 +23,14 @@ import java.io.IOException;
  * holds copies, and the copy is not what the world is about to save.
  *
  * @param kind which of the things below this points at
- * @param x    entity id, or block x
- * @param y    block y
+ * @param x    entity id, block x, or the sync id of an open container
+ * @param y    block y, or a slot's index in that container
  * @param z    block z
  */
 public record NbtTarget(byte kind, int x, int y, int z) {
     public static final byte ENTITY = 0;
     public static final byte BLOCK = 1;
+    public static final byte SLOT = 2;
 
     /** Bytes on the wire: the kind and three numbers. */
     public static final int SIZE = 1 + Integer.BYTES * 3;
@@ -36,6 +41,24 @@ public record NbtTarget(byte kind, int x, int y, int z) {
 
     public static NbtTarget block(int x, int y, int z) {
         return new NbtTarget(BLOCK, x, y, z);
+    }
+
+    /**
+     * A slot in whatever container the sender has open.
+     *
+     * <p>The sync id comes along so that a slot number means something. It
+     * identifies which container the client was looking at, and a client that
+     * has since opened a different one is talking about a slot that no longer
+     * exists.
+     *
+     * <p>A player's own inventory is sync id zero and is open for as long as
+     * they are, so a slot in it can be read and written whenever. Any other
+     * container closes when the editor takes the screen, which is after the
+     * read has been asked for and before a write could arrive: those slots
+     * read, and a write to one says the container is closed.
+     */
+    public static NbtTarget slot(int syncId, int slotId) {
+        return new NbtTarget(SLOT, syncId, slotId, 0);
     }
 
     public static NbtTarget read(DataInputStream in) throws IOException {
@@ -64,6 +87,10 @@ public record NbtTarget(byte kind, int x, int y, int z) {
                 blockEntity.writeNbt(nbt);
                 return nbt;
             }
+            case SLOT -> {
+                ItemStack stack = stackIn(player);
+                return stack == null ? null : stack.getStationNbt();
+            }
             default -> {
                 return null;
             }
@@ -80,6 +107,22 @@ public record NbtTarget(byte kind, int x, int y, int z) {
             case BLOCK -> {
                 BlockEntity blockEntity = player.world.getBlockEntity(x, y, z);
                 return blockEntity == null ? "Nothing there" : applyTo(blockEntity, nbt);
+            }
+            case SLOT -> {
+                ScreenHandler handler = player.currentScreenHandler;
+                if (handler == null || handler.syncId != x) return "That container is closed";
+
+                ItemStack stack = stackIn(player);
+                if (stack == null) return "That slot is empty";
+
+                // The compound belongs to the stack and cannot be swapped for
+                // another, so the values move across into the one it has.
+                Nbt.mergeValues(stack.getStationNbt(), nbt);
+                // Comparing against a copy taken earlier is how a container
+                // notices a change, and station NBT counts towards that, so an
+                // edit made here is a change it will send on.
+                player.currentScreenHandler.sendContentUpdates();
+                return null;
             }
             default -> {
                 return "Nothing to write to";
@@ -118,11 +161,24 @@ public record NbtTarget(byte kind, int x, int y, int z) {
         return null;
     }
 
+    /**
+     * The stack this points at, if the sender still has that container open.
+     */
+    private ItemStack stackIn(PlayerEntity player) {
+        ScreenHandler handler = player.currentScreenHandler;
+        if (handler == null || handler.syncId != x) return null;
+        if (y < 0 || y >= handler.slots.size()) return null;
+
+        Slot slot = handler.getSlot(y);
+        return slot == null ? null : slot.getStack();
+    }
+
     /** How to say what this points at, in a status message. */
     public String describe() {
         return switch (kind) {
             case ENTITY -> "entity " + x;
             case BLOCK -> "block entity at " + x + " " + y + " " + z;
+            case SLOT -> "slot " + y;
             default -> "nothing";
         };
     }
