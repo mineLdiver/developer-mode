@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtByte;
 import net.minecraft.nbt.NbtByteArray;
 import net.minecraft.nbt.NbtCompound;
@@ -41,6 +42,8 @@ public final class NbtTree {
     public static final int ROW_HEIGHT = 10;
 
     private static final int INDENT = 8;
+    /** An item is drawn at sixteen, and a row is not that tall. */
+    private static final int ICON_SIZE = ROW_HEIGHT - 1;
     private static final int CARET_SIZE = 5;
     private static final int KEY_GAP = 6;
 
@@ -179,7 +182,6 @@ public final class NbtTree {
             Row row = rows.get(index);
             int rowY = y + i * ROW_HEIGHT;
             boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT;
-            if (hovered) Draw.rect(x, rowY, x + width, rowY + ROW_HEIGHT, Theme.HOVER);
 
             int indent = x + row.depth * INDENT;
             if (row.container) {
@@ -191,6 +193,13 @@ public final class NbtTree {
             Draw.text(minecraft, label, keyX, rowY + 1, Theme.NBT_KEY);
 
             int valueX = keyX + Draw.textWidth(minecraft, label) + KEY_GAP;
+
+            ItemStack icon = iconOf(row);
+            if (icon != null) {
+                ItemDraw.scaled(minecraft, icon, valueX, rowY, ICON_SIZE);
+                valueX += ICON_SIZE + 2;
+            }
+
             if (row == editing) {
                 editor.bounds(valueX, rowY - 1, Math.max(30, x + width - valueX - 2));
                 editor.render(minecraft, "");
@@ -198,6 +207,11 @@ public final class NbtTree {
                 Draw.text(minecraft, Draw.ellipsize(minecraft, displayOf(row), x + width - valueX - 2),
                         valueX, rowY + 1, colorOf(row.element));
             }
+
+            // Over the row's own contents. A wash laid down first is painted
+            // over by whatever follows it, which leaves the hovered row as the
+            // one row whose icon is not tinted.
+            if (hovered) Draw.rect(x, rowY, x + width, rowY + ROW_HEIGHT, Theme.HOVER);
         }
 
         renderScrollbar();
@@ -408,6 +422,19 @@ public final class NbtTree {
         if (element instanceof NbtDouble value) return String.valueOf(value.value);
         if (element instanceof NbtString value) return value.value;
         return "";
+    }
+
+    /**
+     * The icon for a row that stands for a whole recognized compound.
+     *
+     * <p>Only on the compound's own row. The fields inside it are already
+     * underneath one, and a second copy a line later says nothing new.
+     */
+    private ItemStack iconOf(Row row) {
+        if (raw || !(row.element instanceof NbtCompound compound)) return null;
+
+        NbtShape shape = shapeOf(compound);
+        return shape == null ? null : shape.iconFor(compound);
     }
 
     /** What a field is called here, which is not always what it is keyed by. */

@@ -49,4 +49,22 @@ public final class ItemDraw {
         stack(minecraft, stack, x, y, false);
         end();
     }
+
+    /**
+     * One icon, shrunk to fit somewhere narrower than an item is drawn.
+     *
+     * <p>The renderer draws at {@link #SIZE} and takes no say in it, so the
+     * matrix does the shrinking. Depth is left alone: block items are drawn as
+     * blocks and still have to come out facing the right way.
+     */
+    public static void scaled(Minecraft minecraft, ItemStack stack, int x, int y, int size) {
+        if (stack == null) return;
+
+        float scale = size / (float) SIZE;
+        GL11.glPushMatrix();
+        GL11.glTranslatef(x, y, 0);
+        GL11.glScalef(scale, scale, 1);
+        single(minecraft, stack, 0, 0);
+        GL11.glPopMatrix();
+    }
 }

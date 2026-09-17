@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 
@@ -23,6 +24,15 @@ public interface NbtShape {
      * @return null to leave the default alone
      */
     String summarize(NbtCompound compound);
+
+    /**
+     * An icon standing for the whole compound, drawn on its own row.
+     *
+     * @return null for a compound that does not look like anything
+     */
+    default ItemStack iconFor(NbtCompound compound) {
+        return null;
+    }
 
     /**
      * What to call a field, when its key is an implementation detail rather

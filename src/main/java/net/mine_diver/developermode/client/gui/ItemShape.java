@@ -43,6 +43,20 @@ public final class ItemShape implements NbtShape {
     private ItemShape() {}
 
     @Override
+    public ItemStack iconFor(NbtCompound compound) {
+        Item item = item(compound);
+        if (item == null) return null;
+
+        try {
+            // The damage picks the sprite for anything with variants, which is
+            // the difference between wool and orange wool.
+            return new ItemStack(item, 1, compound.getShort(DAMAGE));
+        } catch (Exception error) {
+            return null;
+        }
+    }
+
+    @Override
     public String labelFor(NbtCompound compound, String key) {
         if (FLATTENED_ID.equals(key) || LEGACY_ID.equals(key)) return "Item";
 
