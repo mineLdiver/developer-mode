@@ -56,13 +56,15 @@ public final class ItemShape implements NbtShape {
 
     @Override
     public ItemStack iconFor(NbtCompound compound) {
-        Item item = item(compound);
-        if (item == null) return null;
+        // The damage picks the sprite for anything with variants, which is the
+        // difference between wool and orange wool.
+        return iconOf(item(compound), compound.getShort(DAMAGE));
+    }
 
+    private static ItemStack iconOf(Item item, int damage) {
+        if (item == null) return null;
         try {
-            // The damage picks the sprite for anything with variants, which is
-            // the difference between wool and orange wool.
-            return new ItemStack(item, 1, compound.getShort(DAMAGE));
+            return new ItemStack(item, 1, damage);
         } catch (Exception error) {
             return null;
         }
@@ -128,7 +130,9 @@ public final class ItemShape implements NbtShape {
             if (answer == null || !seen.add(answer)) continue;
 
             String label = name(item, damage);
-            found.add(new Choice(String.valueOf(damage), label == null ? "Variant " + damage : label));
+            found.add(new Choice(String.valueOf(damage),
+                    label == null ? "Variant " + damage : label,
+                    iconOf(item, damage)));
         }
 
         variants.put(item, found);
@@ -162,7 +166,9 @@ public final class ItemShape implements NbtShape {
             if (identifier == null) continue;
 
             String label = baseName(item);
-            built.add(new Choice(identifier.toString(), label == null ? identifier.path : label));
+            built.add(new Choice(identifier.toString(),
+                    label == null ? identifier.path : label,
+                    iconOf(item, 0)));
         }
         built.sort(Comparator.comparing(Choice::label));
 
@@ -244,8 +250,25 @@ public final class ItemShape implements NbtShape {
             // Fall through to the identifier, which is always there.
         }
 
+        // An item whose variants are all named but whose base is not, like a
+        // slab or a dye, has only its own id left to be called by.
         Identifier identifier = ItemRegistry.INSTANCE.getId(item);
-        return identifier == null ? null : identifier.path;
+        return identifier == null ? null : readable(identifier.path);
+    }
+
+    /** An id turned into something that reads like a name. */
+    private static String readable(String path) {
+        String spaced = path.replace('_', ' ')
+                .replace('-', ' ')
+                .replaceAll("(?<=[a-z0-9])(?=[A-Z])", " ");
+
+        StringBuilder out = new StringBuilder(spaced.length());
+        for (String word : spaced.split(" ")) {
+            if (word.isEmpty()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return out.length() == 0 ? path : out.toString();
     }
 
     private static String name(Item item, int damage) {

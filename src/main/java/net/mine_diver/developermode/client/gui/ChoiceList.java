@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 
 import java.util.ArrayList;
@@ -22,8 +23,10 @@ public final class ChoiceList {
     public static final int ROW_HEIGHT = 10;
 
     private static final int VISIBLE_ROWS = 6;
-    private static final int WIDTH = 152;
+    private static final int WIDTH = 164;
     private static final int PADDING = 2;
+    /** An item is drawn at sixteen, and a row is not that tall. */
+    private static final int ICON_SIZE = ROW_HEIGHT - 1;
 
     private final TextField search = new TextField(32);
     private final List<NbtShape.Choice> all = new ArrayList<>();
@@ -91,9 +94,19 @@ public final class ChoiceList {
             boolean hovered = mouseX >= x && mouseX < x + WIDTH
                     && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT;
 
+            NbtShape.Choice choice = matches.get(index);
+            int labelX = x + PADDING + 1;
+            ItemStack icon = choice.icon();
+            if (icon != null) {
+                ItemDraw.scaled(minecraft, icon, labelX, rowY, ICON_SIZE);
+                labelX += ICON_SIZE + 2;
+            }
+
             Draw.text(minecraft,
-                    Draw.ellipsize(minecraft, matches.get(index).label(), WIDTH - PADDING * 2 - 2),
-                    x + PADDING + 1, rowY + 1, hovered ? Theme.ACCENT : Theme.TEXT);
+                    Draw.ellipsize(minecraft, choice.label(), x + WIDTH - PADDING - labelX),
+                    labelX, rowY + 1, hovered ? Theme.ACCENT : Theme.TEXT);
+
+            // Over the row's own contents, so the icon is tinted with it.
             if (hovered) Draw.rect(x + 1, rowY, x + WIDTH - 1, rowY + ROW_HEIGHT, Theme.HOVER);
         }
     }

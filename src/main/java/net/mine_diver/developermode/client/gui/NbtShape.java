@@ -73,8 +73,13 @@ public interface NbtShape {
      *
      * @param value what goes in the tag
      * @param label what a person recognizes it by
+     * @param icon  something to look at alongside the label, or null
      */
-    record Choice(String value, String label) {}
+    record Choice(String value, String label, ItemStack icon) {
+        public Choice(String value, String label) {
+            this(value, label, null);
+        }
+    }
 
     /**
      * Brings a number typed into one of this compound's fields into range.
