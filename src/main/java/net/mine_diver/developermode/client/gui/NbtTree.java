@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -229,10 +230,17 @@ public final class NbtTree {
 
         Row row = rows.get(index);
         if (row.container) {
+            // The caret opens it up; the rest of the row is the thing itself,
+            // and on something recognized that is what there is to choose.
+            int caretEnd = x + row.depth * INDENT + CARET_SIZE + 2;
+            if (mouseX >= caretEnd && row.element instanceof NbtCompound compound
+                    && offerChoices(compound, null, row, index)) {
+                return;
+            }
             if (!expanded.remove(row.path)) expanded.add(row.path);
             rebuild();
         } else if (isEditable(row.element)) {
-            if (offerChoices(row, index)) return;
+            if (offerChoices(row.owner, row.key, row, index)) return;
 
             editing = row;
             editor.setText(rawValue(row.element));
@@ -265,22 +273,39 @@ public final class NbtTree {
      *
      * @return true if the field is picked from rather than typed into
      */
-    private boolean offerChoices(Row row, int index) {
-        NbtShape shape = shapeOf(row.owner);
+    /**
+     * Opens what a compound, or one field of it, is allowed to be.
+     *
+     * @param key the field being picked for, or null for the compound itself
+     * @return true if there was something to choose from
+     */
+    private boolean offerChoices(NbtCompound owner, String key, Row row, int index) {
+        NbtShape shape = shapeOf(owner);
         if (shape == null) return false;
 
-        List<NbtShape.Choice> options = shape.choicesFor(row.owner, row.key);
+        List<NbtShape.Choice> options = shape.choicesFor(owner, key);
         if (options == null || options.isEmpty()) return false;
 
         int rowY = y + (index - scrollRow) * ROW_HEIGHT;
-        choices.open(options, x, rowY + ROW_HEIGHT, x, y, width, height, picked -> {
-            // Through the same path as typing, so the value is parsed, bounded
-            // and marked changed exactly as it would have been by hand.
-            editing = row;
-            editor.setText(picked);
-            commitEdit();
-        });
+        choices.open(options, x, rowY + ROW_HEIGHT, x, y, width, height,
+                picked -> applyChoice(owner, picked));
         return true;
+    }
+
+    /**
+     * Writes everything a choice stands for.
+     *
+     * <p>Through the same path as typing, so each value is parsed, bounded and
+     * marked changed exactly as it would have been by hand. The rows are built
+     * again afterwards because what a compound is can decide which of its
+     * fields are worth showing.
+     */
+    private void applyChoice(NbtCompound owner, NbtShape.Choice choice) {
+        for (Map.Entry<String, String> write : choice.writes().entrySet()) {
+            NbtElement element = NbtShape.get(owner, write.getKey());
+            if (element != null) store(owner, element, write.getKey(), write.getValue());
+        }
+        rebuild();
     }
 
     private void commitEdit() {
@@ -291,23 +316,30 @@ public final class NbtTree {
         editing = null;
         editor.setFocused(false);
 
+        store(row.owner, row.element, row.key, text);
+    }
+
+    /**
+     * Writes text into a tag, as the tag's own type and within whatever bounds
+     * the compound it sits in asks for.
+     */
+    private void store(NbtCompound owner, NbtElement element, String key, String text) {
         try {
-            NbtElement element = row.element;
             if (element instanceof NbtString value) {
                 value.value = text;
             } else if (element instanceof NbtFloat value) {
                 value.value = Float.parseFloat(text.trim());
             } else if (element instanceof NbtDouble value) {
                 value.value = Double.parseDouble(text.trim());
-            } else if (!commitWhole(row, Long.parseLong(text.trim()))) {
-                error = "\"" + text + "\" does not fit in a " + typeName(row.element);
+            } else if (!storeWhole(owner, element, key, Long.parseLong(text.trim()))) {
+                error = "\"" + text + "\" does not fit in a " + typeName(element);
                 return;
             }
             error = "";
             dirty = true;
             revision++;
         } catch (NumberFormatException failure) {
-            error = "\"" + text + "\" is not a " + typeName(row.element);
+            error = "\"" + text + "\" is not a " + typeName(element);
         }
     }
 
@@ -318,11 +350,10 @@ public final class NbtTree {
      * @return false if it will not fit the tag's own type, which no shape can
      *         excuse
      */
-    private boolean commitWhole(Row row, long parsed) {
-        NbtShape shape = shapeOf(row.owner);
-        long value = shape == null ? parsed : shape.clamp(row.owner, row.key, parsed);
+    private boolean storeWhole(NbtCompound owner, NbtElement element, String key, long parsed) {
+        NbtShape shape = shapeOf(owner);
+        long value = shape == null ? parsed : shape.clamp(owner, key, parsed);
 
-        NbtElement element = row.element;
         if (element instanceof NbtByte typed) {
             if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) return false;
             typed.value = (byte) value;
@@ -356,6 +387,7 @@ public final class NbtTree {
             children.sort(Comparator.comparing(child -> sortKeyOf(compound, child)));
 
             for (NbtElement child : children) {
+                if (hidden(compound, child.getKey())) continue;
                 append(child, path + "/" + child.getKey(), child.getKey(), depth, compound);
             }
         } else if (parent instanceof NbtList list) {
@@ -369,6 +401,12 @@ public final class NbtTree {
         boolean container = element instanceof NbtCompound || element instanceof NbtList;
         rows.add(new Row(path, key, element, depth, container, owner));
         if (container && expanded.contains(path)) appendChildren(element, path, depth + 1);
+    }
+
+    /** Whether the row above already says this, so showing it would repeat. */
+    private boolean hidden(NbtCompound owner, String key) {
+        NbtShape shape = shapeOf(owner);
+        return shape != null && shape.hides(owner, key);
     }
 
     private String sortKeyOf(NbtCompound owner, NbtElement child) {

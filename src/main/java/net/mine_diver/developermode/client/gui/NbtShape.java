@@ -5,18 +5,28 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * A compound that is recognizably something, so it can be shown as that thing.
  *
  * <p>Recognition is a guess and is allowed to be wrong. A shape that does not
  * match costs nothing, and the tree shows the compound the way it shows any
- * other. Nothing here can refuse an edit either: the most a shape does is
- * bring a number back inside the range the game would accept.
+ * other. Raw switches all of it off, which is the answer both to a guess that
+ * missed and to a field whose stored form is the thing in question.
  */
 public interface NbtShape {
     /** Whether this compound looks like the thing this shape knows about. */
     boolean matches(NbtCompound compound);
+
+    /**
+     * An icon standing for the whole compound, drawn on its own row.
+     *
+     * @return null for a compound that does not look like anything
+     */
+    default ItemStack iconFor(NbtCompound compound) {
+        return null;
+    }
 
     /**
      * What to show on the compound's own row instead of a count of its keys.
@@ -26,12 +36,14 @@ public interface NbtShape {
     String summarize(NbtCompound compound);
 
     /**
-     * An icon standing for the whole compound, drawn on its own row.
+     * Whether a field is already said by the row above it.
      *
-     * @return null for a compound that does not look like anything
+     * <p>A hidden field is still there and still written; it is only that
+     * showing it again would be saying the same thing twice. Raw shows
+     * everything.
      */
-    default ItemStack iconFor(NbtCompound compound) {
-        return null;
+    default boolean hides(NbtCompound compound, String key) {
+        return false;
     }
 
     /**
@@ -55,30 +67,18 @@ public interface NbtShape {
     }
 
     /**
-     * The values a field is expected to hold, for fields that draw from
-     * somewhere countable like a registry.
+     * The things this compound, or one field of it, is expected to be.
      *
-     * <p>A field with choices is picked from rather than typed into. That is
-     * the whole of the constraint: raw switches it off and hands the field
-     * back, for a value the registry does not have or does not have yet.
+     * <p>Something with choices is picked from rather than typed into. A choice
+     * may set more than one field, because what a person picks and what the
+     * game stores are not always the same shape: one orange wool is an
+     * identifier and a number.
      *
-     * @return null when the field is free text, which is most of them
+     * @param key the field being picked for, or null for the compound itself
+     * @return null when there is nothing to choose from, which is most fields
      */
     default List<Choice> choicesFor(NbtCompound compound, String key) {
         return null;
-    }
-
-    /**
-     * One option, as it is stored and as it reads.
-     *
-     * @param value what goes in the tag
-     * @param label what a person recognizes it by
-     * @param icon  something to look at alongside the label, or null
-     */
-    record Choice(String value, String label, ItemStack icon) {
-        public Choice(String value, String label) {
-            this(value, label, null);
-        }
     }
 
     /**
@@ -88,6 +88,15 @@ public interface NbtShape {
      * @return the value to actually store
      */
     long clamp(NbtCompound compound, String key, long value);
+
+    /**
+     * One option, as it reads and as it is stored.
+     *
+     * @param label  what a person recognizes it by
+     * @param icon   something to look at alongside the label, or null
+     * @param writes the fields it sets, by key, as they would have been typed
+     */
+    record Choice(String label, ItemStack icon, Map<String, String> writes) {}
 
     /** The element under a key, or null. Beta's getters cannot say "absent". */
     static NbtElement get(NbtCompound compound, String key) {

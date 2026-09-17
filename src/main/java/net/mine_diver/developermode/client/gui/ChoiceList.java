@@ -32,7 +32,7 @@ public final class ChoiceList {
     private final List<NbtShape.Choice> all = new ArrayList<>();
     private final List<NbtShape.Choice> matches = new ArrayList<>();
 
-    private Consumer<String> onPick;
+    private Consumer<NbtShape.Choice> onPick;
     private boolean open;
     private int x;
     private int y;
@@ -49,7 +49,7 @@ public final class ChoiceList {
      */
     public void open(List<NbtShape.Choice> choices, int nearX, int nearY,
                      int boundsX, int boundsY, int boundsWidth, int boundsHeight,
-                     Consumer<String> onPick) {
+                     Consumer<NbtShape.Choice> onPick) {
         all.clear();
         all.addAll(choices);
         this.onPick = onPick;
@@ -158,22 +158,24 @@ public final class ChoiceList {
     }
 
     private void pick(NbtShape.Choice choice) {
-        Consumer<String> picked = onPick;
-        String value = choice.value();
+        Consumer<NbtShape.Choice> picked = onPick;
         close();
-        if (picked != null) picked.accept(value);
+        if (picked != null) picked.accept(choice);
     }
 
     private void applyFilter() {
         String query = search.text().trim().toLowerCase(Locale.ROOT);
         matches.clear();
         for (NbtShape.Choice choice : all) {
-            if (query.isEmpty()
-                    || choice.label().toLowerCase(Locale.ROOT).contains(query)
-                    || choice.value().toLowerCase(Locale.ROOT).contains(query)) {
-                matches.add(choice);
-            }
+            if (query.isEmpty() || describes(choice).contains(query)) matches.add(choice);
         }
+    }
+
+    /** Label and stored values together, so either one finds a choice. */
+    private static String describes(NbtShape.Choice choice) {
+        StringBuilder text = new StringBuilder(choice.label());
+        for (String written : choice.writes().values()) text.append(' ').append(written);
+        return text.toString().toLowerCase(Locale.ROOT);
     }
 
     private int height() {

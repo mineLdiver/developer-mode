@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.gui.Draw;
+import net.mine_diver.developermode.client.gui.ItemCatalogue;
 import net.mine_diver.developermode.client.gui.ItemDraw;
 import net.mine_diver.developermode.client.gui.TextField;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -8,18 +9,11 @@ import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.Give;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.block.Block;
-import net.minecraft.client.resource.language.I18n;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.modificationstation.stationapi.api.registry.ItemRegistry;
-import net.modificationstation.stationapi.api.util.Identifier;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * Everything in the item registry, in a searchable grid. Clicking gives.
@@ -33,7 +27,6 @@ public final class ItemPickerWindow extends DevWindow {
     private static final int FOOTER_HEIGHT = 10;
     private static final int COLUMNS = 9;
     /** Beta stores block variants in four metadata bits, so this covers them all. */
-    private static final int METADATA_PROBE_LIMIT = 16;
     private static final int STATUS_DURATION_TICKS = 60;
 
     private final List<Entry> catalogue = new ArrayList<>();
@@ -231,19 +224,8 @@ public final class ItemPickerWindow extends DevWindow {
     }
 
     private void buildCatalogue() {
-        Set<String> seen = new HashSet<>();
-        for (Item item : ItemRegistry.INSTANCE) {
-            if (item == null) continue;
-            // The vanilla item renderer reads Block.BLOCKS[id] for anything
-            // below 256 without a null check, so skip ids with no block.
-            if (item.id < Block.BLOCKS.length && Block.BLOCKS[item.id] == null) continue;
-            if (item.hasSubtypes()) {
-                for (int metadata = 0; metadata < METADATA_PROBE_LIMIT; metadata++) {
-                    offer(item, metadata, seen);
-                }
-            } else {
-                offer(item, 0, seen);
-            }
+        for (ItemCatalogue.Variant variant : ItemCatalogue.all()) {
+            catalogue.add(new Entry(variant.stack(), variant.name(), variant.displayId()));
         }
     }
 
@@ -252,31 +234,6 @@ public final class ItemPickerWindow extends DevWindow {
      * same name and sprite, which is how Beta items without real variants show
      * up sixteen times over.
      */
-    private void offer(Item item, int metadata, Set<String> seen) {
-        ItemStack stack = new ItemStack(item, 1, metadata);
-        String translationKey;
-        int texture;
-        try {
-            translationKey = stack.getTranslationKey();
-            texture = stack.getTextureId();
-        } catch (Exception error) {
-            return;
-        }
-        if (translationKey == null) return;
-        if (!seen.add(translationKey + "@" + texture)) return;
-
-        Identifier identifier = ItemRegistry.INSTANCE.getId(item);
-        String id = identifier == null ? "item " + item.id : identifier.toString();
-        if (metadata != 0) id = id + " #" + metadata;
-
-        String name = I18n.getTranslation(translationKey + ".name");
-        if (name == null || name.isEmpty() || name.equals(translationKey + ".name")) {
-            name = identifier == null ? translationKey : identifier.path;
-        }
-
-        catalogue.add(new Entry(stack, name, id));
-    }
-
     private static final class Entry {
         final ItemStack stack;
         final String name;
