@@ -13,7 +13,11 @@ import net.modificationstation.stationapi.api.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * An item stack, as one is actually written down.
@@ -37,8 +41,16 @@ public final class ItemShape implements NbtShape {
     private static final String COUNT = "Count";
     private static final String DAMAGE = "Damage";
 
+    /**
+     * How far to look for variants. Beta packs a variant into four bits of
+     * metadata, so past this an item is answering about something else.
+     */
+    private static final int VARIANT_PROBE_LIMIT = 16;
+
     /** Every item there is, built once. A registry does not change after start. */
     private static List<Choice> choices;
+    /** Variants per item, found by asking and kept because asking is not free. */
+    private static final Map<Item, List<Choice>> variants = new HashMap<>();
 
     private ItemShape() {}
 
@@ -80,7 +92,59 @@ public final class ItemShape implements NbtShape {
 
     @Override
     public List<Choice> choicesFor(NbtCompound compound, String key) {
-        return FLATTENED_ID.equals(key) ? everyItem() : null;
+        if (FLATTENED_ID.equals(key)) return everyItem();
+        // Variants live in the damage value, so that is the field to pick one
+        // from. On anything else the damage is a durability, which is a number
+        // and not a list of anything.
+        if (DAMAGE.equals(key)) return variantsOf(item(compound));
+        return null;
+    }
+
+    /**
+     * The distinct things an item turns into as its damage value changes.
+     *
+     * <p>Found by asking rather than by knowing: an item is handed each damage
+     * value in turn and asked what it would be called and what it would look
+     * like, and an answer nothing has given before is another variant. Mods do
+     * not announce their variants, but they do answer these.
+     *
+     * @return null when damage on this item is a durability rather than a
+     *         variant, which leaves the field a number to type into
+     */
+    private static synchronized List<Choice> variantsOf(Item item) {
+        if (item == null || !item.hasSubtypes()) return null;
+
+        List<Choice> known = variants.get(item);
+        if (known != null) return known;
+
+        List<Choice> found = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (int damage = 0; damage < VARIANT_PROBE_LIMIT; damage++) {
+            String answer = describes(item, damage);
+            if (answer == null || !seen.add(answer)) continue;
+
+            String label = name(item, damage);
+            found.add(new Choice(String.valueOf(damage), label == null ? "Variant " + damage : label));
+        }
+
+        variants.put(item, found);
+        return found;
+    }
+
+    /**
+     * How an item answers for one damage value, as a name and a sprite
+     * together. Either alone misses variants that differ only in the other.
+     */
+    private static String describes(Item item, int damage) {
+        try {
+            ItemStack stack = new ItemStack(item, 1, damage);
+            String key = stack.getTranslationKey();
+            return key == null ? null : key + "@" + stack.getTextureId();
+        } catch (Exception error) {
+            // An item that will not answer for a damage value has no variant
+            // there, which is the answer.
+            return null;
+        }
     }
 
     private static synchronized List<Choice> everyItem() {
