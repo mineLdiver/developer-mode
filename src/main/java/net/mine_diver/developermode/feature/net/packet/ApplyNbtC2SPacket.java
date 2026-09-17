@@ -1,11 +1,9 @@
 package net.mine_diver.developermode.feature.net.packet;
 
-import net.mine_diver.developermode.feature.entity.Entities;
-import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.mine_diver.developermode.feature.net.DevStatus;
+import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.net.PacketNbt;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.NetworkHandler;
@@ -21,29 +19,29 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * Writes edited NBT back into an entity.
+ * Writes edited NBT back into whatever the target points at.
  *
- * <p>The answer carries a fresh dump as well as a message, because what an
- * entity accepts is not always what was typed at it.
+ * <p>The answer carries a fresh dump as well as a message, because what a
+ * thing accepts is not always what was typed at it.
  */
-public class ApplyEntityNbtC2SPacket extends Packet implements ManagedPacket<ApplyEntityNbtC2SPacket> {
-    public static final PacketType<ApplyEntityNbtC2SPacket> TYPE =
-            PacketType.builder(false, true, ApplyEntityNbtC2SPacket::new).build();
+public class ApplyNbtC2SPacket extends Packet implements ManagedPacket<ApplyNbtC2SPacket> {
+    public static final PacketType<ApplyNbtC2SPacket> TYPE =
+            PacketType.builder(false, true, ApplyNbtC2SPacket::new).build();
 
-    public int entityId;
+    public NbtTarget target = NbtTarget.entity(-1);
     public byte[] nbt = PacketNbt.NONE;
 
-    public ApplyEntityNbtC2SPacket() {}
+    public ApplyNbtC2SPacket() {}
 
-    public ApplyEntityNbtC2SPacket(int entityId, NbtCompound compound) {
-        this.entityId = entityId;
+    public ApplyNbtC2SPacket(NbtTarget target, NbtCompound compound) {
+        this.target = target;
         this.nbt = PacketNbt.toBytes(compound);
     }
 
     @Override
     public void read(DataInputStream in) {
         try {
-            entityId = in.readInt();
+            target = NbtTarget.read(in);
             nbt = new byte[in.readInt()];
             in.readFully(nbt);
         } catch (IOException error) {
@@ -54,7 +52,7 @@ public class ApplyEntityNbtC2SPacket extends Packet implements ManagedPacket<App
     @Override
     public void write(DataOutputStream out) {
         try {
-            out.writeInt(entityId);
+            target.write(out);
             out.writeInt(nbt.length);
             out.write(nbt);
         } catch (IOException error) {
@@ -72,21 +70,17 @@ public class ApplyEntityNbtC2SPacket extends Packet implements ManagedPacket<App
             return;
         }
 
-        Entity entity = Entities.byId(player.world, entityId);
-        if (entity == null) {
-            reply(player, "That entity is gone", false);
-            return;
-        }
-
         NbtCompound compound = PacketNbt.fromBytes(nbt);
         if (compound == null) {
             reply(player, "Unreadable NBT", false);
             return;
         }
 
-        String failure = EntityNbt.apply(entity, compound);
+        String failure = target.apply(player, compound);
         reply(player, failure == null ? "Applied" : failure, failure == null);
-        PacketHelper.sendTo(player, new EntityNbtS2CPacket(entityId, EntityNbt.dump(entity)));
+
+        NbtCompound fresh = target.dump(player);
+        if (fresh != null) PacketHelper.sendTo(player, new NbtS2CPacket(target, fresh));
     }
 
     private static void reply(PlayerEntity player, String text, boolean ok) {
@@ -95,11 +89,11 @@ public class ApplyEntityNbtC2SPacket extends Packet implements ManagedPacket<App
 
     @Override
     public int size() {
-        return Integer.BYTES * 2 + nbt.length;
+        return NbtTarget.SIZE + Integer.BYTES + nbt.length;
     }
 
     @Override
-    public @NotNull PacketType<ApplyEntityNbtC2SPacket> getType() {
+    public @NotNull PacketType<ApplyNbtC2SPacket> getType() {
         return TYPE;
     }
 }

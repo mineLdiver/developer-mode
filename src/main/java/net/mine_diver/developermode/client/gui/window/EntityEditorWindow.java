@@ -12,9 +12,10 @@ import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.entity.Entities;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
 import net.mine_diver.developermode.feature.net.DevStatus;
-import net.mine_diver.developermode.feature.net.EntityNbtInbox;
-import net.mine_diver.developermode.feature.net.packet.ApplyEntityNbtC2SPacket;
-import net.mine_diver.developermode.feature.net.packet.RequestEntityNbtC2SPacket;
+import net.mine_diver.developermode.feature.net.NbtInbox;
+import net.mine_diver.developermode.feature.net.NbtTarget;
+import net.mine_diver.developermode.feature.net.packet.ApplyNbtC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.RequestNbtC2SPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.nbt.NbtCompound;
@@ -52,7 +53,7 @@ public final class EntityEditorWindow extends DevWindow {
     private double dumpedY;
     private double dumpedZ;
 
-    private int nbtSequence = EntityNbtInbox.sequence();
+    private int nbtSequence = NbtInbox.sequence();
     private int statusSequence = DevStatus.sequence(DevStatus.ENTITY);
     private int requestCooldown;
 
@@ -234,7 +235,7 @@ public final class EntityEditorWindow extends DevWindow {
 
     private void applyNbt() {
         if (entity == null || working == null) return;
-        PacketHelper.send(new ApplyEntityNbtC2SPacket(entity.id, working));
+        PacketHelper.send(new ApplyNbtC2SPacket(NbtTarget.entity(entity.id), working));
         // The answer carries a fresh dump with it, so the tree ends up showing
         // what the entity accepted rather than what was typed at it.
         takeAnswers();
@@ -260,18 +261,18 @@ public final class EntityEditorWindow extends DevWindow {
         if (entity == null || entity.dead) return;
 
         requestCooldown = REQUEST_INTERVAL_TICKS;
-        PacketHelper.send(new RequestEntityNbtC2SPacket(entity.id));
+        PacketHelper.send(new RequestNbtC2SPacket(NbtTarget.entity(entity.id)));
         takeAnswers();
     }
 
     /** Picks up whatever has come back for the entity being edited. */
     private void takeAnswers() {
-        if (EntityNbtInbox.sequence() != nbtSequence) {
-            nbtSequence = EntityNbtInbox.sequence();
+        if (NbtInbox.sequence() != nbtSequence) {
+            nbtSequence = NbtInbox.sequence();
             // An answer can arrive after the window has been pointed somewhere
-            // else, which is why the id comes back with it.
-            if (entity != null && EntityNbtInbox.entityId() == entity.id) {
-                working = EntityNbtInbox.nbt();
+            // else, which is why the target comes back with it.
+            if (entity != null && NbtTarget.entity(entity.id).equals(NbtInbox.target())) {
+                working = NbtInbox.nbt();
                 tree.setRoot(working);
             }
         }

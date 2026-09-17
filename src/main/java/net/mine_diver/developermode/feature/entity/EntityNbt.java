@@ -42,7 +42,8 @@ public final class EntityNbt {
         }
     }
 
-    private static String describe(Throwable error) {
+    /** How to put an exception in a status line. */
+    public static String describe(Throwable error) {
         String message = error.getMessage();
         String type = error.getClass().getSimpleName();
         return message == null || message.isEmpty() ? type : type + ": " + message;

@@ -1,11 +1,10 @@
 package net.mine_diver.developermode.feature.net.packet;
 
-import net.mine_diver.developermode.feature.entity.Entities;
-import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.mine_diver.developermode.feature.net.DevStatus;
+import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.mine_diver.developermode.feature.net.Ops;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.NetworkHandler;
 import net.minecraft.network.packet.Packet;
 import net.modificationstation.stationapi.api.entity.player.PlayerHelper;
@@ -19,24 +18,24 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * Asks the world that owns an entity what it is actually holding.
+ * Asks the world what it is actually holding for a target.
  */
-public class RequestEntityNbtC2SPacket extends Packet implements ManagedPacket<RequestEntityNbtC2SPacket> {
-    public static final PacketType<RequestEntityNbtC2SPacket> TYPE =
-            PacketType.builder(false, true, RequestEntityNbtC2SPacket::new).build();
+public class RequestNbtC2SPacket extends Packet implements ManagedPacket<RequestNbtC2SPacket> {
+    public static final PacketType<RequestNbtC2SPacket> TYPE =
+            PacketType.builder(false, true, RequestNbtC2SPacket::new).build();
 
-    public int entityId;
+    public NbtTarget target = NbtTarget.entity(-1);
 
-    public RequestEntityNbtC2SPacket() {}
+    public RequestNbtC2SPacket() {}
 
-    public RequestEntityNbtC2SPacket(int entityId) {
-        this.entityId = entityId;
+    public RequestNbtC2SPacket(NbtTarget target) {
+        this.target = target;
     }
 
     @Override
     public void read(DataInputStream in) {
         try {
-            entityId = in.readInt();
+            target = NbtTarget.read(in);
         } catch (IOException error) {
             throw new RuntimeException(error);
         }
@@ -45,7 +44,7 @@ public class RequestEntityNbtC2SPacket extends Packet implements ManagedPacket<R
     @Override
     public void write(DataOutputStream out) {
         try {
-            out.writeInt(entityId);
+            target.write(out);
         } catch (IOException error) {
             throw new RuntimeException(error);
         }
@@ -61,21 +60,22 @@ public class RequestEntityNbtC2SPacket extends Packet implements ManagedPacket<R
             return;
         }
 
-        Entity entity = Entities.byId(player.world, entityId);
-        if (entity == null) {
-            PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY, "That entity is gone", false));
+        NbtCompound nbt = target.dump(player);
+        if (nbt == null) {
+            PacketHelper.sendTo(player,
+                    new StatusS2CPacket(DevStatus.ENTITY, "No " + target.describe() + " to read", false));
             return;
         }
-        PacketHelper.sendTo(player, new EntityNbtS2CPacket(entityId, EntityNbt.dump(entity)));
+        PacketHelper.sendTo(player, new NbtS2CPacket(target, nbt));
     }
 
     @Override
     public int size() {
-        return Integer.BYTES;
+        return NbtTarget.SIZE;
     }
 
     @Override
-    public @NotNull PacketType<RequestEntityNbtC2SPacket> getType() {
+    public @NotNull PacketType<RequestNbtC2SPacket> getType() {
         return TYPE;
     }
 }

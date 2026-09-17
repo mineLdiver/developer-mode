@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.net.packet;
 
-import net.mine_diver.developermode.feature.net.EntityNbtInbox;
+import net.mine_diver.developermode.feature.net.NbtInbox;
+import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.mine_diver.developermode.feature.net.PacketNbt;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.NetworkHandler;
@@ -14,26 +15,26 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * An entity's NBT, as the world that owns it actually holds it.
+ * NBT as the world that owns it actually holds it.
  */
-public class EntityNbtS2CPacket extends Packet implements ManagedPacket<EntityNbtS2CPacket> {
-    public static final PacketType<EntityNbtS2CPacket> TYPE =
-            PacketType.builder(true, false, EntityNbtS2CPacket::new).build();
+public class NbtS2CPacket extends Packet implements ManagedPacket<NbtS2CPacket> {
+    public static final PacketType<NbtS2CPacket> TYPE =
+            PacketType.builder(true, false, NbtS2CPacket::new).build();
 
-    public int entityId;
+    public NbtTarget target = NbtTarget.entity(-1);
     public byte[] nbt = PacketNbt.NONE;
 
-    public EntityNbtS2CPacket() {}
+    public NbtS2CPacket() {}
 
-    public EntityNbtS2CPacket(int entityId, NbtCompound compound) {
-        this.entityId = entityId;
+    public NbtS2CPacket(NbtTarget target, NbtCompound compound) {
+        this.target = target;
         this.nbt = PacketNbt.toBytes(compound);
     }
 
     @Override
     public void read(DataInputStream in) {
         try {
-            entityId = in.readInt();
+            target = NbtTarget.read(in);
             nbt = new byte[in.readInt()];
             in.readFully(nbt);
         } catch (IOException error) {
@@ -44,7 +45,7 @@ public class EntityNbtS2CPacket extends Packet implements ManagedPacket<EntityNb
     @Override
     public void write(DataOutputStream out) {
         try {
-            out.writeInt(entityId);
+            target.write(out);
             out.writeInt(nbt.length);
             out.write(nbt);
         } catch (IOException error) {
@@ -54,16 +55,16 @@ public class EntityNbtS2CPacket extends Packet implements ManagedPacket<EntityNb
 
     @Override
     public void apply(NetworkHandler handler) {
-        EntityNbtInbox.set(entityId, PacketNbt.fromBytes(nbt));
+        NbtInbox.set(target, PacketNbt.fromBytes(nbt));
     }
 
     @Override
     public int size() {
-        return Integer.BYTES * 2 + nbt.length;
+        return NbtTarget.SIZE + Integer.BYTES + nbt.length;
     }
 
     @Override
-    public @NotNull PacketType<EntityNbtS2CPacket> getType() {
+    public @NotNull PacketType<NbtS2CPacket> getType() {
         return TYPE;
     }
 }
