@@ -4,7 +4,6 @@ import net.mine_diver.developermode.feature.entity.Entities;
 import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
-import net.mine_diver.developermode.feature.storage.Nbt;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -89,7 +88,7 @@ public record NbtTarget(byte kind, int x, int y, int z) {
             }
             case SLOT -> {
                 ItemStack stack = stackIn(player);
-                return stack == null ? null : stack.getStationNbt();
+                return stack == null ? null : stack.writeNbt(new NbtCompound());
             }
             default -> {
                 return null;
@@ -115,13 +114,13 @@ public record NbtTarget(byte kind, int x, int y, int z) {
                 ItemStack stack = stackIn(player);
                 if (stack == null) return "That slot is empty";
 
-                // The compound belongs to the stack and cannot be swapped for
-                // another, so the values move across into the one it has.
-                Nbt.mergeValues(stack.getStationNbt(), nbt);
+                String failure = applyTo(stack, nbt);
+                if (failure != null) return failure;
+
                 // Comparing against a copy taken earlier is how a container
-                // notices a change, and station NBT counts towards that, so an
-                // edit made here is a change it will send on.
-                player.currentScreenHandler.sendContentUpdates();
+                // notices a change, and everything written here counts towards
+                // that, so an edit made now is a change it will send on.
+                handler.sendContentUpdates();
                 return null;
             }
             default -> {
@@ -159,6 +158,29 @@ public record NbtTarget(byte kind, int x, int y, int z) {
         blockEntity.z = z;
         blockEntity.markDirty();
         return null;
+    }
+
+    /**
+     * Writes NBT into a stack, and puts it back if that goes wrong.
+     *
+     * <p>The whole stack, not just what a mod added to it: the id, the count
+     * and the damage are as much a part of what a stack is as the rest, and
+     * reading them back is how the id can be changed at all.
+     */
+    private static String applyTo(ItemStack stack, NbtCompound nbt) {
+        NbtCompound rollback = stack.writeNbt(new NbtCompound());
+        try {
+            stack.readNbt(nbt);
+            return null;
+        } catch (Throwable error) {
+            try {
+                stack.readNbt(rollback);
+            } catch (Throwable ignored) {
+                // Nothing better to try; the snapshot came off this stack a
+                // moment ago.
+            }
+            return EntityNbt.describe(error);
+        }
     }
 
     /**

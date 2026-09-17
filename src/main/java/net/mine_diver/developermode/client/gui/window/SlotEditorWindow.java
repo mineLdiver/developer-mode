@@ -14,9 +14,9 @@ import net.minecraft.item.ItemStack;
 /**
  * The NBT on a stack in an open container.
  *
- * <p>Beta gives a stack an id, a count and a damage value and nothing else, so
- * everything shown here is the compound StationAPI adds. A stack from a mod
- * that does not use it has nothing in it, which is not a fault.
+ * <p>The whole stack: the id, count and damage Beta gives every stack, and
+ * whatever a mod has added to this one through StationAPI. A stack nothing has
+ * added to shows the three and no more, which is not a fault.
  *
  * <p>Held by container and slot number rather than by stack, because a stack is
  * a copy on this side and the slot is what the server can be asked about.
