@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
@@ -34,6 +35,23 @@ public interface NbtShape {
      * @return null to leave the default alone
      */
     String summarize(NbtCompound compound);
+
+    /**
+     * How tall a view of its own this compound wants, under its header row.
+     *
+     * <p>A recognized compound is a thing rather than a bag of fields, and a
+     * thing can be worth showing as itself: an item at the size items are
+     * drawn, rather than an identifier and a number on two lines.
+     *
+     * @return zero for a compound that has nothing to show but its fields
+     */
+    default int cardHeight() {
+        return 0;
+    }
+
+    /** Draws that view. Only called when {@link #cardHeight} is positive. */
+    default void renderCard(Minecraft minecraft, NbtCompound compound,
+                            int x, int y, int width, boolean hovered) {}
 
     /**
      * Whether a field is already said by the row above it.

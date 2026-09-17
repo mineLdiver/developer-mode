@@ -57,14 +57,20 @@ public final class NbtTree {
         final boolean container;
         /** The compound this element sits in, so a shape can speak for it. */
         final NbtCompound owner;
+        final int height;
+        /** Set on a row that is a shape's own view rather than a field. */
+        final NbtShape card;
 
-        Row(String path, String key, NbtElement element, int depth, boolean container, NbtCompound owner) {
+        Row(String path, String key, NbtElement element, int depth, boolean container,
+            NbtCompound owner, int height, NbtShape card) {
             this.path = path;
             this.key = key;
             this.element = element;
             this.depth = depth;
             this.container = container;
             this.owner = owner;
+            this.height = height;
+            this.card = card;
         }
     }
 
@@ -175,16 +181,22 @@ public final class NbtTree {
     public void render(Minecraft minecraft, int mouseX, int mouseY) {
         clampScroll();
 
-        int visible = visibleRows();
-        for (int i = 0; i < visible; i++) {
-            int index = scrollRow + i;
-            if (index >= rows.size()) break;
-
+        int rowY = y;
+        for (int index = scrollRow; index < rows.size(); index++) {
             Row row = rows.get(index);
-            int rowY = y + i * ROW_HEIGHT;
-            boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT;
+            if (rowY + row.height > y + height) break;
+
+            boolean hovered = mouseX >= x && mouseX < x + width
+                    && mouseY >= rowY && mouseY < rowY + row.height;
 
             int indent = x + row.depth * INDENT;
+            if (row.card != null) {
+                row.card.renderCard(minecraft, (NbtCompound) row.element,
+                        indent, rowY, x + width - indent, hovered);
+                rowY += row.height;
+                continue;
+            }
+
             if (row.container) {
                 Draw.caret(indent + 1, rowY + 2, CARET_SIZE, expanded.contains(row.path), Theme.NBT_CONTAINER);
             }
@@ -212,7 +224,8 @@ public final class NbtTree {
             // Over the row's own contents. A wash laid down first is painted
             // over by whatever follows it, which leaves the hovered row as the
             // one row whose icon is not tinted.
-            if (hovered) Draw.rect(x, rowY, x + width, rowY + ROW_HEIGHT, Theme.HOVER);
+            if (hovered) Draw.rect(x, rowY, x + width, rowY + row.height, Theme.HOVER);
+            rowY += row.height;
         }
 
         renderScrollbar();
@@ -225,22 +238,18 @@ public final class NbtTree {
 
         if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) return;
 
-        int index = scrollRow + (mouseY - y) / ROW_HEIGHT;
-        if (index < 0 || index >= rows.size()) return;
+        int index = rowAt(mouseY);
+        if (index < 0) return;
 
         Row row = rows.get(index);
-        if (row.container) {
-            // The caret opens it up; the rest of the row is the thing itself,
-            // and on something recognized that is what there is to choose.
-            int caretEnd = x + row.depth * INDENT + CARET_SIZE + 2;
-            if (mouseX >= caretEnd && row.element instanceof NbtCompound compound
-                    && offerChoices(compound, null, row, index)) {
-                return;
-            }
+        if (row.card != null) {
+            // The view is the thing itself, so choosing here chooses what it is.
+            offerChoices((NbtCompound) row.element, null, index);
+        } else if (row.container) {
             if (!expanded.remove(row.path)) expanded.add(row.path);
             rebuild();
         } else if (isEditable(row.element)) {
-            if (offerChoices(row.owner, row.key, row, index)) return;
+            if (offerChoices(row.owner, row.key, index)) return;
 
             editing = row;
             editor.setText(rawValue(row.element));
@@ -279,15 +288,14 @@ public final class NbtTree {
      * @param key the field being picked for, or null for the compound itself
      * @return true if there was something to choose from
      */
-    private boolean offerChoices(NbtCompound owner, String key, Row row, int index) {
+    private boolean offerChoices(NbtCompound owner, String key, int index) {
         NbtShape shape = shapeOf(owner);
         if (shape == null) return false;
 
         List<NbtShape.Choice> options = shape.choicesFor(owner, key);
         if (options == null || options.isEmpty()) return false;
 
-        int rowY = y + (index - scrollRow) * ROW_HEIGHT;
-        choices.open(options, x, rowY + ROW_HEIGHT, x, y, width, height,
+        choices.open(options, x, topOf(index) + rows.get(index).height, x, y, width, height,
                 picked -> applyChoice(owner, picked));
         return true;
     }
@@ -399,8 +407,37 @@ public final class NbtTree {
 
     private void append(NbtElement element, String path, String key, int depth, NbtCompound owner) {
         boolean container = element instanceof NbtCompound || element instanceof NbtList;
-        rows.add(new Row(path, key, element, depth, container, owner));
-        if (container && expanded.contains(path)) appendChildren(element, path, depth + 1);
+        rows.add(new Row(path, key, element, depth, container, owner, ROW_HEIGHT, null));
+        if (!container || !expanded.contains(path)) return;
+
+        // Opening something recognized opens onto it rather than straight into
+        // its fields.
+        if (element instanceof NbtCompound compound) {
+            NbtShape shape = shapeOf(compound);
+            if (shape != null && shape.cardHeight() > 0) {
+                rows.add(new Row(path + "/view", "", compound, depth + 1, false,
+                        compound, shape.cardHeight(), shape));
+            }
+        }
+        appendChildren(element, path, depth + 1);
+    }
+
+    /** Screen y of a row, accumulated because rows are not all one height. */
+    private int topOf(int index) {
+        int top = y;
+        for (int i = scrollRow; i < index && i < rows.size(); i++) top += rows.get(i).height;
+        return top;
+    }
+
+    /** The row under a point, or -1 for none. */
+    private int rowAt(int pointY) {
+        int top = y;
+        for (int i = scrollRow; i < rows.size() && top < y + height; i++) {
+            int next = top + rows.get(i).height;
+            if (pointY >= top && pointY < next) return i;
+            top = next;
+        }
+        return -1;
     }
 
     /** Whether the row above already says this, so showing it would repeat. */
@@ -437,7 +474,14 @@ public final class NbtTree {
     }
 
     private int visibleRows() {
-        return Math.max(1, height / ROW_HEIGHT);
+        int used = 0;
+        int count = 0;
+        for (int i = scrollRow; i < rows.size(); i++) {
+            used += rows.get(i).height;
+            if (used > height) break;
+            count++;
+        }
+        return Math.max(1, count);
     }
 
     private void clampScroll() {

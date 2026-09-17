@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtByte;
@@ -31,6 +32,9 @@ public final class ItemShape implements NbtShape {
     private static final String COUNT = "Count";
     private static final String DAMAGE = "Damage";
 
+    /** An item is drawn at sixteen, and a slot is that plus its edges. */
+    private static final int SLOT = 18;
+
     private static List<Choice> choices;
 
     private ItemShape() {}
@@ -57,6 +61,29 @@ public final class ItemShape implements NbtShape {
     public String summarize(NbtCompound compound) {
         String name = name(compound);
         return name == null ? null : compound.getByte(COUNT) + "x " + name;
+    }
+
+    @Override
+    public int cardHeight() {
+        return SLOT + 4;
+    }
+
+    @Override
+    public void renderCard(Minecraft minecraft, NbtCompound compound,
+                           int x, int y, int width, boolean hovered) {
+        Draw.rect(x, y + 2, x + SLOT, y + 2 + SLOT, Theme.PANEL_SUNKEN);
+        Draw.outline(x, y + 2, SLOT, SLOT, hovered ? Theme.BORDER_FOCUSED : Theme.BORDER);
+
+        ItemStack icon = iconFor(compound);
+        if (icon != null) ItemDraw.single(minecraft, icon, x + 1, y + 3);
+
+        String name = name(compound);
+        int textX = x + SLOT + 4;
+        Draw.text(minecraft, Draw.ellipsize(minecraft, name == null ? "Unknown item" : name,
+                        x + width - textX), textX, y + 4,
+                hovered ? Theme.ACCENT : Theme.TEXT);
+        Draw.text(minecraft, Draw.ellipsize(minecraft, "click to change", x + width - textX),
+                textX, y + 14, Theme.TEXT_FAINT);
     }
 
     @Override
