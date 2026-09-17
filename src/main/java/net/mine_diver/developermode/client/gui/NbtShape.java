@@ -65,26 +65,6 @@ public interface NbtShape {
     }
 
     /**
-     * What to call a field, when its key is an implementation detail rather
-     * than a name.
-     *
-     * @return null to show the key itself
-     */
-    default String labelFor(NbtCompound compound, String key) {
-        return null;
-    }
-
-    /**
-     * How to show a field's value, when the stored form is not the readable
-     * one.
-     *
-     * @return null to show the value itself
-     */
-    default String displayFor(NbtCompound compound, String key, NbtElement element) {
-        return null;
-    }
-
-    /**
      * The things this compound, or one field of it, is expected to be.
      *
      * <p>Something with choices is picked from rather than typed into. A choice

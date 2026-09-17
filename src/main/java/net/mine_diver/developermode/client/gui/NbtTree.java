@@ -116,7 +116,8 @@ public final class NbtTree {
      */
     public void setRaw(boolean raw) {
         this.raw = raw;
-        // Rows are ordered by what they read as, which raw changes.
+        // Raw shows fields that a shape folds away, so which rows there are
+        // changes with it.
         rebuild();
     }
 
@@ -205,7 +206,7 @@ public final class NbtTree {
                 Draw.caret(indent + 1, rowY + 2, CARET_SIZE, expanded.contains(row.path), Theme.NBT_CONTAINER);
             }
 
-            String label = labelOf(row);
+            String label = row.key;
             Draw.text(minecraft, label, contentX, rowY + 1, Theme.NBT_KEY);
 
             int valueX = contentX + Draw.textWidth(minecraft, label) + KEY_GAP;
@@ -220,7 +221,7 @@ public final class NbtTree {
                 editor.bounds(valueX, rowY - 1, Math.max(30, x + width - valueX - 2));
                 editor.render(minecraft, "");
             } else {
-                Draw.text(minecraft, Draw.ellipsize(minecraft, displayOf(row), x + width - valueX - 2),
+                Draw.text(minecraft, Draw.ellipsize(minecraft, describe(row.element), x + width - valueX - 2),
                         valueX, rowY + 1, colorOf(row.element));
             }
 
@@ -403,10 +404,8 @@ public final class NbtTree {
             List<NbtElement> children = new ArrayList<>();
             for (Object child : compound.values()) children.add((NbtElement) child);
             // HashMap order is arbitrary, and a tree that reshuffles itself is
-            // unusable, so impose one. By what the rows read as rather than
-            // what they are keyed by, or a renamed field sorts somewhere its
-            // name does not explain.
-            children.sort(Comparator.comparing(child -> sortKeyOf(compound, child)));
+            // unusable, so impose one.
+            children.sort(Comparator.comparing(NbtElement::getKey));
 
             for (NbtElement child : children) {
                 if (hidden(compound, child.getKey())) continue;
@@ -458,12 +457,6 @@ public final class NbtTree {
     private boolean hidden(NbtCompound owner, String key) {
         NbtShape shape = shapeOf(owner);
         return shape != null && shape.hides(owner, key);
-    }
-
-    private String sortKeyOf(NbtCompound owner, NbtElement child) {
-        NbtShape shape = shapeOf(owner);
-        String label = shape == null ? null : shape.labelFor(owner, child.getKey());
-        return label == null ? child.getKey() : label;
     }
 
     /** The shape a compound was recognized as, or null. */
@@ -534,20 +527,6 @@ public final class NbtTree {
 
         NbtShape shape = shapeOf(compound);
         return shape == null ? null : shape.iconFor(compound);
-    }
-
-    /** What a field is called here, which is not always what it is keyed by. */
-    private String labelOf(Row row) {
-        NbtShape shape = shapeOf(row.owner);
-        String label = shape == null ? null : shape.labelFor(row.owner, row.key);
-        return label == null ? row.key : label;
-    }
-
-    /** What a field reads as here, which is not always what it stores. */
-    private String displayOf(Row row) {
-        NbtShape shape = shapeOf(row.owner);
-        String display = shape == null ? null : shape.displayFor(row.owner, row.key, row.element);
-        return display == null ? describe(row.element) : display;
     }
 
     /**
