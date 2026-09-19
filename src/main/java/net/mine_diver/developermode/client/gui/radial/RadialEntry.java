@@ -59,7 +59,12 @@ public class RadialEntry {
     }
 
     public void renderIcon(Minecraft minecraft, int centerX, int centerY) {
-        ItemDraw.single(minecraft, icon, centerX - ItemDraw.SIZE / 2, centerY - ItemDraw.SIZE / 2);
+        renderIcon(minecraft, centerX, centerY, ItemDraw.SIZE);
+    }
+
+    /** Sized, so a slot can grow under the stick without moving off its angle. */
+    public void renderIcon(Minecraft minecraft, int centerX, int centerY, int size) {
+        ItemDraw.scaled(minecraft, icon, centerX - size / 2, centerY - size / 2, size);
     }
 
     public void perform(Screen returnTo) {
