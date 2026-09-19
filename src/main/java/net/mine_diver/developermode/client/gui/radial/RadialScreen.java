@@ -26,15 +26,20 @@ import java.util.Deque;
  * <ul>
  *   <li>Left button up, and movement is raw deflection, like pushing a stick.
  *       Where the stick points is what a click would take.
- *   <li>Left button down, and movement is the camera. The ring opens out of the
- *       way, the crosshair is the aim, and letting go opens whatever is under
- *       it.
+ *   <li>Left button down, and you are playing. The mouse is the camera, the
+ *       movement keys reach the player again, the ring stands out of the way,
+ *       and letting go opens whatever the crosshair is on.
  * </ul>
  *
  * <p>So the world and the menu are never competing for the same movement, and
  * there is nothing to learn beyond which button is down. Letting go of the key
  * leaves, always, and never chooses anything: only the left button chooses, so
  * the key has one meaning everywhere.
+ *
+ * <p>The ring is the same size at the same angles every time it is up. Only the
+ * middle answers what is out there, opening into a window when the crosshair
+ * finds something and closing to a pinhole when it does not, so the menu holds
+ * still while the world is what moves.
  *
  * <p>Two things respond to the stick, and they respond differently on purpose.
  * The glow in the hole tracks it continuously, so pushing into empty space
@@ -43,8 +48,8 @@ import java.util.Deque;
  * commitment rather than as drifting furniture.
  */
 public final class RadialScreen extends DevScreen {
-    private static final float INNER_RADIUS = 26;
-    private static final float OUTER_RADIUS = 74;
+    private static final float INNER_RADIUS = 64;
+    private static final float OUTER_RADIUS = 112;
     private static final float SLOT_GAP_DEGREES = 3;
 
     /** GUI pixels of mouse travel for a fully pushed stick. */
@@ -65,13 +70,22 @@ public final class RadialScreen extends DevScreen {
 
     private static final long OPEN_MILLIS = 110;
 
-    /** Ajar: open enough to read what is out there without giving up the ring. */
+    /** Ajar: the middle is a clear window, filling the ring's hole. */
     private static final float AJAR = 0.3F;
-    /** GUI pixels the ring travels outward at a full aperture. */
+    /** GUI pixels the ring travels outward once aiming takes over. */
     private static final float APERTURE_TRAVEL = 130;
-    private static final float APERTURE_TAU_MILLIS = 70;
-    /** What is left of the ring once the aperture is wide. */
+    /** What is left of the ring once aiming has taken it out of the way. */
     private static final float APERTURE_FADE = 0.12F;
+    /** The pinhole the aperture closes down to. */
+    private static final float HOLE_CLOSED = 6;
+
+    // Sprung rather than eased, so the middle overshoots a little and settles.
+    // It is the one part of this that reacts to the world on its own, and a
+    // flinch is what makes that read as an answer rather than as a transition.
+    private static final float APERTURE_STIFFNESS = 260;
+    private static final float APERTURE_DAMPING = 22;
+    /** Decay of the rim flash when what is out there changes. */
+    private static final float PULSE_TAU_MILLIS = 190;
     /** How far the sharp window fades back into the blur, in GUI pixels. */
     private static final float HOLE_FEATHER = 14;
 
@@ -95,8 +109,9 @@ public final class RadialScreen extends DevScreen {
     private boolean aimCancelled;
 
     private float aperture;
-    private float apertureRest;
-    private boolean sampledContext;
+    private float apertureVelocity;
+    private boolean wasTargeted;
+    private float pulse;
 
     private RadialScreen(Screen returnTo) {
         this.returnTo = returnTo;
@@ -119,8 +134,9 @@ public final class RadialScreen extends DevScreen {
         snapX = 0;
         snapY = 0;
         aperture = 0;
-        apertureRest = 0;
-        sampledContext = false;
+        apertureVelocity = 0;
+        wasTargeted = false;
+        pulse = 0;
         openedAt = System.currentTimeMillis();
         lastFrameAt = openedAt;
 
@@ -163,7 +179,6 @@ public final class RadialScreen extends DevScreen {
             hovered = slotUnderPull();
         }
 
-        sampleContext();
         updateAperture(elapsed);
         updateSnap(elapsed);
 
@@ -173,8 +188,13 @@ public final class RadialScreen extends DevScreen {
         if (!aiming) renderGlow();
         renderIcons(grow);
 
-        if (aperture > 0.02F) InspectRenderer.renderReadout(minecraft, width, height, help());
-        renderCaption();
+        // One thing in the middle at a time. A hovered slot wins, because what
+        // a click would do beats what is behind the window it would leave.
+        if (hovered >= 0 || aperture < 0.08F) {
+            renderCaption();
+        } else {
+            InspectRenderer.renderReadout(minecraft, width, height, help());
+        }
     }
 
     @Override
@@ -292,30 +312,39 @@ public final class RadialScreen extends DevScreen {
         if (minecraft.player != null) minecraft.player.releaseAllKeys();
     }
 
-    /**
-     * Decides once, on the way in, whether the ring starts ajar.
-     *
-     * <p>Only once: an aperture that answered the world would open under the
-     * user's hand whenever something wandered into view.
-     */
-    private void sampleContext() {
-        if (sampledContext) return;
-        // The aim is worked out during the world render, so there is nothing to
-        // read on the frame that opened the screen.
-        if (System.currentTimeMillis() == openedAt) return;
-
-        sampledContext = true;
-        apertureRest = targeted() ? AJAR : 0;
-    }
-
     private static boolean targeted() {
         return InspectMode.isBlockFocused() || InspectMode.focused() != null;
     }
 
+    /**
+     * Opens and closes the middle in answer to what is under the crosshair.
+     *
+     * <p>Only the middle. The ring keeps its size and its angles whatever is
+     * out there, so nothing a passing cow does moves what a flick would hit,
+     * and the aperture is free to answer the world because answering it costs
+     * the menu nothing.
+     */
     private void updateAperture(float elapsedMillis) {
-        float target = aiming ? 1 : apertureRest;
-        float alpha = (float) (1 - Math.exp(-elapsedMillis / APERTURE_TAU_MILLIS));
-        aperture += (target - aperture) * alpha;
+        boolean nowTargeted = targeted();
+        if (nowTargeted != wasTargeted) {
+            wasTargeted = nowTargeted;
+            pulse = 1;
+        }
+        pulse *= (float) Math.exp(-elapsedMillis / PULSE_TAU_MILLIS);
+
+        float target = aiming ? 1 : nowTargeted ? AJAR : 0;
+
+        // Seconds, and capped: a long frame must not hand the spring enough
+        // energy to throw the aperture across its range in one step.
+        float step = Math.min(elapsedMillis, 50) / 1000F;
+        apertureVelocity += (target - aperture) * APERTURE_STIFFNESS * step;
+        apertureVelocity -= apertureVelocity * APERTURE_DAMPING * step;
+        aperture = Math.max(0, Math.min(1.2F, aperture + apertureVelocity * step));
+    }
+
+    /** How far aiming has taken over, which is the only thing that moves the ring. */
+    private float aimProgress() {
+        return Math.max(0, (aperture - AJAR) / (1 - AJAR));
     }
 
     private void updatePull() {
@@ -368,23 +397,34 @@ public final class RadialScreen extends DevScreen {
         Blur.punch(minecraft, holeRadius(), HOLE_FEATHER);
     }
 
+    /**
+     * The clear window: a pinhole when there is nothing to see, the ring's own
+     * hole when there is, and out past the ring once aiming takes over.
+     */
     private float holeRadius() {
-        return INNER_RADIUS * openProgress() + aperture * APERTURE_TRAVEL;
+        float inside = Math.min(aperture, AJAR) / AJAR;
+        float ringHole = INNER_RADIUS * openProgress();
+        return HOLE_CLOSED + (ringHole - HOLE_CLOSED) * inside + APERTURE_TRAVEL * aimProgress();
     }
 
     private void renderRing(float grow) {
         float ringX = ringX();
         float ringY = ringY();
-        float push = aperture * APERTURE_TRAVEL;
-        float inner = holeRadius();
+        float push = aimProgress() * APERTURE_TRAVEL;
+        float inner = INNER_RADIUS * grow + push;
         float outer = OUTER_RADIUS * grow + push;
-        float visible = 1 - aperture * (1 - APERTURE_FADE);
+        float visible = 1 - aimProgress() * (1 - APERTURE_FADE);
+        float hole = holeRadius();
 
-        // A faint disc behind the hole, so the caption stays readable over
-        // whatever the world happens to be doing. It goes with the aperture,
-        // since the point of opening up is to see through it.
-        Draw.ring(ringX, ringY, 0, INNER_RADIUS * grow, 0, 360,
-                fade(Theme.PANEL_SUNKEN, 1 - aperture));
+        // What is left of the hole once the aperture has closed over it, so the
+        // caption has something to sit on. It shrinks rather than fading, which
+        // is what makes the middle read as an iris.
+        if (hole < inner) {
+            Draw.ring(ringX, ringY, hole, inner, 0, 360, fade(Theme.PANEL_SUNKEN, visible));
+        }
+        if (pulse > 0.01F) {
+            Draw.ring(ringX, ringY, hole, hole + 2, 0, 360, fade(Theme.ACCENT, pulse * 0.8F));
+        }
 
         double slice = 360.0 / RadialMenu.SLOTS;
         for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
@@ -412,11 +452,11 @@ public final class RadialScreen extends DevScreen {
     }
 
     private void renderIcons(float grow) {
-        if (aperture > 0.75F) return;
+        if (aimProgress() > 0.75F) return;
 
         float ringX = ringX();
         float ringY = ringY();
-        float radius = (INNER_RADIUS + OUTER_RADIUS) / 2 * grow + aperture * APERTURE_TRAVEL;
+        float radius = (INNER_RADIUS + OUTER_RADIUS) / 2 * grow + aimProgress() * APERTURE_TRAVEL;
         double slice = 360.0 / RadialMenu.SLOTS;
 
         for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
@@ -431,8 +471,6 @@ public final class RadialScreen extends DevScreen {
     }
 
     private void renderCaption() {
-        if (aperture > 0.02F) return;
-
         RadialEntry entry = menu.get(hovered);
         int ringX = Math.round(ringX());
         int ringY = Math.round(ringY());
