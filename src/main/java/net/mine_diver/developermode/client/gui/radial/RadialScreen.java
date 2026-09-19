@@ -63,9 +63,13 @@ public final class RadialScreen extends DevScreen {
     /** Mouse travel to stick travel. Raise it for a twitchier ring. */
     private static final float SENSITIVITY = 1;
 
-    /** How far the glow travels for a full push. Keep it inside the hole. */
-    private static final float GLOW_TRAVEL = 0.45F;
-    private static final float GLOW_RADIUS = 17;
+    /**
+     * The glow's size, and how much of itself it keeps clear of the ring at a
+     * full push. How far it travels is worked out from the hole rather than
+     * set here, so it stays the same gesture whatever the ring's size becomes.
+     */
+    private static final float GLOW_RADIUS = 26;
+    private static final float GLOW_MARGIN = 0.75F;
 
     /** Fixed step the ring takes towards a chosen slot. */
     private static final float SNAP_DISTANCE = 6;
@@ -101,6 +105,16 @@ public final class RadialScreen extends DevScreen {
     private static final float SWEEP_BAND_DEGREES = 55;
     /** Where the sweep has faded out by, as a fraction of the handover. */
     private static final float SWEEP_SPENT = 0.55F;
+    /** Degrees of ring still lit behind the crest, and the steps it fades over. */
+    private static final float SWEEP_TRAIL_DEGREES = 70;
+    private static final int SWEEP_TRAIL_STEPS = 7;
+    /** The bright edge right at the front of the wave. */
+    private static final float SWEEP_CREST_DEGREES = 6;
+
+    /** Half width of the spur that ties the middle to the slot under the stick. */
+    private static final double SPUR_DEGREES = 1.8;
+    /** How far the spur reaches back from the ring towards the middle. */
+    private static final float SPUR_REACH = 16;
 
     /** How far a slot stands out of the ring once the stick lands on it. */
     private static final float LIFT_DISTANCE = 5;
@@ -245,7 +259,7 @@ public final class RadialScreen extends DevScreen {
             renderSweep(grow);
         }
 
-        if (!aiming) renderGlow();
+        if (!aiming) renderGlow(grow);
 
         // One thing in the middle at a time. A hovered slot wins, because what
         // a click would do beats what is behind the window it would leave.
@@ -570,6 +584,7 @@ public final class RadialScreen extends DevScreen {
         }
 
         renderBoundaries(ringX, ringY, inner, outer, slice, base * levelAlpha(phase));
+        if (live) renderSpur(scale, highlight);
         renderIcons(level, scale, highlight, live, phase);
     }
 
@@ -603,8 +618,7 @@ public final class RadialScreen extends DevScreen {
     private float slotAlpha(int slot, Phase phase) {
         if (phase == Phase.SETTLED) return 1;
 
-        double anchor = takenSlot * (360.0 / RadialMenu.SLOTS) + (descending ? 0 : 180);
-        double away = Math.abs((slot * (360.0 / RadialMenu.SLOTS)) - anchor) % 360;
+        double away = Math.abs((slot * (360.0 / RadialMenu.SLOTS)) - sweepAnchor()) % 360;
         if (away > 180) away = 360 - away;
 
         float front = ease(transition) * 180;
@@ -622,8 +636,13 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * The pulse itself: an accent band racing out of the chosen slot along both
-     * rims, spent by the time it has crossed the ring.
+     * The pulse itself: light running out of the chosen slot in both
+     * directions, through the ring rather than along its edges, spent by the
+     * time it has crossed.
+     *
+     * <p>Brightest at the front and trailing off behind, because a band of one
+     * colour filling an arc reads as an arc being filled. What makes it a wave
+     * is that the leading edge is the bright part.
      */
     private void renderSweep(float grow) {
         if (takenSlot < 0) return;
@@ -634,13 +653,62 @@ public final class RadialScreen extends DevScreen {
         float push = aimProgress() * APERTURE_TRAVEL;
         float inner = INNER_RADIUS * grow + push;
         float outer = OUTER_RADIUS * grow + push;
-        double anchor = takenSlot * (360.0 / RadialMenu.SLOTS) + (descending ? 0 : 180);
+        double anchor = sweepAnchor();
         float front = ease(transition) * 180;
+        float step = SWEEP_TRAIL_DEGREES / SWEEP_TRAIL_STEPS;
 
-        Draw.ring(ringX(), ringY(), outer - 3, outer, anchor - front, anchor + front,
-                fade(Theme.ACCENT, strength * 0.85F));
-        Draw.ring(ringX(), ringY(), inner, inner + 2, anchor - front, anchor + front,
-                fade(Theme.ACCENT, strength * 0.55F));
+        for (int i = 0; i < SWEEP_TRAIL_STEPS; i++) {
+            double lead = front - i * step;
+            if (lead <= 0) break;
+            double tail = Math.max(0, front - (i + 1) * step);
+            bothWays(anchor, tail, lead, inner, outer,
+                    fade(Theme.ACCENT_FILL, strength * (1 - i / (float) SWEEP_TRAIL_STEPS)));
+        }
+
+        if (front > 0) {
+            bothWays(anchor, Math.max(0, front - SWEEP_CREST_DEGREES), front, inner, outer,
+                    fade(Theme.ACCENT, strength * 0.6F));
+        }
+    }
+
+    /** The two halves of the wave, mirrored about where it started. */
+    private void bothWays(double anchor, double from, double to,
+                          float inner, float outer, int argb) {
+        Draw.ring(ringX(), ringY(), inner, outer, anchor + from, anchor + to, argb);
+        Draw.ring(ringX(), ringY(), inner, outer, anchor - to, anchor - from, argb);
+    }
+
+    /**
+     * Where the wave starts: the slot that was clicked on the way down, and the
+     * far side of the ring on the way back, so going back closes into the slot
+     * it came from rather than opening out of it.
+     */
+    private double sweepAnchor() {
+        return takenSlot * (360.0 / RadialMenu.SLOTS) + (descending ? 0 : 180);
+    }
+
+    /**
+     * A spoke of light from the middle out to the slot under the stick.
+     *
+     * <p>The ring is wide enough that what a slot is called and what it looks
+     * like sit a long way apart, and the caption is in the middle. This ties
+     * the two ends of that together, and it has room to exist only while the
+     * aperture is shut, which is exactly when the caption is the thing being
+     * read.
+     */
+    private void renderSpur(float grow, int highlight) {
+        if (highlight < 0) return;
+
+        float reach = lift[highlight] / LIFT_DISTANCE;
+        if (reach <= 0.05F) return;
+
+        float inner = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
+        float from = Math.max(holeRadius(), inner - SPUR_REACH * reach);
+        if (inner - from < 1) return;
+
+        double middle = highlight * (360.0 / RadialMenu.SLOTS);
+        Draw.ring(ringX(), ringY(), from, inner, middle - SPUR_DEGREES, middle + SPUR_DEGREES,
+                fade(Theme.ACCENT, 0.8F * reach));
     }
 
     /**
@@ -681,11 +749,26 @@ public final class RadialScreen extends DevScreen {
         }
     }
 
-    private void renderGlow() {
-        Draw.glow(
-                width / 2F + pullX * GLOW_TRAVEL,
-                height / 2F + pullY * GLOW_TRAVEL,
-                GLOW_RADIUS, fade(Theme.GLOW, 1 - aperture));
+    /**
+     * The light in the hole, which is the only thing that answers the stick
+     * before the stick has reached anything.
+     *
+     * <p>Its reach is the hole minus enough of itself to stay clear of the
+     * ring, so a full push puts it against the inside edge whatever that edge
+     * happens to be. A fraction fixed by hand would only be right for the ring
+     * it was measured against.
+     */
+    private void renderGlow(float grow) {
+        float travel = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN) / FULL_PULL;
+        float x = width / 2F + pullX * travel;
+        float y = height / 2F + pullY * travel;
+        int color = fade(Theme.GLOW, 1 - aperture);
+
+        Draw.glow(x, y, GLOW_RADIUS, color);
+        // Twice over once the push has actually landed on something. The light
+        // is additive, so a second pass is the same light again, and the middle
+        // brightens the moment a flick has somewhere to go.
+        if (hovered >= 0 && outgoing == null) Draw.glow(x, y, GLOW_RADIUS, color);
     }
 
     private void renderCaption() {
