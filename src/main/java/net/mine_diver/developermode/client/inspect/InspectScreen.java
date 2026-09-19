@@ -8,6 +8,7 @@ import net.mine_diver.developermode.client.gui.composer.WindowDock;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.Display;
 
 /**
  * The way into the mod: hold the key, get a pointer, point at things.
@@ -37,11 +38,21 @@ public final class InspectScreen extends DevScreen {
         // back when the ring goes away.
         InspectMode.enter();
 
-        // The pointer is already where the crosshair was: opening any screen
-        // centres the cursor before letting go of it. Measuring that again from
-        // displayWidth would be worse, since outside the applet path that is
-        // the desktop's size rather than the window's.
-        InspectMode.aimAt(Mouse.getX(), Mouse.getY());
+        // Start at the crosshair, so that a flick at the desktop is the same
+        // flick every time.
+        //
+        // The game places the cursor itself when it lets go of it, but on the
+        // AWT canvas, which keeps its windowed size while the display is full
+        // screen, and only when it was holding the cursor to begin with. The
+        // display is the space the mouse reports in, so it is the one to halve.
+        int centerX = Display.getWidth() / 2;
+        int centerY = Display.getHeight() / 2;
+        Mouse.setCursorPosition(centerX, centerY);
+
+        // Aimed at what was just set rather than at what the mouse reads back.
+        // Moving the pointer is a request to the window system, and the mouse
+        // goes on reporting the old position until that request comes back.
+        InspectMode.aimAt(centerX, centerY);
     }
 
     @Override

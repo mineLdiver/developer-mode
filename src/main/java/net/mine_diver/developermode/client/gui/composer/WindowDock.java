@@ -14,9 +14,10 @@ import java.util.List;
  * second action. A row of things to aim at individually would be a window
  * picker, which is a different job and a slower one.
  *
- * <p>It stops short of the top of the screen on purpose. Aiming at the edge of
- * the viewport means aiming at the edge of the window, and windowed that is
- * how a pointer leaves the game.
+ * <p>The band is deeper than the flick needs for the same reason. Aiming at the
+ * very edge of the viewport means aiming at the edge of the window, and
+ * windowed that is how a pointer leaves the game, so the desktop has to be
+ * reached before the edge is.
  */
 public final class WindowDock {
     private static final int HEIGHT = 13;
