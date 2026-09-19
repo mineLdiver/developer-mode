@@ -71,6 +71,16 @@ public final class RadialScreen extends DevScreen {
     private static final float GLOW_RADIUS = 26;
     private static final float GLOW_MARGIN = 0.75F;
 
+    // Sprung, so the light is a thing with weight rather than a readout of
+    // where the stick is. It lags going out, catches up, and settles.
+    private static final float GLOW_STIFFNESS = 900;
+    private static final float GLOW_DAMPING = 42;
+    /** Travel per second that counts as fast enough to drag a tail. */
+    private static final float GLOW_TRAIL_SPEED = 260;
+    /** Seconds of travel the tail reaches back over. */
+    private static final float GLOW_TRAIL_SECONDS = 0.05F;
+    private static final int GLOW_TRAIL_BLOBS = 3;
+
     /** Fixed step the ring takes towards a chosen slot. */
     private static final float SNAP_DISTANCE = 6;
     /** Time constant of that step. Smaller is snappier. */
@@ -163,6 +173,12 @@ public final class RadialScreen extends DevScreen {
     /** How far each slot stands out, so the lift eases instead of snapping. */
     private final float[] lift = new float[RadialMenu.SLOTS];
 
+    /** Where the light actually is, which is not quite where it is wanted. */
+    private float glowX;
+    private float glowY;
+    private float glowVelocityX;
+    private float glowVelocityY;
+
     private float aperture;
     private float apertureVelocity;
     private boolean wasTargeted;
@@ -193,6 +209,10 @@ public final class RadialScreen extends DevScreen {
         takenSlot = -1;
         transition = 1;
         Arrays.fill(lift, 0);
+        glowX = 0;
+        glowY = 0;
+        glowVelocityX = 0;
+        glowVelocityY = 0;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -243,6 +263,7 @@ public final class RadialScreen extends DevScreen {
         updateSnap(elapsed);
         updateTransition(elapsed);
         updateLift(elapsed);
+        updateGlow(elapsed, openProgress());
 
         renderBackdrop();
         float grow = openProgress();
@@ -259,7 +280,7 @@ public final class RadialScreen extends DevScreen {
             renderSweep(grow);
         }
 
-        if (!aiming) renderGlow(grow);
+        if (!aiming) renderGlow();
 
         // One thing in the middle at a time. A hovered slot wins, because what
         // a click would do beats what is behind the window it would leave.
@@ -750,24 +771,70 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * The light in the hole, which is the only thing that answers the stick
-     * before the stick has reached anything.
+     * Moves the light towards where it belongs, which is not the same as where
+     * the stick is.
+     *
+     * <p>While the push is still in the dead zone the light tracks it, so the
+     * middle answers a movement that has not chosen anything yet. The moment
+     * the push lands on a slot the light stops following and goes to that
+     * slot's own line instead, and stays there however the push wanders inside
+     * the slot. Sprung rather than moved, so it arrives with some weight to it
+     * and is not a second drawing of the stick's position.
      *
      * <p>Its reach is the hole minus enough of itself to stay clear of the
-     * ring, so a full push puts it against the inside edge whatever that edge
+     * ring, so landing puts it against the inside edge whatever that edge
      * happens to be. A fraction fixed by hand would only be right for the ring
      * it was measured against.
      */
-    private void renderGlow(float grow) {
-        float travel = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN) / FULL_PULL;
-        float x = width / 2F + pullX * travel;
-        float y = height / 2F + pullY * travel;
+    private void updateGlow(float elapsedMillis, float grow) {
+        float reach = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN);
+        float targetX;
+        float targetY;
+
+        if (hovered >= 0 && outgoing == null) {
+            double radians = Math.toRadians(hovered * 360.0 / RadialMenu.SLOTS);
+            targetX = (float) (Math.sin(radians) * reach);
+            targetY = (float) (-Math.cos(radians) * reach);
+        } else {
+            float travel = reach / FULL_PULL;
+            targetX = pullX * travel;
+            targetY = pullY * travel;
+        }
+
+        float step = Math.min(elapsedMillis, 50) / 1000F;
+        glowVelocityX += (targetX - glowX) * GLOW_STIFFNESS * step;
+        glowVelocityY += (targetY - glowY) * GLOW_STIFFNESS * step;
+        glowVelocityX -= glowVelocityX * GLOW_DAMPING * step;
+        glowVelocityY -= glowVelocityY * GLOW_DAMPING * step;
+        glowX += glowVelocityX * step;
+        glowY += glowVelocityY * step;
+    }
+
+    private void renderGlow() {
+        float x = width / 2F + glowX;
+        float y = height / 2F + glowY;
         int color = fade(Theme.GLOW, 1 - aperture);
 
+        // Drawn strung out behind itself while it is still moving, so what
+        // crosses the hole looks like one body being pulled rather than a
+        // light being switched on somewhere else.
+        float speed = (float) Math.sqrt(glowVelocityX * glowVelocityX + glowVelocityY * glowVelocityY);
+        float drag = Math.min(1, speed / GLOW_TRAIL_SPEED);
+        if (drag > 0.05F) {
+            for (int blob = 1; blob <= GLOW_TRAIL_BLOBS; blob++) {
+                float back = blob / (float) (GLOW_TRAIL_BLOBS + 1);
+                Draw.glow(
+                        x - glowVelocityX * GLOW_TRAIL_SECONDS * back,
+                        y - glowVelocityY * GLOW_TRAIL_SECONDS * back,
+                        GLOW_RADIUS * (1 - back * 0.45F),
+                        fade(color, (1 - back) * drag * 0.7F));
+            }
+        }
+
         Draw.glow(x, y, GLOW_RADIUS, color);
-        // Twice over once the push has actually landed on something. The light
-        // is additive, so a second pass is the same light again, and the middle
-        // brightens the moment a flick has somewhere to go.
+        // Twice over once the push has landed. The light is additive, so a
+        // second pass is the same light again, and the glob brightens as it
+        // takes hold of a slot.
         if (hovered >= 0 && outgoing == null) Draw.glow(x, y, GLOW_RADIUS, color);
     }
 
