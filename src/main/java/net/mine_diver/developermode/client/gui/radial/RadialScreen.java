@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.radial;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.gui.Blur;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -8,6 +9,8 @@ import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.client.inspect.InspectRenderer;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.entity.player.ClientPlayerEntity;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -69,6 +72,8 @@ public final class RadialScreen extends DevScreen {
     private static final float APERTURE_TAU_MILLIS = 70;
     /** What is left of the ring once the aperture is wide. */
     private static final float APERTURE_FADE = 0.12F;
+    /** How far the sharp window fades back into the blur, in GUI pixels. */
+    private static final float HOLE_FEATHER = 14;
 
     private final Screen returnTo;
 
@@ -124,6 +129,7 @@ public final class RadialScreen extends DevScreen {
 
     @Override
     public void removed() {
+        releaseMovement();
         InspectMode.exit();
         Mouse.setGrabbed(false);
         drainMouseDeltas();
@@ -150,6 +156,7 @@ public final class RadialScreen extends DevScreen {
 
         if (aiming) {
             applyLook();
+            applyMovement();
             hovered = -1;
         } else {
             updatePull();
@@ -202,6 +209,7 @@ public final class RadialScreen extends DevScreen {
         if (button != 0 || !aiming) return;
 
         aiming = false;
+        releaseMovement();
         resetPush();
         if (!aimCancelled) InspectMode.pick();
         aimCancelled = false;
@@ -252,6 +260,36 @@ public final class RadialScreen extends DevScreen {
 
         minecraft.player.changeLookDirection(
                 Mouse.getDX() * scale, Mouse.getDY() * scale * invert);
+    }
+
+    /**
+     * Hands the movement keys back to the player while the button is down.
+     *
+     * <p>Opening any screen releases them, and nothing puts them back while one
+     * is up, so they are read straight off the keyboard here. Setting the same
+     * state twice costs nothing, which is why this can poll rather than having
+     * to track presses and releases.
+     */
+    private void applyMovement() {
+        ClientPlayerEntity player = minecraft.player;
+        if (player == null) return;
+
+        GameOptions options = minecraft.options;
+        feed(player, options.forwardKey);
+        feed(player, options.backKey);
+        feed(player, options.leftKey);
+        feed(player, options.rightKey);
+        feed(player, options.jumpKey);
+        feed(player, options.sneakKey);
+    }
+
+    private static void feed(ClientPlayerEntity player, KeyBinding binding) {
+        player.updateKey(binding.code, Keyboard.isKeyDown(binding.code));
+    }
+
+    /** Otherwise whatever was held when the button came up stays held. */
+    private void releaseMovement() {
+        if (minecraft.player != null) minecraft.player.releaseAllKeys();
     }
 
     /**
@@ -317,17 +355,28 @@ public final class RadialScreen extends DevScreen {
         return menu.get(slot) == null ? -1 : slot;
     }
 
+    /**
+     * Blurred and dimmed everywhere except the hole, which is the frame exactly
+     * as the world drew it. The hole is the ring's own hole, so opening the
+     * aperture is what widens the window rather than a second thing to tune.
+     */
     @Override
     protected void renderBackdrop() {
         Draw.resetScissor();
-        Draw.rect(0, 0, width, height, fade(Theme.SCRIM, 1 - aperture));
+        Blur.render(minecraft, true);
+        Draw.rect(0, 0, width, height, Theme.SCRIM);
+        Blur.punch(minecraft, holeRadius(), HOLE_FEATHER);
+    }
+
+    private float holeRadius() {
+        return INNER_RADIUS * openProgress() + aperture * APERTURE_TRAVEL;
     }
 
     private void renderRing(float grow) {
         float ringX = ringX();
         float ringY = ringY();
         float push = aperture * APERTURE_TRAVEL;
-        float inner = INNER_RADIUS * grow + push;
+        float inner = holeRadius();
         float outer = OUTER_RADIUS * grow + push;
         float visible = 1 - aperture * (1 - APERTURE_FADE);
 
@@ -407,7 +456,7 @@ public final class RadialScreen extends DevScreen {
         if (!aiming) return "hold left click to look around";
         return aimCancelled
                 ? "cancelled, let go safely"
-                : targeted() ? "let go to open    right click to cancel" : "nothing under the crosshair";
+                : targeted() ? "let go to open    right click to cancel" : "let go to come back";
     }
 
     /** Scales a colour's alpha, leaving the colour itself alone. */
