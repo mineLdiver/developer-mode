@@ -49,6 +49,9 @@ import java.util.Deque;
  * commitment rather than as drifting furniture.
  */
 public final class RadialScreen extends DevScreen {
+    /** Which side of a handover a level is on, which is what decides its sweep. */
+    private enum Phase { SETTLED, LEAVING, ARRIVING }
+
     private static final float INNER_RADIUS = 64;
     private static final float OUTER_RADIUS = 112;
     private static final float SLOT_GAP_DEGREES = 3;
@@ -89,9 +92,15 @@ public final class RadialScreen extends DevScreen {
     private static final float PULSE_TAU_MILLIS = 190;
 
     /** How long one level takes to hand over to another. */
-    private static final float TRANSITION_MILLIS = 200;
-    /** How far the level being left flies out, and the one arriving starts in. */
-    private static final float ZOOM = 0.45F;
+    private static final float TRANSITION_MILLIS = 260;
+    /**
+     * Degrees over which a slot hands over as the sweep reaches it. Wide
+     * enough that several are mid change at once, so it reads as a wave
+     * crossing the ring rather than as slots taking turns.
+     */
+    private static final float SWEEP_BAND_DEGREES = 55;
+    /** Where the sweep has faded out by, as a fraction of the handover. */
+    private static final float SWEEP_SPENT = 0.55F;
 
     /** How far a slot stands out of the ring once the stick lands on it. */
     private static final float LIFT_DISTANCE = 5;
@@ -102,6 +111,9 @@ public final class RadialScreen extends DevScreen {
 
     private static final int ICON_SIZE = 16;
     private static final int ICON_SIZE_LIFTED = 21;
+
+    /** Sheets drawn behind a slot that has a level under it. */
+    private static final int STACK_LAYERS = 2;
     /** How far the sharp window fades back into the blur, in GUI pixels. */
     private static final float HOLE_FEATHER = 14;
 
@@ -126,10 +138,13 @@ public final class RadialScreen extends DevScreen {
 
     /** The level being left, while it is still on screen. */
     private RadialMenu outgoing;
-    /** The slot that was taken to leave it, so it can be seen being taken. */
+    /** The slot the handover runs from, so the sweep starts where you clicked. */
     private int takenSlot = -1;
     private boolean descending;
     private float transition = 1;
+
+    /** The slot taken at each level above, so going back converges on it. */
+    private final Deque<Integer> trailSlots = new ArrayDeque<>();
 
     /** How far each slot stands out, so the lift eases instead of snapping. */
     private final float[] lift = new float[RadialMenu.SLOTS];
@@ -151,6 +166,7 @@ public final class RadialScreen extends DevScreen {
     public void init() {
         menu = RadialMenu.root();
         trail.clear();
+        trailSlots.clear();
 
         Mouse.setGrabbed(true);
         drainMouseDeltas();
@@ -222,13 +238,11 @@ public final class RadialScreen extends DevScreen {
         // behind it; coming back up does the same in reverse, so which way you
         // went is legible from the movement alone.
         if (outgoing == null) {
-            renderLevel(menu, grow, 1, hovered, true);
+            renderLevel(menu, grow, hovered, true, Phase.SETTLED);
         } else {
-            float eased = ease(transition);
-            float leaving = descending ? 1 + ZOOM * eased : 1 - ZOOM * eased * 0.8F;
-            float arriving = descending ? 1 - ZOOM + ZOOM * eased : 1 + ZOOM - ZOOM * eased;
-            renderLevel(outgoing, grow * leaving, 1 - eased, descending ? takenSlot : -1, false);
-            renderLevel(menu, grow * arriving, eased, -1, false);
+            renderLevel(outgoing, grow, descending ? takenSlot : -1, false, Phase.LEAVING);
+            renderLevel(menu, grow, -1, false, Phase.ARRIVING);
+            renderSweep(grow);
         }
 
         if (!aiming) renderGlow();
@@ -261,7 +275,7 @@ public final class RadialScreen extends DevScreen {
             if (aiming) {
                 aimCancelled = true;
             } else if (!trail.isEmpty()) {
-                beginTransition(-1, false);
+                beginTransition(trailSlots.removeLast(), false);
                 menu = trail.removeLast();
                 resetPush();
             } else {
@@ -293,6 +307,7 @@ public final class RadialScreen extends DevScreen {
         if (submenu != null) {
             beginTransition(hovered, true);
             trail.addLast(menu);
+            trailSlots.addLast(hovered);
             menu = submenu;
             resetPush();
             return;
@@ -518,9 +533,9 @@ public final class RadialScreen extends DevScreen {
      * @param highlight the slot to show as taken, or -1
      * @param live      whether this is the level the stick is actually on
      */
-    private void renderLevel(RadialMenu level, float scale, float alpha, int highlight, boolean live) {
-        float visible = alpha * (1 - aimProgress() * (1 - APERTURE_FADE));
-        if (visible <= 0.01F) return;
+    private void renderLevel(RadialMenu level, float scale, int highlight, boolean live, Phase phase) {
+        float base = 1 - aimProgress() * (1 - APERTURE_FADE);
+        if (base <= 0.01F) return;
 
         float ringX = ringX();
         float ringY = ringY();
@@ -530,6 +545,9 @@ public final class RadialScreen extends DevScreen {
         double slice = 360.0 / RadialMenu.SLOTS;
 
         for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
+            float visible = base * slotAlpha(slot, phase);
+            if (visible <= 0.01F) continue;
+
             double middle = slot * slice;
             double from = middle - slice / 2 + SLOT_GAP_DEGREES / 2;
             double to = middle + slice / 2 - SLOT_GAP_DEGREES / 2;
@@ -546,10 +564,83 @@ public final class RadialScreen extends DevScreen {
             if (selected && filled) {
                 Draw.ring(ringX, ringY, edge - 2, edge, from, to, fade(Theme.ACCENT, visible));
             }
+            if (entry != null && entry.submenu() != null) {
+                renderStack(ringX, ringY, edge, middle, slice, visible);
+            }
         }
 
-        renderBoundaries(ringX, ringY, inner, outer, slice, visible);
-        renderIcons(level, scale, visible, highlight, live);
+        renderBoundaries(ringX, ringY, inner, outer, slice, base * levelAlpha(phase));
+        renderIcons(level, scale, highlight, live, phase);
+    }
+
+    /**
+     * Sheets behind a slot that has a level under it.
+     *
+     * <p>A slot that opens another ring does not finish what you started, and
+     * nothing else about it says so. Stacking it says there is more of it the
+     * same way a pile of paper does, and it is readable before the click
+     * rather than after.
+     */
+    private void renderStack(float ringX, float ringY, float edge, double middle,
+                             double slice, float visible) {
+        for (int layer = 1; layer <= STACK_LAYERS; layer++) {
+            double inset = SLOT_GAP_DEGREES / 2 + layer * 3.0;
+            float at = edge + layer * 3 - 1;
+            Draw.ring(ringX, ringY, at, at + 1.5F,
+                    middle - slice / 2 + inset, middle + slice / 2 - inset,
+                    fade(layer == 1 ? Theme.TEXT_DIM : Theme.TEXT_FAINT, visible));
+        }
+    }
+
+    /**
+     * How far through the handover a given slot is.
+     *
+     * <p>The wave starts at the slot that was clicked and runs both ways
+     * around the ring, so what happens next radiates out of what you chose.
+     * Going back anchors at the far side instead, so the ring closes into the
+     * slot you came from.
+     */
+    private float slotAlpha(int slot, Phase phase) {
+        if (phase == Phase.SETTLED) return 1;
+
+        double anchor = takenSlot * (360.0 / RadialMenu.SLOTS) + (descending ? 0 : 180);
+        double away = Math.abs((slot * (360.0 / RadialMenu.SLOTS)) - anchor) % 360;
+        if (away > 180) away = 360 - away;
+
+        float front = ease(transition) * 180;
+        float progress = (float) ((front - away) / SWEEP_BAND_DEGREES);
+        return phase == Phase.ARRIVING
+                ? Math.max(0, Math.min(1, progress))
+                : Math.max(0, Math.min(1, 1 - progress));
+    }
+
+    /** One number for the parts of a level that are not per slot. */
+    private float levelAlpha(Phase phase) {
+        if (phase == Phase.SETTLED) return 1;
+        float eased = ease(transition);
+        return phase == Phase.ARRIVING ? eased : 1 - eased;
+    }
+
+    /**
+     * The pulse itself: an accent band racing out of the chosen slot along both
+     * rims, spent by the time it has crossed the ring.
+     */
+    private void renderSweep(float grow) {
+        if (takenSlot < 0) return;
+
+        float strength = 1 - Math.max(0, (transition - SWEEP_SPENT) / (1 - SWEEP_SPENT));
+        if (strength <= 0.01F) return;
+
+        float push = aimProgress() * APERTURE_TRAVEL;
+        float inner = INNER_RADIUS * grow + push;
+        float outer = OUTER_RADIUS * grow + push;
+        double anchor = takenSlot * (360.0 / RadialMenu.SLOTS) + (descending ? 0 : 180);
+        float front = ease(transition) * 180;
+
+        Draw.ring(ringX(), ringY(), outer - 3, outer, anchor - front, anchor + front,
+                fade(Theme.ACCENT, strength * 0.85F));
+        Draw.ring(ringX(), ringY(), inner, inner + 2, anchor - front, anchor + front,
+                fade(Theme.ACCENT, strength * 0.55F));
     }
 
     /**
@@ -569,11 +660,7 @@ public final class RadialScreen extends DevScreen {
         }
     }
 
-    private void renderIcons(RadialMenu level, float scale, float visible, int highlight, boolean live) {
-        // Items are drawn by the game's own renderer, which takes no opacity,
-        // so they change over at the crossing point instead of fading.
-        if (visible < 0.45F) return;
-
+    private void renderIcons(RadialMenu level, float scale, int highlight, boolean live, Phase phase) {
         float ringX = ringX();
         float ringY = ringY();
         float radius = (INNER_RADIUS + OUTER_RADIUS) / 2 * scale + aimProgress() * APERTURE_TRAVEL;
@@ -582,6 +669,9 @@ public final class RadialScreen extends DevScreen {
         for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
             RadialEntry entry = level.get(slot);
             if (entry == null) continue;
+            // Items are drawn by the game's own renderer, which takes no
+            // opacity, so each one changes over as the wave reaches its slot.
+            if (slotAlpha(slot, phase) < 0.5F) continue;
 
             double radians = Math.toRadians(slot * slice);
             float reach = radius + (live ? lift[slot] / 2 : 0);
@@ -613,10 +703,18 @@ public final class RadialScreen extends DevScreen {
             return;
         }
 
-        Draw.textCentered(minecraft, entry.label(), ringX, ringY - 8,
+        // A slot that leads somewhere says so twice: stacked in the ring, and
+        // carried on its name, since the name is what you read before clicking.
+        RadialMenu submenu = entry.submenu();
+        String label = submenu == null ? entry.label() : entry.label() + "  >";
+        String hint = submenu == null
+                ? entry.hint()
+                : entry.hint() + "   (" + submenu.filled() + ")";
+
+        Draw.textCentered(minecraft, label, ringX, ringY - 8,
                 entry.enabled() ? Theme.ACCENT : Theme.TEXT_DIM);
         Draw.textCentered(minecraft,
-                Draw.ellipsize(minecraft, entry.hint(), (int) (INNER_RADIUS * 2) + 40),
+                Draw.ellipsize(minecraft, hint, (int) (INNER_RADIUS * 2) + 40),
                 ringX, ringY + 2, Theme.TEXT_FAINT);
     }
 

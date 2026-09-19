@@ -56,6 +56,15 @@ public final class RadialMenu {
         return slot < 0 || slot >= SLOTS ? null : entries[slot];
     }
 
+    /** How many slots are taken, which is what a category has to advertise. */
+    public int filled() {
+        int count = 0;
+        for (RadialEntry entry : entries) {
+            if (entry != null) count++;
+        }
+        return count;
+    }
+
     public static RadialMenu root() {
         return root;
     }
@@ -77,7 +86,7 @@ public final class RadialMenu {
                         new ItemStack(Block.CRAFTING_TABLE),
                         returnTo -> ComposerScreen.open()))
                 .put(RIGHT, new RadialEntry(
-                        "World", "What is out there, and what to add to it",
+                        "World", "What is out there",
                         new ItemStack(Block.GRASS_BLOCK),
                         world))
                 .put(DOWN, new RadialEntry(
