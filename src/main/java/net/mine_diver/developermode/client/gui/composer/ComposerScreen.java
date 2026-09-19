@@ -5,13 +5,11 @@ import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.radial.RadialScreen;
-import net.mine_diver.developermode.client.inspect.InspectScreen;
 import net.mine_diver.developermode.feature.entity.FrozenEntities;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -82,11 +80,6 @@ public final class ComposerScreen extends DevScreen {
         if (windows.remove(window)) window.onClosed();
         unplaced.remove(window);
         if (dragging == window) dragging = null;
-    }
-
-    /** Back to front, as they are stacked. */
-    public List<DevWindow> windows() {
-        return Collections.unmodifiableList(windows);
     }
 
     public DevWindow focused() {
@@ -209,10 +202,10 @@ public final class ComposerScreen extends DevScreen {
     protected void keyPressed(char character, int keyCode) {
         DevWindow focused = focused();
 
-        // The menu key always summons the radial, even while a text field has
-        // focus. Losing the ability to type a backtick is a smaller cost than
-        // the menu key sometimes doing nothing.
-        if (keyCode == DeveloperModeClient.MENU_KEY.code) {
+        // The menu key always summons the ring, even while a text field has
+        // focus. Losing the ability to type one character is a smaller cost
+        // than the menu key sometimes doing nothing.
+        if (keyCode == DeveloperModeClient.OPEN_KEY.code) {
             RadialScreen.open(this);
             return;
         }
@@ -220,11 +213,10 @@ public final class ComposerScreen extends DevScreen {
         if (keyCode == Keyboard.KEY_ESCAPE) {
             if (focused != null && focused.clearTypingFocus()) return;
 
-            // Back to inspecting if that is still held, so opening this by
-            // brushing the top of the screen costs one key rather than a trip
-            // out to the world and back.
-            if (Keyboard.isKeyDown(DeveloperModeClient.INSPECT_KEY.code)) {
-                InspectScreen.open();
+            // Back to the ring if the key is still held, so leaving here costs
+            // one key rather than a trip out to the world and back.
+            if (Keyboard.isKeyDown(DeveloperModeClient.OPEN_KEY.code)) {
+                RadialScreen.open(null);
                 return;
             }
             minecraft.setScreen(null);
@@ -287,7 +279,7 @@ public final class ComposerScreen extends DevScreen {
     }
 
     private static String menuKeyName() {
-        return Keyboard.getKeyName(DeveloperModeClient.MENU_KEY.code);
+        return Keyboard.getKeyName(DeveloperModeClient.OPEN_KEY.code);
     }
 
     private static int clamp(int value, int min, int max) {

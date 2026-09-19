@@ -71,6 +71,6 @@ abstract class HandledScreenMixin extends Screen {
 
     @Unique
     private static boolean developermode_inspecting() {
-        return Keyboard.isKeyDown(DeveloperModeClient.INSPECT_KEY.code);
+        return Keyboard.isKeyDown(DeveloperModeClient.OPEN_KEY.code);
     }
 }

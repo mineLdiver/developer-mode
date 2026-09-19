@@ -9,19 +9,40 @@ import net.minecraft.item.ItemStack;
  * One slot of the radial menu.
  *
  * <p>Label, hint, icon and availability are methods rather than fields so a
- * slot can describe whatever it is pointed at right now. See {@link EntityEntry}.
+ * slot can describe whatever it is pointed at right now.
+ *
+ * <p>A slot either does something or leads somewhere. Which one it is decides
+ * what a click on it means, so the two are kept apart rather than left to a
+ * null check at the call site.
  */
 public class RadialEntry {
     private final String label;
     private final String hint;
     private final ItemStack icon;
     private final RadialAction action;
+    private final RadialMenu submenu;
 
     public RadialEntry(String label, String hint, ItemStack icon, RadialAction action) {
+        this(label, hint, icon, action, null);
+    }
+
+    /** A category: clicking it descends instead of doing anything. */
+    public RadialEntry(String label, String hint, ItemStack icon, RadialMenu submenu) {
+        this(label, hint, icon, null, submenu);
+    }
+
+    private RadialEntry(String label, String hint, ItemStack icon,
+                        RadialAction action, RadialMenu submenu) {
         this.label = label;
         this.hint = hint;
         this.icon = icon;
         this.action = action;
+        this.submenu = submenu;
+    }
+
+    /** The level this leads to, or null if it is something to do rather than somewhere to go. */
+    public RadialMenu submenu() {
+        return submenu;
     }
 
     public String label() {

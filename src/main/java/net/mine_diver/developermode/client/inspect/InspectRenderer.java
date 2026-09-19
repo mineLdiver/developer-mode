@@ -9,7 +9,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.Box;
-import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -72,9 +71,12 @@ public final class InspectRenderer {
     }
 
     /**
-     * The readout under the pointer, drawn by the screen that owns it.
+     * The readout under the crosshair, drawn by the screen that owns it.
+     *
+     * <p>The help line comes from the caller, since what letting go of the
+     * button will do is something only the screen holding it knows.
      */
-    public static void renderReadout(Minecraft minecraft, int width, int height) {
+    public static void renderReadout(Minecraft minecraft, int width, int height, String help) {
         if (!InspectMode.isActive()) return;
 
         Entity focused = InspectMode.focused();
@@ -88,7 +90,6 @@ public final class InspectRenderer {
                 : focused == null
                         ? InspectMode.candidates().size() + " in range"
                         : String.format("%.1fm   id %d", distanceTo(minecraft, focused), focused.id);
-        String help = anything ? "left click to edit    right click to cancel" : "right click to cancel";
 
         int panelWidth = Math.max(Math.max(Draw.textWidth(minecraft, title), Draw.textWidth(minecraft, detail)),
                 Draw.textWidth(minecraft, help)) + 10;
@@ -102,8 +103,6 @@ public final class InspectRenderer {
         Draw.textCentered(minecraft, detail, width / 2, panelY + 14, Theme.TEXT_DIM);
         Draw.textCentered(minecraft, help, width / 2, panelY + 25, Theme.TEXT_FAINT);
 
-        String mode = "inspecting   " + Keyboard.getKeyName(DeveloperModeClient.INSPECT_KEY.code);
-        Draw.text(minecraft, mode, 4, 4, Theme.ACCENT);
     }
 
     /** What the client calls the block entity it is looking at, if it has one. */

@@ -28,9 +28,6 @@ public final class Theme {
 
     public static final int HOVER          = 0x26FFFFFF;
 
-    /** Laid under a mark that has to stay legible over the world itself. */
-    public static final int SHADOW         = 0xCC000000;
-
     public static final int NBT_KEY        = 0xFFC8CDD3;
     public static final int NBT_NUMBER     = 0xFFD8A657;
     public static final int NBT_STRING     = 0xFF89B482;
