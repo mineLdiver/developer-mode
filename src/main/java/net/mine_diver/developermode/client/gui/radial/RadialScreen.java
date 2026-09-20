@@ -75,17 +75,18 @@ public final class RadialScreen extends DevScreen {
     private static final float SLOT_RELEASE = 0.7F;
 
     /**
-     * How far past an entry's edge the push has to go before the light gives
-     * way to the next one, and the most of an entry that is ever allowed to
-     * take, so that narrow entries stay as reachable as wide ones.
+     * How much further than half an entry the push has to be swung to step off
+     * it onto the next one.
      *
-     * <p>The light stops at the edge and stays there while the push carries on,
-     * which is the whole of the resistance: the entry has to be pulled off
-     * rather than slid off. It also means the light is never partway across a
-     * boundary, so there is no crossing to draw.
+     * <p>The light does not follow that swing evenly. It leans towards the push
+     * quickly at first and then less and less, on a quarter turn of a sine, so
+     * an entry gets harder to leave the further it is leaned off, and lets go
+     * all at once at the end rather than sliding out. Nothing is clamped, so
+     * there is no edge for the light to sit against and be cut off by.
      */
     private static final float BREAK_DEGREES = 16;
-    private static final float BREAK_SHARE = 0.35F;
+    /** The most of its own half an entry lets the light lean, well short of its edge. */
+    private static final float LEAN_SHARE = 0.55F;
     /** Mouse travel to stick travel. Raise it for a twitchier ring. */
     private static final float SENSITIVITY = 1;
 
@@ -218,6 +219,8 @@ public final class RadialScreen extends DevScreen {
     /** How much of the light the ring has been given, and where it is deepest. */
     private float spread;
     private float filmApex;
+    /** Where the push was when the light settled on the entry it is on. */
+    private float originAngle;
 
     private float aperture;
     private float apertureVelocity;
@@ -251,6 +254,7 @@ public final class RadialScreen extends DevScreen {
         Arrays.fill(lift, 0);
         spread = 0;
         filmApex = 0;
+        originAngle = 0;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -294,7 +298,7 @@ public final class RadialScreen extends DevScreen {
             hovered = -1;
         } else {
             updatePull();
-            hovered = slotUnderPull();
+            updateSelection();
         }
 
         updateAperture(elapsed);
@@ -557,35 +561,73 @@ public final class RadialScreen extends DevScreen {
         snapY += (targetY - snapY) * alpha;
     }
 
-    private int slotUnderPull() {
-        if (menu.size() == 0) return -1;
+    /**
+     * Which entry the light is on, which is a thing it steps between rather
+     * than a reading of where the push points.
+     *
+     * <p>Coming out of the middle it takes whichever entry the push is aimed
+     * at. After that the push is measured from wherever it was when the light
+     * settled, and swinging it far enough to one side steps the light onto the
+     * neighbour that way, one at a time, and starts measuring again from there.
+     *
+     * <p>So every entry costs the same swing to leave, the light always
+     * arrives in the middle of the one it steps to rather than at the edge it
+     * came in over, and it is never left sitting somewhere it would immediately
+     * fall out of.
+     */
+    private void updateSelection() {
+        if (menu.size() == 0) {
+            hovered = -1;
+            return;
+        }
 
         float distance = (float) Math.hypot(pullX, pullY);
         float edge = hovered >= 0 ? DEAD_ZONE * SLOT_RELEASE : DEAD_ZONE;
-        if (distance < edge) return -1;
+        if (distance < edge) {
+            hovered = -1;
+            return;
+        }
 
-        double degrees = Math.toDegrees(Math.atan2(pullX, -pullY));
-        if (degrees < 0) degrees += 360;
+        if (hovered < 0) {
+            double degrees = pushAngle();
+            if (degrees < 0) degrees += 360;
+            double slice = menu.slice();
+            hovered = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
+            originAngle = (float) pushAngle();
+            return;
+        }
 
-        double slice = menu.slice();
-        int under = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
-        if (menu.get(under) == null) return -1;
-        if (hovered < 0 || under == hovered) return under;
-
-        // On a different entry now, but the light does not follow until the
-        // push has pulled far enough past the one it is on to drag it off.
-        return pastEdge() > breakAngle() ? under : hovered;
+        double drift = clampToArc(pushAngle() - originAngle, 180);
+        if (Math.abs(drift) > stepAngle()) {
+            hovered = Math.floorMod(hovered + (drift > 0 ? 1 : -1), menu.size());
+            originAngle = (float) pushAngle();
+        }
     }
 
-    /** Degrees the push is beyond the edge of the entry the light is on. */
-    private double pastEdge() {
-        double delta = clampToArc(pushAngle() - menu.angleOf(hovered), 180);
-        return Math.max(0, Math.abs(delta) - menu.slice() / 2);
+    /** How far the push swings to step one entry along. */
+    private double stepAngle() {
+        return menu.slice() / 2 + BREAK_DEGREES;
     }
 
-    private double breakAngle() {
-        return Math.min(BREAK_DEGREES, menu.slice() * BREAK_SHARE);
+    /**
+     * How far the light leans off the middle of its entry towards the push.
+     *
+     * <p>Quickly at first and then hardly at all, which is what makes an entry
+     * feel like something being leaned out of. It never reaches the entry's
+     * edge, so the mass on the ring is never cut off by one.
+     */
+    private double lean() {
+        double drift = clampToArc(pushAngle() - originAngle, 180);
+        double reached = Math.min(1, Math.abs(drift) / stepAngle());
+        double most = slotHalf() * LEAN_SHARE;
+        return Math.signum(drift) * most * Math.sin(Math.PI / 2 * reached);
     }
+
+    /** Where the light sits: the middle of its entry, leaned towards the push. */
+    private double lightAngle() {
+        return hovered < 0 ? pushAngle() : menu.angleOf(hovered) + lean();
+    }
+
 
     /**
      * Blurred and dimmed everywhere except the hole, which is the frame exactly
@@ -882,8 +924,7 @@ public final class RadialScreen extends DevScreen {
                 : Math.max(0, Math.min(1, (out - touch) / Math.max(1, reach - touch)));
         if (hovered < 0) return;
 
-        double target = menu.angleOf(hovered)
-                + clampToArc(pushAngle() - menu.angleOf(hovered), slotHalf());
+        double target = lightAngle();
         if (spread <= 0.01F) {
             // Nothing is resting there yet, so there is nothing to carry round.
             filmApex = (float) target;
@@ -924,13 +965,9 @@ public final class RadialScreen extends DevScreen {
         float travel = reach / FULL_PULL;
         int color = fade(Theme.GLOW, 1 - aperture);
 
-        // Held inside the entry it is on, so it stops at the edge while the
-        // push carries on past it. Its distance from the middle is never held,
-        // since coming back in is how the light is let go of.
-        double angle = pushAngle();
-        if (hovered >= 0) {
-            angle = menu.angleOf(hovered) + clampToArc(angle - menu.angleOf(hovered), slotHalf());
-        }
+        // Its distance from the middle is never resisted, only its angle,
+        // since coming back in is how the light is let go of altogether.
+        double angle = lightAngle();
         float out = (float) Math.hypot(pullX, pullY) * travel;
         float bodyX = (float) (Math.sin(Math.toRadians(angle)) * out);
         float bodyY = (float) (-Math.cos(Math.toRadians(angle)) * out);
@@ -952,12 +989,13 @@ public final class RadialScreen extends DevScreen {
      */
     private void renderFilm(float rim, float spread) {
         double middle = menu.angleOf(hovered);
-        double slotHalf = slotHalf();
-        double apex = filmApex;
 
-        double half = slotHalf * spread;
-        double from = Math.max(middle - slotHalf, apex - half);
-        double to = Math.min(middle + slotHalf, apex + half);
+        // Centred on the entry, not on the push. What is lying on a surface
+        // spreads over it evenly; what the push does is lean the deepest part
+        // of it to one side, and that is the only part it has a say in.
+        double half = slotHalf() * spread;
+        double from = middle - half;
+        double to = middle + half;
 
         // Stands up as the light arrives, then is pressed flat as more of it
         // keeps coming, so leaning harder into an entry reads as leaning.
@@ -969,7 +1007,7 @@ public final class RadialScreen extends DevScreen {
         // Twice over, additively, so the ring carries more light than the part
         // still loose once most of it has been given over.
         for (int pass = 0; pass < 2; pass++) {
-            Draw.cling(ringX(), ringY(), rim, from, to, apex, depth, color);
+            Draw.cling(ringX(), ringY(), rim, from, to, filmApex, depth, color);
         }
     }
 
