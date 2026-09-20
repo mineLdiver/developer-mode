@@ -71,18 +71,21 @@ public final class RadialScreen extends DevScreen {
     private static final float SENSITIVITY = 1;
 
     /**
-     * The glow's size, and how much of itself it keeps clear of the ring at a
-     * full push. How far it travels is worked out from the hole rather than
-     * set here, so it stays the same gesture whatever the ring's size becomes.
+     * The glow's size. How far it travels is worked out from the hole rather
+     * than set here, so it stays the same gesture whatever the ring becomes:
+     * a full push puts it against the inside edge, whatever that edge is.
      */
     private static final float GLOW_RADIUS = 26;
-    private static final float GLOW_MARGIN = 0.75F;
 
-    /** How quickly the light gathers on the ring once the push reaches a slot. */
-    private static final float CLING_TAU_MILLIS = 70;
-    /** How far in from the rim the pool reaches, at a bare touch and at a shove. */
-    private static final float CLING_DEPTH_LEAST = 10;
-    private static final float CLING_DEPTH_MOST = 26;
+    /**
+     * How far the film stands off the rim at its fullest, and once it has been
+     * pressed out flat. It rises as the light arrives and falls as the light
+     * keeps spreading, the way a drop does against something it is pushed into.
+     */
+    private static final float FILM_DEPTH_RISEN = 27;
+    private static final float FILM_DEPTH_FLAT = 9;
+    /** How much of the spread has happened by the time it stops standing up. */
+    private static final float FILM_RISE = 0.45F;
     /**
      * What is left of the loose light once it has gathered on the ring. It is
      * dimmed rather than put out, because it is the only thing saying where
@@ -190,8 +193,6 @@ public final class RadialScreen extends DevScreen {
     /** How far each slot stands out, so the lift eases instead of snapping. */
     private final float[] lift = new float[RadialMenu.MAX_SLOTS];
 
-    /** How much of the light has gathered onto the ring. */
-    private float cling;
 
     private float aperture;
     private float apertureVelocity;
@@ -223,7 +224,6 @@ public final class RadialScreen extends DevScreen {
         takenSlot = -1;
         transition = 1;
         Arrays.fill(lift, 0);
-        cling = 0;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -274,7 +274,6 @@ public final class RadialScreen extends DevScreen {
         updateSnap(elapsed);
         updateTransition(elapsed);
         updateLift(elapsed);
-        updateCling(elapsed);
 
         renderBackdrop();
         float grow = openProgress();
@@ -805,76 +804,77 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * Gathers the light onto the ring, and lets it go again.
+     * The light in the hole: one body of it, some gathered at the push and the
+     * rest given to the ring, with how it is divided set by nothing but how
+     * near the push has brought it.
      *
-     * <p>Only how much of it has gathered. Where the light is stays the push's
-     * own business, because it is the only thing on screen that says where the
-     * push is, and a light that went to the slot instead would leave no way of
-     * telling how far out the hand had wandered or which way back was.
-     */
-    private void updateCling(float elapsedMillis) {
-        float target = hovered >= 0 && outgoing == null ? 1 : 0;
-        float alpha = (float) (1 - Math.exp(-elapsedMillis / CLING_TAU_MILLIS));
-        cling += (target - cling) * alpha;
-    }
-
-    /** How far past the dead zone the push is, as a fraction of the rest of it. */
-    private float pushDepth() {
-        float distance = (float) Math.hypot(pullX, pullY);
-        return Math.max(0, Math.min(1, (distance - DEAD_ZONE) / (FULL_PULL - DEAD_ZONE)));
-    }
-
-    /**
-     * The light in the hole: one body, which is round while it is loose and
-     * spread along the ring once the push has reached a slot.
+     * <p>Approaching an entry, the light touches it and begins to give itself
+     * over: the film widens out from where it touched, and the part still at
+     * the push loses that much of its size and brightness. Pushing further in
+     * presses the film flatter and wider. Easing off runs the same thing
+     * backwards, the film giving its light back until there is none left on
+     * the ring and the body is loose again.
      *
-     * <p>It is not two lights that trade places. The round part travels into
-     * the crown of the spread part as the spread part grows, so what happens
-     * when a push reaches a slot is the same light arriving and settling.
-     *
-     * <p>The deepest point of it follows the push's own direction rather than
-     * sitting at the middle of the slot, so sweeping across a slot still moves
-     * something, and the hard middle sits at that point. Between them they say
-     * which entry is held, at what angle the push is, and how far out it has
-     * gone, which is everything needed to find the way back to the middle.
+     * <p>Nothing here is held by a latch, which is what the last version of it
+     * got wrong: the film stood or fell on whether a slot was chosen, while its
+     * depth answered the push, so easing off made the crown climb towards the
+     * rim and took the light the wrong way. One quantity drives all of it now,
+     * and that quantity is the push's own distance.
      */
     private void renderGlow(float grow) {
-        float reach = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN);
+        float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
+        float reach = Math.max(1, rim - GLOW_CORE_RADIUS);
         float travel = reach / FULL_PULL;
         int color = fade(Theme.GLOW, 1 - aperture);
 
         float bodyX = pullX * travel;
         float bodyY = pullY * travel;
 
-        boolean gathered = cling > 0.01F && hovered >= 0;
-        if (gathered) {
-            float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
-            float depth = CLING_DEPTH_LEAST + (CLING_DEPTH_MOST - CLING_DEPTH_LEAST) * pushDepth();
-            double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
-            double middle = menu.angleOf(hovered);
-            double half = menu.slice() / 2 - gap / 2;
-            double apex = middle + clampToArc(pushAngle() - middle, half);
+        // Contact is where the light's own edge first meets the rim, so the
+        // film starts when the two actually touch rather than at some distance
+        // chosen to look about right.
+        float touch = Math.max(0, rim - GLOW_RADIUS);
+        float out = (float) Math.hypot(bodyX, bodyY);
+        float spread = hovered < 0 ? 0
+                : Math.max(0, Math.min(1, (out - touch) / Math.max(1, reach - touch)));
 
-            double radians = Math.toRadians(apex);
-            float crownX = (float) (Math.sin(radians) * (rim - depth * cling));
-            float crownY = (float) (-Math.cos(radians) * (rim - depth * cling));
-            bodyX += (crownX - bodyX) * cling;
-            bodyY += (crownY - bodyY) * cling;
-
-            // Twice over, additively, so the pool carries more light than the
-            // round part it grew out of.
-            for (int pass = 0; pass < 2; pass++) {
-                Draw.cling(ringX(), ringY(), rim, middle - half, middle + half, apex,
-                        depth * cling, fade(color, cling));
-            }
-        }
+        if (spread > 0.01F) renderFilm(rim, spread);
 
         float x = ringX() + bodyX;
         float y = ringY() + bodyY;
-        Draw.glow(x, y, GLOW_RADIUS * (1 - cling * (1 - GLOW_GATHERED)),
-                fade(color, 1 - cling * (1 - GLOW_LOOSE)));
+        Draw.glow(x, y, GLOW_RADIUS * (1 - spread * (1 - GLOW_GATHERED)),
+                fade(color, 1 - spread * (1 - GLOW_LOOSE)));
         // Solid rather than soft, so the push has a point and not just a haze.
+        // It never leaves the push, whatever the rest of the light is doing.
         Draw.ring(x, y, 0, GLOW_CORE_RADIUS, 0, 360, fade(Theme.GLOW_CORE, 1 - aperture));
+    }
+
+    /**
+     * What the ring has been given: an arc spreading out from where the light
+     * touched, never wider than the entry it is on.
+     */
+    private void renderFilm(float rim, float spread) {
+        double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
+        double middle = menu.angleOf(hovered);
+        double slotHalf = menu.slice() / 2 - gap / 2;
+        double apex = middle + clampToArc(pushAngle() - middle, slotHalf);
+
+        double half = slotHalf * spread;
+        double from = Math.max(middle - slotHalf, apex - half);
+        double to = Math.min(middle + slotHalf, apex + half);
+
+        // Stands up as the light arrives, then is pressed flat as more of it
+        // keeps coming, so leaning harder into an entry reads as leaning.
+        float risen = Math.min(1, spread / FILM_RISE);
+        float pressed = Math.max(0, (spread - FILM_RISE) / (1 - FILM_RISE));
+        float depth = risen * (FILM_DEPTH_RISEN + (FILM_DEPTH_FLAT - FILM_DEPTH_RISEN) * pressed);
+
+        int color = fade(Theme.GLOW, (1 - aperture) * Math.min(1, spread * 2));
+        // Twice over, additively, so the ring carries more light than the part
+        // still loose once most of it has been given over.
+        for (int pass = 0; pass < 2; pass++) {
+            Draw.cling(ringX(), ringY(), rim, from, to, apex, depth, color);
+        }
     }
 
     /** Degrees clockwise from straight up that the push is pointing. */
