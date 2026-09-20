@@ -74,19 +74,6 @@ public final class RadialScreen extends DevScreen {
      */
     private static final float SLOT_RELEASE = 0.7F;
 
-    /**
-     * How much further than half an entry the push has to be swung to step off
-     * it onto the next one.
-     *
-     * <p>The light does not follow that swing evenly. It leans towards the push
-     * quickly at first and then less and less, on a quarter turn of a sine, so
-     * an entry gets harder to leave the further it is leaned off, and lets go
-     * all at once at the end rather than sliding out. Nothing is clamped, so
-     * there is no edge for the light to sit against and be cut off by.
-     */
-    private static final float BREAK_DEGREES = 16;
-    /** The most of its own half an entry lets the light lean, well short of its edge. */
-    private static final float LEAN_SHARE = 0.55F;
     /** Mouse travel to stick travel. Raise it for a twitchier ring. */
     private static final float SENSITIVITY = 1;
 
@@ -96,26 +83,8 @@ public final class RadialScreen extends DevScreen {
      * a full push puts it against the inside edge, whatever that edge is.
      */
     private static final float GLOW_RADIUS = 34;
+    private static final float GLOW_MARGIN = 0.75F;
 
-    /**
-     * How far the film stands off the rim at its fullest, and once it has been
-     * pressed out flat. It rises as the light arrives and falls as the light
-     * keeps spreading, the way a drop does against something it is pushed into.
-     */
-    private static final float FILM_DEPTH_RISEN = 34;
-    private static final float FILM_DEPTH_FLAT = 13;
-    /** How much of the spread has happened by the time it stops standing up. */
-    private static final float FILM_RISE = 0.45F;
-    /** How long the film takes to bring its deepest point round to the push. */
-    private static final float FILM_TAU_MILLIS = 60;
-    /**
-     * What is left of the loose light once it has gathered on the ring. It is
-     * dimmed rather than put out, because it is the only thing saying where
-     * the push is, and that is wanted most when the push has wandered.
-     */
-    private static final float GLOW_LOOSE = 0.72F;
-    /** What is left of its size, so it becomes the crown of the pool. */
-    private static final float GLOW_GATHERED = 0.55F;
     /** The hard middle of the light, which is the pointer itself. */
     private static final float GLOW_CORE_RADIUS = 4;
 
@@ -216,11 +185,6 @@ public final class RadialScreen extends DevScreen {
     private final float[] lift = new float[RadialMenu.MAX_SLOTS];
 
 
-    /** How much of the light the ring has been given, and where it is deepest. */
-    private float spread;
-    private float filmApex;
-    /** Where the push was when the light settled on the entry it is on. */
-    private float originAngle;
 
     private float aperture;
     private float apertureVelocity;
@@ -252,9 +216,6 @@ public final class RadialScreen extends DevScreen {
         takenSlot = -1;
         transition = 1;
         Arrays.fill(lift, 0);
-        spread = 0;
-        filmApex = 0;
-        originAngle = 0;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -298,14 +259,13 @@ public final class RadialScreen extends DevScreen {
             hovered = -1;
         } else {
             updatePull();
-            updateSelection();
+            hovered = slotUnderPull();
         }
 
         updateAperture(elapsed);
         updateSnap(elapsed);
         updateTransition(elapsed);
         updateLift(elapsed);
-        updateFilm(elapsed, openProgress());
 
         renderBackdrop();
         float grow = openProgress();
@@ -560,74 +520,6 @@ public final class RadialScreen extends DevScreen {
         snapX += (targetX - snapX) * alpha;
         snapY += (targetY - snapY) * alpha;
     }
-
-    /**
-     * Which entry the light is on, which is a thing it steps between rather
-     * than a reading of where the push points.
-     *
-     * <p>Coming out of the middle it takes whichever entry the push is aimed
-     * at. After that the push is measured from wherever it was when the light
-     * settled, and swinging it far enough to one side steps the light onto the
-     * neighbour that way, one at a time, and starts measuring again from there.
-     *
-     * <p>So every entry costs the same swing to leave, the light always
-     * arrives in the middle of the one it steps to rather than at the edge it
-     * came in over, and it is never left sitting somewhere it would immediately
-     * fall out of.
-     */
-    private void updateSelection() {
-        if (menu.size() == 0) {
-            hovered = -1;
-            return;
-        }
-
-        float distance = (float) Math.hypot(pullX, pullY);
-        float edge = hovered >= 0 ? DEAD_ZONE * SLOT_RELEASE : DEAD_ZONE;
-        if (distance < edge) {
-            hovered = -1;
-            return;
-        }
-
-        if (hovered < 0) {
-            double degrees = pushAngle();
-            if (degrees < 0) degrees += 360;
-            double slice = menu.slice();
-            hovered = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
-            originAngle = (float) pushAngle();
-            return;
-        }
-
-        double drift = clampToArc(pushAngle() - originAngle, 180);
-        if (Math.abs(drift) > stepAngle()) {
-            hovered = Math.floorMod(hovered + (drift > 0 ? 1 : -1), menu.size());
-            originAngle = (float) pushAngle();
-        }
-    }
-
-    /** How far the push swings to step one entry along. */
-    private double stepAngle() {
-        return menu.slice() / 2 + BREAK_DEGREES;
-    }
-
-    /**
-     * How far the light leans off the middle of its entry towards the push.
-     *
-     * <p>Quickly at first and then hardly at all, which is what makes an entry
-     * feel like something being leaned out of. It never reaches the entry's
-     * edge, so the mass on the ring is never cut off by one.
-     */
-    private double lean() {
-        double drift = clampToArc(pushAngle() - originAngle, 180);
-        double reached = Math.min(1, Math.abs(drift) / stepAngle());
-        double most = slotHalf() * LEAN_SHARE;
-        return Math.signum(drift) * most * Math.sin(Math.PI / 2 * reached);
-    }
-
-    /** Where the light sits: the middle of its entry, leaned towards the push. */
-    private double lightAngle() {
-        return hovered < 0 ? pushAngle() : menu.angleOf(hovered) + lean();
-    }
-
 
     /**
      * Blurred and dimmed everywhere except the hole, which is the frame exactly
@@ -903,123 +795,53 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * Works out how much of the light the ring has, and brings the deepest
-     * point of it round towards the push.
+     * Which entry the push is pointing at, or -1 for none.
      *
-     * <p>Contact is where the light's own edge first meets the rim, so the film
-     * starts when the two actually touch rather than at some distance chosen to
-     * look about right.
-     *
-     * <p>The deepest point is eased rather than placed. Mass does not arrive
-     * anywhere instantly, and a peak that answered the push exactly would be a
-     * readout of the mouse with a shape around it.
+     * <p>Letting go of one needs the push a little further back in than taking
+     * it did, so a push resting on the edge of the dead zone does not flicker
+     * between an entry and nothing.
      */
-    private void updateFilm(float elapsedMillis, float grow) {
-        float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
-        float reach = Math.max(1, rim - GLOW_CORE_RADIUS);
-        float touch = Math.max(0, rim - GLOW_RADIUS);
-        float out = (float) Math.hypot(pullX, pullY) * (reach / FULL_PULL);
+    private int slotUnderPull() {
+        if (menu.size() == 0) return -1;
 
-        spread = hovered < 0 ? 0
-                : Math.max(0, Math.min(1, (out - touch) / Math.max(1, reach - touch)));
-        if (hovered < 0) return;
+        float distance = (float) Math.hypot(pullX, pullY);
+        float edge = hovered >= 0 ? DEAD_ZONE * SLOT_RELEASE : DEAD_ZONE;
+        if (distance < edge) return -1;
 
-        double target = lightAngle();
-        if (spread <= 0.01F) {
-            // Nothing is resting there yet, so there is nothing to carry round.
-            filmApex = (float) target;
-            return;
-        }
+        double degrees = pushAngle();
+        if (degrees < 0) degrees += 360;
 
-        float alpha = (float) (1 - Math.exp(-elapsedMillis / FILM_TAU_MILLIS));
-        filmApex += (float) (target - filmApex) * alpha;
-    }
-
-    /** Half the arc an entry occupies, less its share of the gap either side. */
-    private double slotHalf() {
-        double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
-        return menu.slice() / 2 - gap / 2;
+        double slice = menu.slice();
+        int slot = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
+        return menu.get(slot) == null ? -1 : slot;
     }
 
     /**
-     * The light in the hole: one body of it, some gathered at the push and the
-     * rest given to the ring, with how it is divided set by nothing but how
-     * near the push has brought it.
+     * The light in the hole, which is the only thing that answers the push
+     * before the push has reached anything.
      *
-     * <p>Approaching an entry, the light touches it and begins to give itself
-     * over: the film widens out from where it touched, and the part still at
-     * the push loses that much of its size and brightness. Pushing further in
-     * presses the film flatter and wider. Easing off runs the same thing
-     * backwards, the film giving its light back until there is none left on
-     * the ring and the body is loose again.
-     *
-     * <p>Nothing here is held by a latch, which is what the last version of it
-     * got wrong: the film stood or fell on whether a slot was chosen, while its
-     * depth answered the push, so easing off made the crown climb towards the
-     * rim and took the light the wrong way. One quantity drives all of it now,
-     * and that quantity is the push's own distance.
+     * <p>Its reach is worked out from the hole rather than set by hand, so a
+     * full push puts it against the inside edge whatever that edge becomes.
      */
     private void renderGlow(float grow) {
         float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
-        float reach = Math.max(1, rim - GLOW_CORE_RADIUS);
-        float travel = reach / FULL_PULL;
+        float travel = Math.max(1, rim - GLOW_RADIUS * GLOW_MARGIN) / FULL_PULL;
+        float x = ringX() + pullX * travel;
+        float y = ringY() + pullY * travel;
         int color = fade(Theme.GLOW, 1 - aperture);
 
-        // Its distance from the middle is never resisted, only its angle,
-        // since coming back in is how the light is let go of altogether.
-        double angle = lightAngle();
-        float out = (float) Math.hypot(pullX, pullY) * travel;
-        float bodyX = (float) (Math.sin(Math.toRadians(angle)) * out);
-        float bodyY = (float) (-Math.cos(Math.toRadians(angle)) * out);
-
-        if (spread > 0.01F) renderFilm(rim, spread);
-
-        float x = ringX() + bodyX;
-        float y = ringY() + bodyY;
-        Draw.glow(x, y, GLOW_RADIUS * (1 - spread * (1 - GLOW_GATHERED)),
-                fade(color, 1 - spread * (1 - GLOW_LOOSE)));
+        Draw.glow(x, y, GLOW_RADIUS, color);
+        // Twice over once the push has landed on something. The light is
+        // additive, so a second pass is the same light again, and the middle
+        // brightens the moment a flick has somewhere to go.
+        if (hovered >= 0 && outgoing == null) Draw.glow(x, y, GLOW_RADIUS, color);
         // Solid rather than soft, so the push has a point and not just a haze.
-        // It never leaves the push, whatever the rest of the light is doing.
         Draw.ring(x, y, 0, GLOW_CORE_RADIUS, 0, 360, fade(Theme.GLOW_CORE, 1 - aperture));
-    }
-
-    /**
-     * What the ring has been given: an arc spreading out from where the light
-     * touched, never wider than the entry it is on.
-     */
-    private void renderFilm(float rim, float spread) {
-        double middle = menu.angleOf(hovered);
-
-        // Centred on the entry, not on the push. What is lying on a surface
-        // spreads over it evenly; what the push does is lean the deepest part
-        // of it to one side, and that is the only part it has a say in.
-        double half = slotHalf() * spread;
-        double from = middle - half;
-        double to = middle + half;
-
-        // Stands up as the light arrives, then is pressed flat as more of it
-        // keeps coming, so leaning harder into an entry reads as leaning.
-        float risen = Math.min(1, spread / FILM_RISE);
-        float pressed = Math.max(0, (spread - FILM_RISE) / (1 - FILM_RISE));
-        float depth = risen * (FILM_DEPTH_RISEN + (FILM_DEPTH_FLAT - FILM_DEPTH_RISEN) * pressed);
-
-        int color = fade(Theme.GLOW, (1 - aperture) * Math.min(1, spread * 2));
-        // Twice over, additively, so the ring carries more light than the part
-        // still loose once most of it has been given over.
-        for (int pass = 0; pass < 2; pass++) {
-            Draw.cling(ringX(), ringY(), rim, from, to, filmApex, depth, color);
-        }
     }
 
     /** Degrees clockwise from straight up that the push is pointing. */
     private double pushAngle() {
         return Math.toDegrees(Math.atan2(pullX, -pullY));
-    }
-
-    /** The shortest way round, then held inside the arc it has to stay in. */
-    private static double clampToArc(double delta, double half) {
-        double wrapped = ((delta + 540) % 360) - 180;
-        return Math.max(-half, Math.min(half, wrapped));
     }
 
     private void renderCaption() {
