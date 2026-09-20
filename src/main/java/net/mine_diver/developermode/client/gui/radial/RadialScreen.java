@@ -67,6 +67,17 @@ public final class RadialScreen extends DevScreen {
      * to be returned to, and a small one would have to be aimed for.
      */
     private static final float DEAD_ZONE = 18;
+    /**
+     * How far back in the push has to come to let go of a slot, against how
+     * far out it had to go to take one.
+     *
+     * <p>Under one, so there is a band where a slot is held that it could not
+     * have been taken from. Leaving is therefore something done deliberately,
+     * and since a slot is only ever let go of by coming back in, sliding along
+     * the ring cannot swap one for its neighbour and the film has no boundary
+     * to jump across.
+     */
+    private static final float SLOT_RELEASE = 0.7F;
     /** Mouse travel to stick travel. Raise it for a twitchier ring. */
     private static final float SENSITIVITY = 1;
 
@@ -75,17 +86,19 @@ public final class RadialScreen extends DevScreen {
      * than set here, so it stays the same gesture whatever the ring becomes:
      * a full push puts it against the inside edge, whatever that edge is.
      */
-    private static final float GLOW_RADIUS = 26;
+    private static final float GLOW_RADIUS = 34;
 
     /**
      * How far the film stands off the rim at its fullest, and once it has been
      * pressed out flat. It rises as the light arrives and falls as the light
      * keeps spreading, the way a drop does against something it is pushed into.
      */
-    private static final float FILM_DEPTH_RISEN = 27;
-    private static final float FILM_DEPTH_FLAT = 9;
+    private static final float FILM_DEPTH_RISEN = 34;
+    private static final float FILM_DEPTH_FLAT = 13;
     /** How much of the spread has happened by the time it stops standing up. */
     private static final float FILM_RISE = 0.45F;
+    /** How long the film takes to bring its deepest point round to the push. */
+    private static final float FILM_TAU_MILLIS = 60;
     /**
      * What is left of the loose light once it has gathered on the ring. It is
      * dimmed rather than put out, because it is the only thing saying where
@@ -95,7 +108,7 @@ public final class RadialScreen extends DevScreen {
     /** What is left of its size, so it becomes the crown of the pool. */
     private static final float GLOW_GATHERED = 0.55F;
     /** The hard middle of the light, which is the pointer itself. */
-    private static final float GLOW_CORE_RADIUS = 3;
+    private static final float GLOW_CORE_RADIUS = 4;
 
     /** Fixed step the ring takes towards a chosen slot. */
     private static final float SNAP_DISTANCE = 6;
@@ -194,6 +207,10 @@ public final class RadialScreen extends DevScreen {
     private final float[] lift = new float[RadialMenu.MAX_SLOTS];
 
 
+    /** How much of the light the ring has been given, and where it is deepest. */
+    private float spread;
+    private float filmApex;
+
     private float aperture;
     private float apertureVelocity;
     private boolean wasTargeted;
@@ -224,6 +241,8 @@ public final class RadialScreen extends DevScreen {
         takenSlot = -1;
         transition = 1;
         Arrays.fill(lift, 0);
+        spread = 0;
+        filmApex = 0;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -274,6 +293,7 @@ public final class RadialScreen extends DevScreen {
         updateSnap(elapsed);
         updateTransition(elapsed);
         updateLift(elapsed);
+        updateFilm(elapsed, openProgress());
 
         renderBackdrop();
         float grow = openProgress();
@@ -486,6 +506,18 @@ public final class RadialScreen extends DevScreen {
         return 1 - remaining * remaining * remaining;
     }
 
+    /**
+     * The same idea, leaned on harder, for the wave that crosses the ring.
+     *
+     * <p>A quarter turn of a sine, so it gives up its speed evenly the whole
+     * way across rather than spending most of it at the start. Curves that
+     * fall away sharply are done before they look like they are slowing, which
+     * over a distance this large reads as stopping rather than as settling.
+     */
+    private static float easeWave(float progress) {
+        return (float) Math.sin(progress * Math.PI / 2);
+    }
+
     /** How far aiming has taken over, which is the only thing that moves the ring. */
     private float aimProgress() {
         return Math.max(0, (aperture - AJAR) / (1 - AJAR));
@@ -518,12 +550,19 @@ public final class RadialScreen extends DevScreen {
     }
 
     private int slotUnderPull() {
-        if (pullX * pullX + pullY * pullY < DEAD_ZONE * DEAD_ZONE) return -1;
+        if (menu.size() == 0) return -1;
+
+        float distance = (float) Math.hypot(pullX, pullY);
+
+        // Held on to once taken. Angle stops mattering, so the only way off a
+        // slot is back towards the middle, and further back than it took to
+        // get on.
+        if (hovered >= 0) return distance > DEAD_ZONE * SLOT_RELEASE ? hovered : -1;
+
+        if (distance < DEAD_ZONE) return -1;
 
         double degrees = Math.toDegrees(Math.atan2(pullX, -pullY));
         if (degrees < 0) degrees += 360;
-
-        if (menu.size() == 0) return -1;
 
         double slice = menu.slice();
         int slot = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
@@ -669,7 +708,7 @@ public final class RadialScreen extends DevScreen {
         double away = Math.abs(level.angleOf(slot) - sweepAnchor()) % 360;
         if (away > 180) away = 360 - away;
 
-        float front = ease(transition) * 180;
+        float front = easeWave(transition) * 180;
         float progress = (float) ((front - away) / SWEEP_BAND_DEGREES);
         return phase == Phase.ARRIVING
                 ? Math.max(0, Math.min(1, progress))
@@ -679,7 +718,7 @@ public final class RadialScreen extends DevScreen {
     /** One number for the parts of a level that are not per slot. */
     private float levelAlpha(Phase phase) {
         if (phase == Phase.SETTLED) return 1;
-        float eased = ease(transition);
+        float eased = easeWave(transition);
         return phase == Phase.ARRIVING ? eased : 1 - eased;
     }
 
@@ -702,7 +741,7 @@ public final class RadialScreen extends DevScreen {
         float inner = INNER_RADIUS * grow + push;
         float outer = OUTER_RADIUS * grow + push;
         double anchor = sweepAnchor();
-        float front = ease(transition) * 180;
+        float front = easeWave(transition) * 180;
         float step = SWEEP_TRAIL_DEGREES / SWEEP_TRAIL_STEPS;
 
         for (int i = 0; i < SWEEP_TRAIL_STEPS; i++) {
@@ -804,6 +843,46 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
+     * Works out how much of the light the ring has, and brings the deepest
+     * point of it round towards the push.
+     *
+     * <p>Contact is where the light's own edge first meets the rim, so the film
+     * starts when the two actually touch rather than at some distance chosen to
+     * look about right.
+     *
+     * <p>The deepest point is eased rather than placed. Mass does not arrive
+     * anywhere instantly, and a peak that answered the push exactly would be a
+     * readout of the mouse with a shape around it.
+     */
+    private void updateFilm(float elapsedMillis, float grow) {
+        float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
+        float reach = Math.max(1, rim - GLOW_CORE_RADIUS);
+        float touch = Math.max(0, rim - GLOW_RADIUS);
+        float out = (float) Math.hypot(pullX, pullY) * (reach / FULL_PULL);
+
+        spread = hovered < 0 ? 0
+                : Math.max(0, Math.min(1, (out - touch) / Math.max(1, reach - touch)));
+        if (hovered < 0) return;
+
+        double target = menu.angleOf(hovered)
+                + clampToArc(pushAngle() - menu.angleOf(hovered), slotHalf());
+        if (spread <= 0.01F) {
+            // Nothing is resting there yet, so there is nothing to carry round.
+            filmApex = (float) target;
+            return;
+        }
+
+        float alpha = (float) (1 - Math.exp(-elapsedMillis / FILM_TAU_MILLIS));
+        filmApex += (float) (target - filmApex) * alpha;
+    }
+
+    /** Half the arc an entry occupies, less its share of the gap either side. */
+    private double slotHalf() {
+        double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
+        return menu.slice() / 2 - gap / 2;
+    }
+
+    /**
      * The light in the hole: one body of it, some gathered at the push and the
      * rest given to the ring, with how it is divided set by nothing but how
      * near the push has brought it.
@@ -830,14 +909,6 @@ public final class RadialScreen extends DevScreen {
         float bodyX = pullX * travel;
         float bodyY = pullY * travel;
 
-        // Contact is where the light's own edge first meets the rim, so the
-        // film starts when the two actually touch rather than at some distance
-        // chosen to look about right.
-        float touch = Math.max(0, rim - GLOW_RADIUS);
-        float out = (float) Math.hypot(bodyX, bodyY);
-        float spread = hovered < 0 ? 0
-                : Math.max(0, Math.min(1, (out - touch) / Math.max(1, reach - touch)));
-
         if (spread > 0.01F) renderFilm(rim, spread);
 
         float x = ringX() + bodyX;
@@ -854,10 +925,9 @@ public final class RadialScreen extends DevScreen {
      * touched, never wider than the entry it is on.
      */
     private void renderFilm(float rim, float spread) {
-        double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
         double middle = menu.angleOf(hovered);
-        double slotHalf = menu.slice() / 2 - gap / 2;
-        double apex = middle + clampToArc(pushAngle() - middle, slotHalf);
+        double slotHalf = slotHalf();
+        double apex = filmApex;
 
         double half = slotHalf * spread;
         double from = Math.max(middle - slotHalf, apex - half);
