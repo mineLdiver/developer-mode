@@ -75,11 +75,14 @@ public final class RadialScreen extends DevScreen {
     // where the stick is. It lags going out, catches up, and settles.
     private static final float GLOW_STIFFNESS = 900;
     private static final float GLOW_DAMPING = 42;
-    /** Travel per second that counts as fast enough to drag a tail. */
-    private static final float GLOW_TRAIL_SPEED = 260;
-    /** Seconds of travel the tail reaches back over. */
-    private static final float GLOW_TRAIL_SECONDS = 0.05F;
-    private static final int GLOW_TRAIL_BLOBS = 3;
+    /** Travel per second at which the drop is fully drawn out. */
+    private static final float GLOW_STRETCH_SPEED = 420;
+    private static final float GLOW_STRETCH_MAX = 0.9F;
+    /** How flat it goes against a slot on landing, and how soon it lets go. */
+    private static final float GLOW_SPLAT = 0.5F;
+    private static final float GLOW_SPLAT_TAU_MILLIS = 110;
+    /** How near the mark counts as having arrived at it. */
+    private static final float GLOW_LAND_DISTANCE = 7;
 
     /** Fixed step the ring takes towards a chosen slot. */
     private static final float SNAP_DISTANCE = 6;
@@ -102,8 +105,12 @@ public final class RadialScreen extends DevScreen {
     // flinch is what makes that read as an answer rather than as a transition.
     private static final float APERTURE_STIFFNESS = 260;
     private static final float APERTURE_DAMPING = 22;
-    /** Decay of the rim flash when what is out there changes. */
-    private static final float PULSE_TAU_MILLIS = 190;
+    /** Decay of the flash when what is out there changes. */
+    private static final float PULSE_TAU_MILLIS = 230;
+    /** How far the ripple leaves the rim behind, and how it is built. */
+    private static final float PULSE_TRAVEL = 30;
+    private static final float PULSE_THICKNESS = 3;
+    private static final int PULSE_BANDS = 4;
 
     /** How long one level takes to hand over to another. */
     private static final float TRANSITION_MILLIS = 260;
@@ -171,13 +178,16 @@ public final class RadialScreen extends DevScreen {
     private final Deque<Integer> trailSlots = new ArrayDeque<>();
 
     /** How far each slot stands out, so the lift eases instead of snapping. */
-    private final float[] lift = new float[RadialMenu.SLOTS];
+    private final float[] lift = new float[RadialMenu.MAX_SLOTS];
 
     /** Where the light actually is, which is not quite where it is wanted. */
     private float glowX;
     private float glowY;
     private float glowVelocityX;
     private float glowVelocityY;
+    /** Set on arrival and let go of, so the drop flattens where it lands. */
+    private float glowSplat;
+    private boolean glowLanded;
 
     private float aperture;
     private float apertureVelocity;
@@ -213,6 +223,8 @@ public final class RadialScreen extends DevScreen {
         glowY = 0;
         glowVelocityX = 0;
         glowVelocityY = 0;
+        glowSplat = 0;
+        glowLanded = false;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -464,7 +476,7 @@ public final class RadialScreen extends DevScreen {
      */
     private void updateLift(float elapsedMillis) {
         float alpha = (float) (1 - Math.exp(-elapsedMillis / LIFT_TAU_MILLIS));
-        for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
+        for (int slot = 0; slot < RadialMenu.MAX_SLOTS; slot++) {
             float target = outgoing == null && slot == hovered ? LIFT_DISTANCE : 0;
             lift[slot] += (target - lift[slot]) * alpha;
         }
@@ -498,7 +510,7 @@ public final class RadialScreen extends DevScreen {
      * step lands in the same wall clock time whatever the frame rate.
      */
     private void updateSnap(float elapsedMillis) {
-        double targetAngle = hovered < 0 ? 0 : Math.toRadians(hovered * 360.0 / RadialMenu.SLOTS);
+        double targetAngle = hovered < 0 ? 0 : Math.toRadians(menu.angleOf(hovered));
         float targetX = hovered < 0 ? 0 : (float) Math.sin(targetAngle) * SNAP_DISTANCE;
         float targetY = hovered < 0 ? 0 : (float) -Math.cos(targetAngle) * SNAP_DISTANCE;
 
@@ -513,8 +525,10 @@ public final class RadialScreen extends DevScreen {
         double degrees = Math.toDegrees(Math.atan2(pullX, -pullY));
         if (degrees < 0) degrees += 360;
 
-        double slice = 360.0 / RadialMenu.SLOTS;
-        int slot = (int) Math.floor((degrees + slice / 2) / slice) % RadialMenu.SLOTS;
+        if (menu.size() == 0) return -1;
+
+        double slice = menu.slice();
+        int slot = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
         return menu.get(slot) == null ? -1 : slot;
     }
 
@@ -556,8 +570,20 @@ public final class RadialScreen extends DevScreen {
         if (hole < inner) {
             Draw.ring(ringX(), ringY(), hole, inner, 0, 360, fade(Theme.PANEL_SUNKEN, visible));
         }
+        // The rim takes the light, and a ripple leaves it and widens out. A
+        // single thin band at the edge is the sort of thing that is only seen
+        // once somebody says it is there.
         if (pulse > 0.01F) {
-            Draw.ring(ringX(), ringY(), hole, hole + 2, 0, 360, fade(Theme.ACCENT, pulse * 0.8F));
+            Draw.ring(ringX(), ringY(), hole, hole + PULSE_THICKNESS, 0, 360,
+                    fade(Theme.ACCENT, pulse));
+
+            float travelled = (1 - pulse) * PULSE_TRAVEL;
+            for (int band = 0; band < PULSE_BANDS; band++) {
+                float edge = hole + travelled - band * PULSE_THICKNESS;
+                if (edge <= hole + PULSE_THICKNESS) break;
+                Draw.ring(ringX(), ringY(), edge - PULSE_THICKNESS, edge, 0, 360,
+                        fade(Theme.ACCENT, pulse * (1 - band / (float) PULSE_BANDS) * 0.8F));
+            }
         }
     }
 
@@ -577,34 +603,37 @@ public final class RadialScreen extends DevScreen {
         float push = aimProgress() * APERTURE_TRAVEL;
         float inner = INNER_RADIUS * scale + push;
         float outer = OUTER_RADIUS * scale + push;
-        double slice = 360.0 / RadialMenu.SLOTS;
+        double slice = level.slice();
 
-        for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
-            float visible = base * slotAlpha(slot, phase);
+        for (int slot = 0; slot < level.size(); slot++) {
+            float visible = base * slotAlpha(level, slot, phase);
             if (visible <= 0.01F) continue;
 
-            double middle = slot * slice;
-            double from = middle - slice / 2 + SLOT_GAP_DEGREES / 2;
-            double to = middle + slice / 2 - SLOT_GAP_DEGREES / 2;
+            double middle = level.angleOf(slot);
+            // A level of one is the whole ring, and a gap in it would be a
+            // notch cut out of a circle rather than a division between slots.
+            double gap = level.size() < 2 ? 0 : SLOT_GAP_DEGREES;
+            double from = middle - slice / 2 + gap / 2;
+            double to = middle + slice / 2 - gap / 2;
 
             RadialEntry entry = level.get(slot);
-            boolean filled = entry != null && entry.enabled();
+            boolean enabled = entry.enabled();
             boolean selected = slot == highlight;
-            int color = selected && filled ? Theme.ACCENT_FILL : entry != null ? Theme.PANEL : Theme.PANEL_SUNKEN;
+            int color = !enabled ? Theme.PANEL_SUNKEN : selected ? Theme.ACCENT_FILL : Theme.PANEL;
 
             // Past the nominal edge on purpose, so a taken slot reads as coming
             // up out of the ring rather than just changing colour.
             float edge = outer + (live ? lift[slot] : 0);
             Draw.ring(ringX, ringY, inner, edge, from, to, fade(color, visible));
-            if (selected && filled) {
+            if (selected && enabled) {
                 Draw.ring(ringX, ringY, edge - 2, edge, from, to, fade(Theme.ACCENT, visible));
             }
-            if (entry != null && entry.submenu() != null) {
+            if (entry.submenu() != null) {
                 renderStack(ringX, ringY, edge, middle, slice, visible);
             }
         }
 
-        renderBoundaries(ringX, ringY, inner, outer, slice, base * levelAlpha(phase));
+        renderBoundaries(level, ringX, ringY, inner, outer, base * levelAlpha(phase));
         if (live) renderSpur(scale, highlight);
         renderIcons(level, scale, highlight, live, phase);
     }
@@ -636,10 +665,10 @@ public final class RadialScreen extends DevScreen {
      * Going back anchors at the far side instead, so the ring closes into the
      * slot you came from.
      */
-    private float slotAlpha(int slot, Phase phase) {
+    private float slotAlpha(RadialMenu level, int slot, Phase phase) {
         if (phase == Phase.SETTLED) return 1;
 
-        double away = Math.abs((slot * (360.0 / RadialMenu.SLOTS)) - sweepAnchor()) % 360;
+        double away = Math.abs(level.angleOf(slot) - sweepAnchor()) % 360;
         if (away > 180) away = 360 - away;
 
         float front = ease(transition) * 180;
@@ -705,7 +734,10 @@ public final class RadialScreen extends DevScreen {
      * it came from rather than opening out of it.
      */
     private double sweepAnchor() {
-        return takenSlot * (360.0 / RadialMenu.SLOTS) + (descending ? 0 : 180);
+        // The slot that was taken belongs to the level being left, so its angle
+        // has to be asked of that level rather than of the one that replaced it.
+        RadialMenu source = outgoing == null ? menu : outgoing;
+        return source.angleOf(takenSlot) + (descending ? 0 : 180);
     }
 
     /**
@@ -727,7 +759,7 @@ public final class RadialScreen extends DevScreen {
         float from = Math.max(holeRadius(), inner - SPUR_REACH * reach);
         if (inner - from < 1) return;
 
-        double middle = highlight * (360.0 / RadialMenu.SLOTS);
+        double middle = menu.angleOf(highlight);
         Draw.ring(ringX(), ringY(), from, inner, middle - SPUR_DEGREES, middle + SPUR_DEGREES,
                 fade(Theme.ACCENT, 0.8F * reach));
     }
@@ -737,13 +769,17 @@ public final class RadialScreen extends DevScreen {
      * reading stops and the next begins is easier to aim at than a smooth one,
      * empty seats included.
      */
-    private void renderBoundaries(float ringX, float ringY, float inner, float outer,
-                                  double slice, float visible) {
+    private void renderBoundaries(RadialMenu level, float ringX, float ringY,
+                                  float inner, float outer, float visible) {
         Draw.ring(ringX, ringY, inner, inner + 1, 0, 360, fade(Theme.BORDER, visible * 0.9F));
         Draw.ring(ringX, ringY, outer - 1, outer, 0, 360, fade(Theme.BORDER, visible * 0.5F));
 
-        for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
-            double edge = (slot + 0.5) * slice;
+        // Nothing to divide when a level holds one thing, and the whole ring is
+        // that thing.
+        if (level.size() < 2) return;
+
+        for (int slot = 0; slot < level.size(); slot++) {
+            double edge = level.angleOf(slot) + level.slice() / 2;
             Draw.ring(ringX, ringY, inner, outer, edge - SPOKE_DEGREES, edge + SPOKE_DEGREES,
                     fade(Theme.BORDER, visible * 0.75F));
         }
@@ -753,16 +789,15 @@ public final class RadialScreen extends DevScreen {
         float ringX = ringX();
         float ringY = ringY();
         float radius = (INNER_RADIUS + OUTER_RADIUS) / 2 * scale + aimProgress() * APERTURE_TRAVEL;
-        double slice = 360.0 / RadialMenu.SLOTS;
 
-        for (int slot = 0; slot < RadialMenu.SLOTS; slot++) {
+        for (int slot = 0; slot < level.size(); slot++) {
             RadialEntry entry = level.get(slot);
             if (entry == null) continue;
             // Items are drawn by the game's own renderer, which takes no
             // opacity, so each one changes over as the wave reaches its slot.
-            if (slotAlpha(slot, phase) < 0.5F) continue;
+            if (slotAlpha(level, slot, phase) < 0.5F) continue;
 
-            double radians = Math.toRadians(slot * slice);
+            double radians = Math.toRadians(level.angleOf(slot));
             float reach = radius + (live ? lift[slot] / 2 : 0);
             int x = Math.round((float) (ringX + Math.sin(radians) * reach));
             int y = Math.round((float) (ringY - Math.cos(radians) * reach));
@@ -792,7 +827,7 @@ public final class RadialScreen extends DevScreen {
         float targetY;
 
         if (hovered >= 0 && outgoing == null) {
-            double radians = Math.toRadians(hovered * 360.0 / RadialMenu.SLOTS);
+            double radians = Math.toRadians(menu.angleOf(hovered));
             targetX = (float) (Math.sin(radians) * reach);
             targetY = (float) (-Math.cos(radians) * reach);
         } else {
@@ -808,34 +843,47 @@ public final class RadialScreen extends DevScreen {
         glowVelocityY -= glowVelocityY * GLOW_DAMPING * step;
         glowX += glowVelocityX * step;
         glowY += glowVelocityY * step;
+
+        // Landing is the moment it first gets near the mark, not the moment it
+        // was given one, or it would flatten while still on its way there.
+        float gap = (float) Math.hypot(targetX - glowX, targetY - glowY);
+        boolean near = gap < GLOW_LAND_DISTANCE && hovered >= 0 && outgoing == null;
+        if (near && !glowLanded) glowSplat = 1;
+        glowLanded = near;
+        glowSplat *= (float) Math.exp(-elapsedMillis / GLOW_SPLAT_TAU_MILLIS);
     }
 
+    /**
+     * The drop, drawn out along whichever of the two things acting on it has
+     * the upper hand: the pull that is still carrying it, or the slot it has
+     * just struck.
+     */
     private void renderGlow() {
         float x = width / 2F + glowX;
         float y = height / 2F + glowY;
         int color = fade(Theme.GLOW, 1 - aperture);
 
-        // Drawn strung out behind itself while it is still moving, so what
-        // crosses the hole looks like one body being pulled rather than a
-        // light being switched on somewhere else.
-        float speed = (float) Math.sqrt(glowVelocityX * glowVelocityX + glowVelocityY * glowVelocityY);
-        float drag = Math.min(1, speed / GLOW_TRAIL_SPEED);
-        if (drag > 0.05F) {
-            for (int blob = 1; blob <= GLOW_TRAIL_BLOBS; blob++) {
-                float back = blob / (float) (GLOW_TRAIL_BLOBS + 1);
-                Draw.glow(
-                        x - glowVelocityX * GLOW_TRAIL_SECONDS * back,
-                        y - glowVelocityY * GLOW_TRAIL_SECONDS * back,
-                        GLOW_RADIUS * (1 - back * 0.45F),
-                        fade(color, (1 - back) * drag * 0.7F));
-            }
+        float speed = (float) Math.hypot(glowVelocityX, glowVelocityY);
+        float pulled = Math.min(GLOW_STRETCH_MAX, speed / GLOW_STRETCH_SPEED);
+        float flattened = glowSplat * GLOW_SPLAT;
+
+        double axis;
+        double stretch;
+        if (flattened > pulled && hovered >= 0) {
+            // Across the slot's own line, which is the wall it ran into.
+            axis = Math.toRadians(menu.angleOf(hovered));
+            axis = Math.atan2(-Math.cos(axis), Math.sin(axis)) + Math.PI / 2;
+            stretch = flattened;
+        } else {
+            axis = Math.atan2(glowVelocityY, glowVelocityX);
+            stretch = pulled;
         }
 
-        Draw.glow(x, y, GLOW_RADIUS, color);
+        Draw.glob(x, y, GLOW_RADIUS, axis, stretch, color);
         // Twice over once the push has landed. The light is additive, so a
-        // second pass is the same light again, and the glob brightens as it
+        // second pass is the same light again, and the drop brightens as it
         // takes hold of a slot.
-        if (hovered >= 0 && outgoing == null) Draw.glow(x, y, GLOW_RADIUS, color);
+        if (hovered >= 0 && outgoing == null) Draw.glob(x, y, GLOW_RADIUS, axis, stretch, color);
     }
 
     private void renderCaption() {
@@ -859,7 +907,7 @@ public final class RadialScreen extends DevScreen {
         String label = submenu == null ? entry.label() : entry.label() + "  >";
         String hint = submenu == null
                 ? entry.hint()
-                : entry.hint() + "   (" + submenu.filled() + ")";
+                : entry.hint() + "   (" + submenu.size() + ")";
 
         Draw.textCentered(minecraft, label, ringX, ringY - 8,
                 entry.enabled() ? Theme.ACCENT : Theme.TEXT_DIM);

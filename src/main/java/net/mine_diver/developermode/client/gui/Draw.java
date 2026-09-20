@@ -111,6 +111,23 @@ public final class Draw {
      * at the very center.
      */
     public static void glow(double centerX, double centerY, double radius, int argb) {
+        glob(centerX, centerY, radius, 0, 0, argb);
+    }
+
+    /**
+     * The same light, drawn out along an axis instead of round.
+     *
+     * <p>{@code stretch} lengthens it along {@code axisRadians} and narrows it
+     * across by as much again, so it keeps roughly the area it had. A body of
+     * liquid does the same thing when something pulls on it, which is the only
+     * reason to want this: a round light that moves is a light that moved,
+     * and one that draws out and springs back is a thing being moved.
+     *
+     * @param axisRadians the direction to draw it out along, in screen space
+     * @param stretch     0 for round, upwards of that for drawn out
+     */
+    public static void glob(double centerX, double centerY, double radius,
+                            double axisRadians, double stretch, int argb) {
         int layers = 10;
         int steps = 24;
 
@@ -125,6 +142,11 @@ public final class Draw {
         float blue = (argb & 0xFF) / 255F;
         float layerAlpha = (argb >>> 24) / 255F / layers;
 
+        double along = 1 + stretch;
+        double across = 1 / along;
+        double axisX = Math.cos(axisRadians);
+        double axisY = Math.sin(axisRadians);
+
         Tessellator tessellator = Tessellator.INSTANCE;
         for (int layer = 0; layer < layers; layer++) {
             double layerRadius = radius * (1 - layer / (double) layers);
@@ -133,9 +155,11 @@ public final class Draw {
             tessellator.vertex(centerX, centerY, 0);
             for (int i = 0; i <= steps; i++) {
                 double radians = Math.PI * 2 * i / steps;
+                double lengthways = Math.cos(radians) * layerRadius * along;
+                double sideways = Math.sin(radians) * layerRadius * across;
                 tessellator.vertex(
-                        centerX + Math.sin(radians) * layerRadius,
-                        centerY - Math.cos(radians) * layerRadius, 0);
+                        centerX + axisX * lengthways - axisY * sideways,
+                        centerY + axisY * lengthways + axisX * sideways, 0);
             }
             tessellator.draw();
         }
