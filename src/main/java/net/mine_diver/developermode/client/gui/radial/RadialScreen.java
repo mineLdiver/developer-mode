@@ -68,16 +68,24 @@ public final class RadialScreen extends DevScreen {
      */
     private static final float DEAD_ZONE = 18;
     /**
-     * How far back in the push has to come to let go of a slot, against how
-     * far out it had to go to take one.
-     *
-     * <p>Under one, so there is a band where a slot is held that it could not
-     * have been taken from. Leaving is therefore something done deliberately,
-     * and since a slot is only ever let go of by coming back in, sliding along
-     * the ring cannot swap one for its neighbour and the film has no boundary
-     * to jump across.
+     * How far back in the push has to come to let go of every slot, against
+     * how far out it had to go to take one. Under one, so the edge of the dead
+     * zone does not flicker when the push is sitting on it.
      */
     private static final float SLOT_RELEASE = 0.7F;
+
+    /**
+     * How far past an entry's edge the push has to go before the light gives
+     * way to the next one, and the most of an entry that is ever allowed to
+     * take, so that narrow entries stay as reachable as wide ones.
+     *
+     * <p>The light stops at the edge and stays there while the push carries on,
+     * which is the whole of the resistance: the entry has to be pulled off
+     * rather than slid off. It also means the light is never partway across a
+     * boundary, so there is no crossing to draw.
+     */
+    private static final float BREAK_DEGREES = 16;
+    private static final float BREAK_SHARE = 0.35F;
     /** Mouse travel to stick travel. Raise it for a twitchier ring. */
     private static final float SENSITIVITY = 1;
 
@@ -553,20 +561,30 @@ public final class RadialScreen extends DevScreen {
         if (menu.size() == 0) return -1;
 
         float distance = (float) Math.hypot(pullX, pullY);
-
-        // Held on to once taken. Angle stops mattering, so the only way off a
-        // slot is back towards the middle, and further back than it took to
-        // get on.
-        if (hovered >= 0) return distance > DEAD_ZONE * SLOT_RELEASE ? hovered : -1;
-
-        if (distance < DEAD_ZONE) return -1;
+        float edge = hovered >= 0 ? DEAD_ZONE * SLOT_RELEASE : DEAD_ZONE;
+        if (distance < edge) return -1;
 
         double degrees = Math.toDegrees(Math.atan2(pullX, -pullY));
         if (degrees < 0) degrees += 360;
 
         double slice = menu.slice();
-        int slot = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
-        return menu.get(slot) == null ? -1 : slot;
+        int under = (int) Math.floor((degrees + slice / 2) / slice) % menu.size();
+        if (menu.get(under) == null) return -1;
+        if (hovered < 0 || under == hovered) return under;
+
+        // On a different entry now, but the light does not follow until the
+        // push has pulled far enough past the one it is on to drag it off.
+        return pastEdge() > breakAngle() ? under : hovered;
+    }
+
+    /** Degrees the push is beyond the edge of the entry the light is on. */
+    private double pastEdge() {
+        double delta = clampToArc(pushAngle() - menu.angleOf(hovered), 180);
+        return Math.max(0, Math.abs(delta) - menu.slice() / 2);
+    }
+
+    private double breakAngle() {
+        return Math.min(BREAK_DEGREES, menu.slice() * BREAK_SHARE);
     }
 
     /**
@@ -906,8 +924,16 @@ public final class RadialScreen extends DevScreen {
         float travel = reach / FULL_PULL;
         int color = fade(Theme.GLOW, 1 - aperture);
 
-        float bodyX = pullX * travel;
-        float bodyY = pullY * travel;
+        // Held inside the entry it is on, so it stops at the edge while the
+        // push carries on past it. Its distance from the middle is never held,
+        // since coming back in is how the light is let go of.
+        double angle = pushAngle();
+        if (hovered >= 0) {
+            angle = menu.angleOf(hovered) + clampToArc(angle - menu.angleOf(hovered), slotHalf());
+        }
+        float out = (float) Math.hypot(pullX, pullY) * travel;
+        float bodyX = (float) (Math.sin(Math.toRadians(angle)) * out);
+        float bodyY = (float) (-Math.cos(Math.toRadians(angle)) * out);
 
         if (spread > 0.01F) renderFilm(rim, spread);
 
