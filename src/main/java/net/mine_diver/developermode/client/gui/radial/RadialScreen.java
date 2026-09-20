@@ -101,6 +101,17 @@ public final class RadialScreen extends DevScreen {
     private static final float APERTURE_FADE = 0.12F;
     /** The pinhole the aperture closes down to. */
     private static final float HOLE_CLOSED = 6;
+    /**
+     * How far the backing behind the middle takes to fade out, and the steps
+     * it does it over.
+     *
+     * <p>It is darker than what is behind it, so an edge on it is a circle
+     * drawn on the screen. While the ring sits still that circle hides under
+     * the ring's inside edge; the moment the rings go anywhere it is the one
+     * thing that did not, and it is what the eye follows instead of them.
+     */
+    private static final float BACKING_FEATHER = 22;
+    private static final int BACKING_STEPS = 7;
 
     // Sprung rather than eased, so the middle overshoots a little and settles.
     // It is the one part of this that reacts to the world on its own, and a
@@ -575,9 +586,20 @@ public final class RadialScreen extends DevScreen {
         float hole = holeRadius();
 
         // It shrinks rather than fading, which is what makes the middle read as
-        // an iris instead of as something being turned off.
+        // an iris instead of as something being turned off, and it gives its
+        // outer edge away gradually so that there is no circle to notice once
+        // the ring is no longer parked on top of it.
         if (hole < inner) {
-            Draw.ring(ringX(), ringY(), hole, inner, 0, 360, fade(Theme.PANEL_SUNKEN, visible));
+            float solid = Math.max(hole, inner - BACKING_FEATHER);
+            Draw.ring(ringX(), ringY(), hole, solid, 0, 360, fade(Theme.PANEL_SUNKEN, visible));
+
+            for (int step = 0; step < BACKING_STEPS; step++) {
+                float from = solid + (inner - solid) * step / BACKING_STEPS;
+                float to = solid + (inner - solid) * (step + 1) / BACKING_STEPS;
+                if (to - from < 0.01F) break;
+                Draw.ring(ringX(), ringY(), from, to, 0, 360,
+                        fade(Theme.PANEL_SUNKEN, visible * (1 - (step + 0.5F) / BACKING_STEPS)));
+            }
         }
         // The rim takes the light, and a ripple leaves it and widens out. A
         // single thin band at the edge is the sort of thing that is only seen
