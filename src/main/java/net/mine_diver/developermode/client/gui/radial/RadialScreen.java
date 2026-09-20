@@ -117,7 +117,7 @@ public final class RadialScreen extends DevScreen {
     private static final int PULSE_BANDS = 4;
 
     /** How long one level takes to hand over to another. */
-    private static final float TRANSITION_MILLIS = 260;
+    private static final float TRANSITION_MILLIS = 420;
     /**
      * Degrees over which a slot hands over as the sweep reaches it. Wide
      * enough that several are mid change at once, so it reads as a wave
@@ -125,12 +125,24 @@ public final class RadialScreen extends DevScreen {
      */
     private static final float SWEEP_BAND_DEGREES = 55;
     /** Where the sweep has faded out by, as a fraction of the handover. */
-    private static final float SWEEP_SPENT = 0.55F;
+    private static final float SWEEP_SPENT = 0.78F;
     /** Degrees of ring still lit behind the crest, and the steps it fades over. */
-    private static final float SWEEP_TRAIL_DEGREES = 70;
-    private static final int SWEEP_TRAIL_STEPS = 7;
+    private static final float SWEEP_TRAIL_DEGREES = 115;
+    private static final int SWEEP_TRAIL_STEPS = 10;
     /** The bright edge right at the front of the wave. */
-    private static final float SWEEP_CREST_DEGREES = 6;
+    private static final float SWEEP_CREST_DEGREES = 12;
+    /** How bright the wave gets: the crest, and the light trailing it. */
+    private static final float SWEEP_CREST_ALPHA = 0.95F;
+    private static final float SWEEP_TRAIL_ALPHA = 0.5F;
+
+    /**
+     * How long the name of a level stays lit after arriving on it.
+     *
+     * <p>The wave says that something happened. This says what, and it outlasts
+     * the wave on purpose, so the answer is still there once the eye has
+     * finished following the movement that asked the question.
+     */
+    private static final float ARRIVAL_TAU_MILLIS = 420;
 
     /** Half width of the spur that ties the middle to the slot under the stick. */
     private static final double SPUR_DEGREES = 1.8;
@@ -177,6 +189,8 @@ public final class RadialScreen extends DevScreen {
     private int takenSlot = -1;
     private boolean descending;
     private float transition = 1;
+    /** Lit on arriving somewhere, and let go of slowly. */
+    private float arrival;
 
     /** The slot taken at each level above, so going back converges on it. */
     private final Deque<Integer> trailSlots = new ArrayDeque<>();
@@ -215,6 +229,7 @@ public final class RadialScreen extends DevScreen {
         outgoing = null;
         takenSlot = -1;
         transition = 1;
+        arrival = 0;
         Arrays.fill(lift, 0);
         aperture = 0;
         apertureVelocity = 0;
@@ -446,10 +461,12 @@ public final class RadialScreen extends DevScreen {
         takenSlot = slot;
         descending = descend;
         transition = 0;
+        arrival = 1;
         Arrays.fill(lift, 0);
     }
 
     private void updateTransition(float elapsedMillis) {
+        arrival *= (float) Math.exp(-elapsedMillis / ARRIVAL_TAU_MILLIS);
         if (outgoing == null) return;
 
         transition += elapsedMillis / TRANSITION_MILLIS;
@@ -467,7 +484,7 @@ public final class RadialScreen extends DevScreen {
     private void updateLift(float elapsedMillis) {
         float alpha = (float) (1 - Math.exp(-elapsedMillis / LIFT_TAU_MILLIS));
         for (int slot = 0; slot < RadialMenu.MAX_SLOTS; slot++) {
-            float target = outgoing == null && slot == hovered ? LIFT_DISTANCE : 0;
+            float target = slot == hovered ? LIFT_DISTANCE : 0;
             lift[slot] += (target - lift[slot]) * alpha;
         }
     }
@@ -701,12 +718,13 @@ public final class RadialScreen extends DevScreen {
             if (lead <= 0) break;
             double tail = Math.max(0, front - (i + 1) * step);
             bothWays(anchor, tail, lead, inner, outer,
-                    fade(Theme.ACCENT_FILL, strength * (1 - i / (float) SWEEP_TRAIL_STEPS)));
+                    fade(Theme.ACCENT, strength * SWEEP_TRAIL_ALPHA
+                            * (1 - i / (float) SWEEP_TRAIL_STEPS)));
         }
 
         if (front > 0) {
             bothWays(anchor, Math.max(0, front - SWEEP_CREST_DEGREES), front, inner, outer,
-                    fade(Theme.ACCENT, strength * 0.6F));
+                    fade(Theme.ACCENT, strength * SWEEP_CREST_ALPHA));
         }
     }
 
@@ -852,7 +870,7 @@ public final class RadialScreen extends DevScreen {
         if (entry == null) {
             Draw.textCentered(minecraft,
                     Draw.ellipsize(minecraft, path(), (int) (INNER_RADIUS * 1.7F)),
-                    ringX, ringY - 8, Theme.TEXT_DIM);
+                    ringX, ringY - 8, blend(Theme.TEXT_DIM, Theme.ACCENT, arrival));
             Draw.textCentered(minecraft,
                     trail.isEmpty() ? "hold left to look" : "right click to go back",
                     ringX, ringY + 2, Theme.TEXT_FAINT);
@@ -888,6 +906,15 @@ public final class RadialScreen extends DevScreen {
         return aimCancelled
                 ? "cancelled, let go safely"
                 : targeted() ? "let go to open    right click to cancel" : "let go to come back";
+    }
+
+    /** Mixes one colour towards another, keeping the alpha of the first. */
+    private static int blend(int from, int to, float amount) {
+        float keep = 1 - amount;
+        int red = Math.round(((from >> 16) & 0xFF) * keep + ((to >> 16) & 0xFF) * amount);
+        int green = Math.round(((from >> 8) & 0xFF) * keep + ((to >> 8) & 0xFF) * amount);
+        int blue = Math.round((from & 0xFF) * keep + (to & 0xFF) * amount);
+        return (from & 0xFF000000) | (red << 16) | (green << 8) | blue;
     }
 
     /** Scales a colour's alpha, leaving the colour itself alone. */
