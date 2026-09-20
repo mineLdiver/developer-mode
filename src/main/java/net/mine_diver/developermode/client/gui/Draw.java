@@ -102,10 +102,14 @@ public final class Draw {
      * <p>Built from nested copies of the same shape, blended additively like
      * {@link #glow}, so the brightest part is where it is thickest.
      *
-     * @param depth how far in from the rim the middle of it reaches
+     * @param apexDegrees where the deepest part of it sits, which need not be
+     *                    the middle of the arc: a drop held against something
+     *                    still gathers towards whatever is pulling on it
+     * @param depth       how far in from the rim the deepest part reaches
      */
     public static void cling(double centerX, double centerY, double rimRadius,
-                             double fromDegrees, double toDegrees, double depth, int argb) {
+                             double fromDegrees, double toDegrees, double apexDegrees,
+                             double depth, int argb) {
         int layers = 9;
         int steps = 40;
 
@@ -120,23 +124,31 @@ public final class Draw {
         float blue = (argb & 0xFF) / 255F;
         float layerAlpha = (argb >>> 24) / 255F / layers;
 
-        double middle = (fromDegrees + toDegrees) / 2;
-        double half = (toDegrees - fromDegrees) / 2;
+        double apex = Math.max(fromDegrees, Math.min(toDegrees, apexDegrees));
 
         Tessellator tessellator = Tessellator.INSTANCE;
         for (int layer = 0; layer < layers; layer++) {
             double shrink = 1 - layer / (double) layers;
-            double layerHalf = half * shrink;
             double layerDepth = depth * shrink;
+            // Each layer keeps the apex and draws its ends in towards it, so
+            // the nesting happens around the deepest point rather than around
+            // the middle of the arc.
+            double from = apex + (fromDegrees - apex) * shrink;
+            double to = apex + (toDegrees - apex) * shrink;
 
             GL11.glColor4f(red, green, blue, layerAlpha);
             tessellator.start(GL11.GL_TRIANGLE_STRIP);
             for (int i = 0; i <= steps; i++) {
-                double along = i / (double) steps;
-                double radians = Math.toRadians(middle - layerHalf + 2 * layerHalf * along);
-                // Nothing at the ends and deepest in the middle, which is what
-                // makes it read as one body resting there rather than a band.
-                double bulge = Math.sin(Math.PI * along);
+                double degrees = from + (to - from) * i / steps;
+                // Nothing at the ends and deepest at the apex, with each side
+                // given its own share of the curve so an off centre apex still
+                // meets the rim smoothly at both of them.
+                double side = degrees < apex
+                        ? safeRatio(degrees - from, apex - from)
+                        : safeRatio(to - degrees, to - apex);
+                double bulge = Math.sin(Math.PI / 2 * side);
+
+                double radians = Math.toRadians(degrees);
                 double sin = Math.sin(radians);
                 double cos = Math.cos(radians);
                 double inner = rimRadius - layerDepth * bulge;
@@ -153,6 +165,11 @@ public final class Draw {
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_ALPHA_TEST);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
+    }
+
+    /** Guards the case where the apex has reached one end of the arc. */
+    private static double safeRatio(double part, double whole) {
+        return whole <= 1.0E-4 ? 1 : Math.max(0, Math.min(1, part / whole));
     }
 
     /**

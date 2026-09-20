@@ -20,6 +20,8 @@ public final class Theme {
     public static final int ACCENT_FILL    = 0x664EC9B0;
     /** Alpha is the brightness at the center of the glow, not an opacity. */
     public static final int GLOW           = 0x8C6FF0D6;
+    /** The hard middle of that light, so it has a point as well as a presence. */
+    public static final int GLOW_CORE      = 0xFFE4FFF7;
     public static final int DANGER         = 0xFFE06C75;
 
     public static final int TEXT           = 0xFFE6E9EC;

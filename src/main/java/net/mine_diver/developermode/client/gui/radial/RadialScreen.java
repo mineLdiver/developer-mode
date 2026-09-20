@@ -58,8 +58,15 @@ public final class RadialScreen extends DevScreen {
 
     /** GUI pixels of mouse travel for a fully pushed stick. */
     private static final float FULL_PULL = 40;
-    /** Travel needed before the push lands on a slot at all. */
-    private static final float DEAD_ZONE = 11;
+    /**
+     * Travel needed before the push lands on a slot at all.
+     *
+     * <p>Generous, because the two ends of the push are not equally hard to
+     * reach. A slot is everything past this and takes no aim at all, since a
+     * flick that overshoots still lands on it. The middle is a place that has
+     * to be returned to, and a small one would have to be aimed for.
+     */
+    private static final float DEAD_ZONE = 18;
     /** Mouse travel to stick travel. Raise it for a twitchier ring. */
     private static final float SENSITIVITY = 1;
 
@@ -82,6 +89,10 @@ public final class RadialScreen extends DevScreen {
      * the push is, and that is wanted most when the push has wandered.
      */
     private static final float GLOW_LOOSE = 0.72F;
+    /** What is left of its size, so it becomes the crown of the pool. */
+    private static final float GLOW_GATHERED = 0.55F;
+    /** The hard middle of the light, which is the pointer itself. */
+    private static final float GLOW_CORE_RADIUS = 3;
 
     /** Fixed step the ring takes towards a chosen slot. */
     private static final float SNAP_DISTANCE = 6;
@@ -814,37 +825,67 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * The light in the hole: loose where the push is, and pooled on the ring
-     * once the push has reached a slot.
+     * The light in the hole: one body, which is round while it is loose and
+     * spread along the ring once the push has reached a slot.
      *
-     * <p>The loose part never stops following the push, so where the hand has
-     * got to is always on screen. The pooled part lies along the slot's own
-     * arc and deepens as the push does, which is what says that this entry,
-     * and that much of the ring, is what a click would take.
+     * <p>It is not two lights that trade places. The round part travels into
+     * the crown of the spread part as the spread part grows, so what happens
+     * when a push reaches a slot is the same light arriving and settling.
+     *
+     * <p>The deepest point of it follows the push's own direction rather than
+     * sitting at the middle of the slot, so sweeping across a slot still moves
+     * something, and the hard middle sits at that point. Between them they say
+     * which entry is held, at what angle the push is, and how far out it has
+     * gone, which is everything needed to find the way back to the middle.
      */
     private void renderGlow(float grow) {
         float reach = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN);
         float travel = reach / FULL_PULL;
-        float x = width / 2F + pullX * travel;
-        float y = height / 2F + pullY * travel;
         int color = fade(Theme.GLOW, 1 - aperture);
 
-        Draw.glow(x, y, GLOW_RADIUS, fade(color, 1 - cling * (1 - GLOW_LOOSE)));
+        float bodyX = pullX * travel;
+        float bodyY = pullY * travel;
 
-        if (cling <= 0.01F || hovered < 0) return;
+        boolean gathered = cling > 0.01F && hovered >= 0;
+        if (gathered) {
+            float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
+            float depth = CLING_DEPTH_LEAST + (CLING_DEPTH_MOST - CLING_DEPTH_LEAST) * pushDepth();
+            double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
+            double middle = menu.angleOf(hovered);
+            double half = menu.slice() / 2 - gap / 2;
+            double apex = middle + clampToArc(pushAngle() - middle, half);
 
-        float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
-        double slice = menu.slice();
-        double middle = menu.angleOf(hovered);
-        double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
-        float depth = CLING_DEPTH_LEAST + (CLING_DEPTH_MOST - CLING_DEPTH_LEAST) * pushDepth();
+            double radians = Math.toRadians(apex);
+            float crownX = (float) (Math.sin(radians) * (rim - depth * cling));
+            float crownY = (float) (-Math.cos(radians) * (rim - depth * cling));
+            bodyX += (crownX - bodyX) * cling;
+            bodyY += (crownY - bodyY) * cling;
 
-        double from = middle - slice / 2 + gap / 2;
-        double to = middle + slice / 2 - gap / 2;
-        // Twice over, additively, so the pool carries more light than the loose
-        // part it came from and reads as where the push has ended up.
-        Draw.cling(ringX(), ringY(), rim, from, to, depth * cling, fade(color, cling));
-        Draw.cling(ringX(), ringY(), rim, from, to, depth * cling, fade(color, cling));
+            // Twice over, additively, so the pool carries more light than the
+            // round part it grew out of.
+            for (int pass = 0; pass < 2; pass++) {
+                Draw.cling(ringX(), ringY(), rim, middle - half, middle + half, apex,
+                        depth * cling, fade(color, cling));
+            }
+        }
+
+        float x = ringX() + bodyX;
+        float y = ringY() + bodyY;
+        Draw.glow(x, y, GLOW_RADIUS * (1 - cling * (1 - GLOW_GATHERED)),
+                fade(color, 1 - cling * (1 - GLOW_LOOSE)));
+        // Solid rather than soft, so the push has a point and not just a haze.
+        Draw.ring(x, y, 0, GLOW_CORE_RADIUS, 0, 360, fade(Theme.GLOW_CORE, 1 - aperture));
+    }
+
+    /** Degrees clockwise from straight up that the push is pointing. */
+    private double pushAngle() {
+        return Math.toDegrees(Math.atan2(pullX, -pullY));
+    }
+
+    /** The shortest way round, then held inside the arc it has to stay in. */
+    private static double clampToArc(double delta, double half) {
+        double wrapped = ((delta + 540) % 360) - 180;
+        return Math.max(-half, Math.min(half, wrapped));
     }
 
     private void renderCaption() {
