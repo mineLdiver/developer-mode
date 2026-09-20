@@ -71,18 +71,17 @@ public final class RadialScreen extends DevScreen {
     private static final float GLOW_RADIUS = 26;
     private static final float GLOW_MARGIN = 0.75F;
 
-    // Sprung, so the light is a thing with weight rather than a readout of
-    // where the stick is. It lags going out, catches up, and settles.
-    private static final float GLOW_STIFFNESS = 900;
-    private static final float GLOW_DAMPING = 42;
-    /** Travel per second at which the drop is fully drawn out. */
-    private static final float GLOW_STRETCH_SPEED = 420;
-    private static final float GLOW_STRETCH_MAX = 0.9F;
-    /** How flat it goes against a slot on landing, and how soon it lets go. */
-    private static final float GLOW_SPLAT = 0.5F;
-    private static final float GLOW_SPLAT_TAU_MILLIS = 110;
-    /** How near the mark counts as having arrived at it. */
-    private static final float GLOW_LAND_DISTANCE = 7;
+    /** How quickly the light gathers on the ring once the push reaches a slot. */
+    private static final float CLING_TAU_MILLIS = 70;
+    /** How far in from the rim the pool reaches, at a bare touch and at a shove. */
+    private static final float CLING_DEPTH_LEAST = 10;
+    private static final float CLING_DEPTH_MOST = 26;
+    /**
+     * What is left of the loose light once it has gathered on the ring. It is
+     * dimmed rather than put out, because it is the only thing saying where
+     * the push is, and that is wanted most when the push has wandered.
+     */
+    private static final float GLOW_LOOSE = 0.72F;
 
     /** Fixed step the ring takes towards a chosen slot. */
     private static final float SNAP_DISTANCE = 6;
@@ -180,14 +179,8 @@ public final class RadialScreen extends DevScreen {
     /** How far each slot stands out, so the lift eases instead of snapping. */
     private final float[] lift = new float[RadialMenu.MAX_SLOTS];
 
-    /** Where the light actually is, which is not quite where it is wanted. */
-    private float glowX;
-    private float glowY;
-    private float glowVelocityX;
-    private float glowVelocityY;
-    /** Set on arrival and let go of, so the drop flattens where it lands. */
-    private float glowSplat;
-    private boolean glowLanded;
+    /** How much of the light has gathered onto the ring. */
+    private float cling;
 
     private float aperture;
     private float apertureVelocity;
@@ -219,12 +212,7 @@ public final class RadialScreen extends DevScreen {
         takenSlot = -1;
         transition = 1;
         Arrays.fill(lift, 0);
-        glowX = 0;
-        glowY = 0;
-        glowVelocityX = 0;
-        glowVelocityY = 0;
-        glowSplat = 0;
-        glowLanded = false;
+        cling = 0;
         aperture = 0;
         apertureVelocity = 0;
         wasTargeted = false;
@@ -275,7 +263,7 @@ public final class RadialScreen extends DevScreen {
         updateSnap(elapsed);
         updateTransition(elapsed);
         updateLift(elapsed);
-        updateGlow(elapsed, openProgress());
+        updateCling(elapsed);
 
         renderBackdrop();
         float grow = openProgress();
@@ -292,7 +280,7 @@ public final class RadialScreen extends DevScreen {
             renderSweep(grow);
         }
 
-        if (!aiming) renderGlow();
+        if (!aiming) renderGlow(grow);
 
         // One thing in the middle at a time. A hovered slot wins, because what
         // a click would do beats what is behind the window it would leave.
@@ -806,84 +794,57 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * Moves the light towards where it belongs, which is not the same as where
-     * the stick is.
+     * Gathers the light onto the ring, and lets it go again.
      *
-     * <p>While the push is still in the dead zone the light tracks it, so the
-     * middle answers a movement that has not chosen anything yet. The moment
-     * the push lands on a slot the light stops following and goes to that
-     * slot's own line instead, and stays there however the push wanders inside
-     * the slot. Sprung rather than moved, so it arrives with some weight to it
-     * and is not a second drawing of the stick's position.
-     *
-     * <p>Its reach is the hole minus enough of itself to stay clear of the
-     * ring, so landing puts it against the inside edge whatever that edge
-     * happens to be. A fraction fixed by hand would only be right for the ring
-     * it was measured against.
+     * <p>Only how much of it has gathered. Where the light is stays the push's
+     * own business, because it is the only thing on screen that says where the
+     * push is, and a light that went to the slot instead would leave no way of
+     * telling how far out the hand had wandered or which way back was.
      */
-    private void updateGlow(float elapsedMillis, float grow) {
-        float reach = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN);
-        float targetX;
-        float targetY;
+    private void updateCling(float elapsedMillis) {
+        float target = hovered >= 0 && outgoing == null ? 1 : 0;
+        float alpha = (float) (1 - Math.exp(-elapsedMillis / CLING_TAU_MILLIS));
+        cling += (target - cling) * alpha;
+    }
 
-        if (hovered >= 0 && outgoing == null) {
-            double radians = Math.toRadians(menu.angleOf(hovered));
-            targetX = (float) (Math.sin(radians) * reach);
-            targetY = (float) (-Math.cos(radians) * reach);
-        } else {
-            float travel = reach / FULL_PULL;
-            targetX = pullX * travel;
-            targetY = pullY * travel;
-        }
-
-        float step = Math.min(elapsedMillis, 50) / 1000F;
-        glowVelocityX += (targetX - glowX) * GLOW_STIFFNESS * step;
-        glowVelocityY += (targetY - glowY) * GLOW_STIFFNESS * step;
-        glowVelocityX -= glowVelocityX * GLOW_DAMPING * step;
-        glowVelocityY -= glowVelocityY * GLOW_DAMPING * step;
-        glowX += glowVelocityX * step;
-        glowY += glowVelocityY * step;
-
-        // Landing is the moment it first gets near the mark, not the moment it
-        // was given one, or it would flatten while still on its way there.
-        float gap = (float) Math.hypot(targetX - glowX, targetY - glowY);
-        boolean near = gap < GLOW_LAND_DISTANCE && hovered >= 0 && outgoing == null;
-        if (near && !glowLanded) glowSplat = 1;
-        glowLanded = near;
-        glowSplat *= (float) Math.exp(-elapsedMillis / GLOW_SPLAT_TAU_MILLIS);
+    /** How far past the dead zone the push is, as a fraction of the rest of it. */
+    private float pushDepth() {
+        float distance = (float) Math.hypot(pullX, pullY);
+        return Math.max(0, Math.min(1, (distance - DEAD_ZONE) / (FULL_PULL - DEAD_ZONE)));
     }
 
     /**
-     * The drop, drawn out along whichever of the two things acting on it has
-     * the upper hand: the pull that is still carrying it, or the slot it has
-     * just struck.
+     * The light in the hole: loose where the push is, and pooled on the ring
+     * once the push has reached a slot.
+     *
+     * <p>The loose part never stops following the push, so where the hand has
+     * got to is always on screen. The pooled part lies along the slot's own
+     * arc and deepens as the push does, which is what says that this entry,
+     * and that much of the ring, is what a click would take.
      */
-    private void renderGlow() {
-        float x = width / 2F + glowX;
-        float y = height / 2F + glowY;
+    private void renderGlow(float grow) {
+        float reach = Math.max(0, INNER_RADIUS * grow - GLOW_RADIUS * GLOW_MARGIN);
+        float travel = reach / FULL_PULL;
+        float x = width / 2F + pullX * travel;
+        float y = height / 2F + pullY * travel;
         int color = fade(Theme.GLOW, 1 - aperture);
 
-        float speed = (float) Math.hypot(glowVelocityX, glowVelocityY);
-        float pulled = Math.min(GLOW_STRETCH_MAX, speed / GLOW_STRETCH_SPEED);
-        float flattened = glowSplat * GLOW_SPLAT;
+        Draw.glow(x, y, GLOW_RADIUS, fade(color, 1 - cling * (1 - GLOW_LOOSE)));
 
-        double axis;
-        double stretch;
-        if (flattened > pulled && hovered >= 0) {
-            // Across the slot's own line, which is the wall it ran into.
-            axis = Math.toRadians(menu.angleOf(hovered));
-            axis = Math.atan2(-Math.cos(axis), Math.sin(axis)) + Math.PI / 2;
-            stretch = flattened;
-        } else {
-            axis = Math.atan2(glowVelocityY, glowVelocityX);
-            stretch = pulled;
-        }
+        if (cling <= 0.01F || hovered < 0) return;
 
-        Draw.glob(x, y, GLOW_RADIUS, axis, stretch, color);
-        // Twice over once the push has landed. The light is additive, so a
-        // second pass is the same light again, and the drop brightens as it
-        // takes hold of a slot.
-        if (hovered >= 0 && outgoing == null) Draw.glob(x, y, GLOW_RADIUS, axis, stretch, color);
+        float rim = INNER_RADIUS * grow + aimProgress() * APERTURE_TRAVEL;
+        double slice = menu.slice();
+        double middle = menu.angleOf(hovered);
+        double gap = menu.size() < 2 ? 0 : SLOT_GAP_DEGREES;
+        float depth = CLING_DEPTH_LEAST + (CLING_DEPTH_MOST - CLING_DEPTH_LEAST) * pushDepth();
+
+        double from = middle - slice / 2 + gap / 2;
+        double to = middle + slice / 2 - gap / 2;
+        // Twice over, additively, so the pool carries more light than the loose
+        // part it came from and reads as where the push has ended up.
+        Draw.cling(ringX(), ringY(), rim, from, to, depth * cling, fade(color, cling));
+        Draw.cling(ringX(), ringY(), rim, from, to, depth * cling, fade(color, cling));
     }
 
     private void renderCaption() {

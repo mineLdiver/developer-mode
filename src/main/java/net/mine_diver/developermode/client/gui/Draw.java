@@ -92,6 +92,70 @@ public final class Draw {
     }
 
     /**
+     * Light pooled against the inside of a circle, across a given arc.
+     *
+     * <p>Flat along the rim and bulging inward, the way a drop of water sitting
+     * on a floor is flat where it touches and domed where it does not. It ends
+     * at the rim rather than crossing it, and it thins to nothing at either end
+     * of the arc, so what it covers is exactly the span it was given.
+     *
+     * <p>Built from nested copies of the same shape, blended additively like
+     * {@link #glow}, so the brightest part is where it is thickest.
+     *
+     * @param depth how far in from the rim the middle of it reaches
+     */
+    public static void cling(double centerX, double centerY, double rimRadius,
+                             double fromDegrees, double toDegrees, double depth, int argb) {
+        int layers = 9;
+        int steps = 40;
+
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+
+        float red = (argb >> 16 & 0xFF) / 255F;
+        float green = (argb >> 8 & 0xFF) / 255F;
+        float blue = (argb & 0xFF) / 255F;
+        float layerAlpha = (argb >>> 24) / 255F / layers;
+
+        double middle = (fromDegrees + toDegrees) / 2;
+        double half = (toDegrees - fromDegrees) / 2;
+
+        Tessellator tessellator = Tessellator.INSTANCE;
+        for (int layer = 0; layer < layers; layer++) {
+            double shrink = 1 - layer / (double) layers;
+            double layerHalf = half * shrink;
+            double layerDepth = depth * shrink;
+
+            GL11.glColor4f(red, green, blue, layerAlpha);
+            tessellator.start(GL11.GL_TRIANGLE_STRIP);
+            for (int i = 0; i <= steps; i++) {
+                double along = i / (double) steps;
+                double radians = Math.toRadians(middle - layerHalf + 2 * layerHalf * along);
+                // Nothing at the ends and deepest in the middle, which is what
+                // makes it read as one body resting there rather than a band.
+                double bulge = Math.sin(Math.PI * along);
+                double sin = Math.sin(radians);
+                double cos = Math.cos(radians);
+                double inner = rimRadius - layerDepth * bulge;
+
+                tessellator.vertex(centerX + sin * rimRadius, centerY - cos * rimRadius, 0);
+                tessellator.vertex(centerX + sin * inner, centerY - cos * inner, 0);
+            }
+            tessellator.draw();
+        }
+
+        GL11.glColor4f(1, 1, 1, 1);
+        GL11.glEnable(GL11.GL_CULL_FACE);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_ALPHA_TEST);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+    }
+
+    /**
      * A close cross. Drawn rather than typed: AlwaysMoreItems claims the
      * multiplication sign as a control character and chokes on a string that
      * starts with one.
@@ -111,23 +175,6 @@ public final class Draw {
      * at the very center.
      */
     public static void glow(double centerX, double centerY, double radius, int argb) {
-        glob(centerX, centerY, radius, 0, 0, argb);
-    }
-
-    /**
-     * The same light, drawn out along an axis instead of round.
-     *
-     * <p>{@code stretch} lengthens it along {@code axisRadians} and narrows it
-     * across by as much again, so it keeps roughly the area it had. A body of
-     * liquid does the same thing when something pulls on it, which is the only
-     * reason to want this: a round light that moves is a light that moved,
-     * and one that draws out and springs back is a thing being moved.
-     *
-     * @param axisRadians the direction to draw it out along, in screen space
-     * @param stretch     0 for round, upwards of that for drawn out
-     */
-    public static void glob(double centerX, double centerY, double radius,
-                            double axisRadians, double stretch, int argb) {
         int layers = 10;
         int steps = 24;
 
@@ -142,11 +189,6 @@ public final class Draw {
         float blue = (argb & 0xFF) / 255F;
         float layerAlpha = (argb >>> 24) / 255F / layers;
 
-        double along = 1 + stretch;
-        double across = 1 / along;
-        double axisX = Math.cos(axisRadians);
-        double axisY = Math.sin(axisRadians);
-
         Tessellator tessellator = Tessellator.INSTANCE;
         for (int layer = 0; layer < layers; layer++) {
             double layerRadius = radius * (1 - layer / (double) layers);
@@ -155,11 +197,9 @@ public final class Draw {
             tessellator.vertex(centerX, centerY, 0);
             for (int i = 0; i <= steps; i++) {
                 double radians = Math.PI * 2 * i / steps;
-                double lengthways = Math.cos(radians) * layerRadius * along;
-                double sideways = Math.sin(radians) * layerRadius * across;
                 tessellator.vertex(
-                        centerX + axisX * lengthways - axisY * sideways,
-                        centerY + axisY * lengthways + axisX * sideways, 0);
+                        centerX + Math.sin(radians) * layerRadius,
+                        centerY - Math.cos(radians) * layerRadius, 0);
             }
             tessellator.draw();
         }
