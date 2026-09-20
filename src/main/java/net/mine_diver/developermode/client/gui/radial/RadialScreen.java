@@ -50,8 +50,6 @@ import java.util.Deque;
  */
 public final class RadialScreen extends DevScreen {
     /** Which side of a handover a level is on, which is what decides its sweep. */
-    private enum Phase { SETTLED, LEAVING, ARRIVING }
-
     private static final float INNER_RADIUS = 64;
     private static final float OUTER_RADIUS = 112;
     private static final float SLOT_GAP_DEGREES = 3;
@@ -118,22 +116,20 @@ public final class RadialScreen extends DevScreen {
 
     /** How long one level takes to hand over to another. */
     private static final float TRANSITION_MILLIS = 420;
+
     /**
-     * Degrees over which a slot hands over as the sweep reaches it. Wide
-     * enough that several are mid change at once, so it reads as a wave
-     * crossing the ring rather than as slots taking turns.
+     * How much larger than the ring a level arriving over it starts out.
+     *
+     * <p>Wide enough that its inside edge clears the outside edge of the one it
+     * is replacing, with a little to spare, so one is around the other rather
+     * than drawn through it.
+     *
+     * <p>Both scales run straight from where they start to where they finish,
+     * which holds them exactly this far apart for the whole of it: one level is
+     * always the other times or divided by this, so what starts nested stays
+     * nested on every frame.
      */
-    private static final float SWEEP_BAND_DEGREES = 55;
-    /** Where the sweep has faded out by, as a fraction of the handover. */
-    private static final float SWEEP_SPENT = 0.78F;
-    /** Degrees of ring still lit behind the crest, and the steps it fades over. */
-    private static final float SWEEP_TRAIL_DEGREES = 115;
-    private static final int SWEEP_TRAIL_STEPS = 10;
-    /** The bright edge right at the front of the wave. */
-    private static final float SWEEP_CREST_DEGREES = 12;
-    /** How bright the wave gets: the crest, and the light trailing it. */
-    private static final float SWEEP_CREST_ALPHA = 0.95F;
-    private static final float SWEEP_TRAIL_ALPHA = 0.5F;
+    private static final float LEVEL_APART = OUTER_RADIUS / INNER_RADIUS * 1.06F;
 
     /**
      * How long the name of a level stays lit after arriving on it.
@@ -286,15 +282,22 @@ public final class RadialScreen extends DevScreen {
         float grow = openProgress();
         renderHole(grow);
 
-        // Going down zooms into the slot that was taken and grows the level
-        // behind it; coming back up does the same in reverse, so which way you
-        // went is legible from the movement alone.
+        // One level is always around the other, and both are on their way
+        // somewhere. Going down, the ring you were on shrinks away into the
+        // middle while the one taking over closes in from outside it. Coming
+        // back up runs the same movement the other way, so which way you went
+        // is legible from the movement alone.
         if (outgoing == null) {
-            renderLevel(menu, grow, hovered, true, Phase.SETTLED);
+            renderLevel(menu, grow, 1, hovered, true);
         } else {
-            renderLevel(outgoing, grow, descending ? takenSlot : -1, false, Phase.LEAVING);
-            renderLevel(menu, grow, -1, false, Phase.ARRIVING);
-            renderSweep(grow);
+            float eased = easeWave(transition);
+            float settled = descending ? 1 / LEVEL_APART : LEVEL_APART;
+            float leaving = 1 + (settled - 1) * eased;
+            float arriving = descending ? leaving * LEVEL_APART : leaving / LEVEL_APART;
+
+            renderLevel(outgoing, grow * leaving, 1 - eased,
+                    descending ? takenSlot : -1, false);
+            renderLevel(menu, grow * arriving, eased, hovered, true);
         }
 
         if (!aiming) renderGlow(grow);
@@ -600,8 +603,8 @@ public final class RadialScreen extends DevScreen {
      * @param highlight the slot to show as taken, or -1
      * @param live      whether this is the level the stick is actually on
      */
-    private void renderLevel(RadialMenu level, float scale, int highlight, boolean live, Phase phase) {
-        float base = 1 - aimProgress() * (1 - APERTURE_FADE);
+    private void renderLevel(RadialMenu level, float scale, float alpha, int highlight, boolean live) {
+        float base = alpha * (1 - aimProgress() * (1 - APERTURE_FADE));
         if (base <= 0.01F) return;
 
         float ringX = ringX();
@@ -612,8 +615,7 @@ public final class RadialScreen extends DevScreen {
         double slice = level.slice();
 
         for (int slot = 0; slot < level.size(); slot++) {
-            float visible = base * slotAlpha(level, slot, phase);
-            if (visible <= 0.01F) continue;
+            float visible = base;
 
             double middle = level.angleOf(slot);
             // A level of one is the whole ring, and a gap in it would be a
@@ -639,9 +641,9 @@ public final class RadialScreen extends DevScreen {
             }
         }
 
-        renderBoundaries(level, ringX, ringY, inner, outer, base * levelAlpha(phase));
+        renderBoundaries(level, ringX, ringY, inner, outer, base);
         if (live) renderSpur(scale, highlight);
-        renderIcons(level, scale, highlight, live, phase);
+        renderIcons(level, scale, base, highlight, live);
     }
 
     /**
@@ -661,90 +663,6 @@ public final class RadialScreen extends DevScreen {
                     middle - slice / 2 + inset, middle + slice / 2 - inset,
                     fade(layer == 1 ? Theme.TEXT_DIM : Theme.TEXT_FAINT, visible));
         }
-    }
-
-    /**
-     * How far through the handover a given slot is.
-     *
-     * <p>The wave starts at the slot that was clicked and runs both ways
-     * around the ring, so what happens next radiates out of what you chose.
-     * Going back anchors at the far side instead, so the ring closes into the
-     * slot you came from.
-     */
-    private float slotAlpha(RadialMenu level, int slot, Phase phase) {
-        if (phase == Phase.SETTLED) return 1;
-
-        double away = Math.abs(level.angleOf(slot) - sweepAnchor()) % 360;
-        if (away > 180) away = 360 - away;
-
-        float front = easeWave(transition) * 180;
-        float progress = (float) ((front - away) / SWEEP_BAND_DEGREES);
-        return phase == Phase.ARRIVING
-                ? Math.max(0, Math.min(1, progress))
-                : Math.max(0, Math.min(1, 1 - progress));
-    }
-
-    /** One number for the parts of a level that are not per slot. */
-    private float levelAlpha(Phase phase) {
-        if (phase == Phase.SETTLED) return 1;
-        float eased = easeWave(transition);
-        return phase == Phase.ARRIVING ? eased : 1 - eased;
-    }
-
-    /**
-     * The pulse itself: light running out of the chosen slot in both
-     * directions, through the ring rather than along its edges, spent by the
-     * time it has crossed.
-     *
-     * <p>Brightest at the front and trailing off behind, because a band of one
-     * colour filling an arc reads as an arc being filled. What makes it a wave
-     * is that the leading edge is the bright part.
-     */
-    private void renderSweep(float grow) {
-        if (takenSlot < 0) return;
-
-        float strength = 1 - Math.max(0, (transition - SWEEP_SPENT) / (1 - SWEEP_SPENT));
-        if (strength <= 0.01F) return;
-
-        float push = aimProgress() * APERTURE_TRAVEL;
-        float inner = INNER_RADIUS * grow + push;
-        float outer = OUTER_RADIUS * grow + push;
-        double anchor = sweepAnchor();
-        float front = easeWave(transition) * 180;
-        float step = SWEEP_TRAIL_DEGREES / SWEEP_TRAIL_STEPS;
-
-        for (int i = 0; i < SWEEP_TRAIL_STEPS; i++) {
-            double lead = front - i * step;
-            if (lead <= 0) break;
-            double tail = Math.max(0, front - (i + 1) * step);
-            bothWays(anchor, tail, lead, inner, outer,
-                    fade(Theme.ACCENT, strength * SWEEP_TRAIL_ALPHA
-                            * (1 - i / (float) SWEEP_TRAIL_STEPS)));
-        }
-
-        if (front > 0) {
-            bothWays(anchor, Math.max(0, front - SWEEP_CREST_DEGREES), front, inner, outer,
-                    fade(Theme.ACCENT, strength * SWEEP_CREST_ALPHA));
-        }
-    }
-
-    /** The two halves of the wave, mirrored about where it started. */
-    private void bothWays(double anchor, double from, double to,
-                          float inner, float outer, int argb) {
-        Draw.ring(ringX(), ringY(), inner, outer, anchor + from, anchor + to, argb);
-        Draw.ring(ringX(), ringY(), inner, outer, anchor - to, anchor - from, argb);
-    }
-
-    /**
-     * Where the wave starts: the slot that was clicked on the way down, and the
-     * far side of the ring on the way back, so going back closes into the slot
-     * it came from rather than opening out of it.
-     */
-    private double sweepAnchor() {
-        // The slot that was taken belongs to the level being left, so its angle
-        // has to be asked of that level rather than of the one that replaced it.
-        RadialMenu source = outgoing == null ? menu : outgoing;
-        return source.angleOf(takenSlot) + (descending ? 0 : 180);
     }
 
     /**
@@ -792,7 +710,7 @@ public final class RadialScreen extends DevScreen {
         }
     }
 
-    private void renderIcons(RadialMenu level, float scale, int highlight, boolean live, Phase phase) {
+    private void renderIcons(RadialMenu level, float scale, float visible, int highlight, boolean live) {
         float ringX = ringX();
         float ringY = ringY();
         float radius = (INNER_RADIUS + OUTER_RADIUS) / 2 * scale + aimProgress() * APERTURE_TRAVEL;
@@ -802,7 +720,7 @@ public final class RadialScreen extends DevScreen {
             if (entry == null) continue;
             // Items are drawn by the game's own renderer, which takes no
             // opacity, so each one changes over as the wave reaches its slot.
-            if (slotAlpha(level, slot, phase) < 0.5F) continue;
+            if (visible < 0.5F) continue;
 
             double radians = Math.toRadians(level.angleOf(slot));
             float reach = radius + (live ? lift[slot] / 2 : 0);
