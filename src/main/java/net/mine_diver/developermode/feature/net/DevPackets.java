@@ -2,15 +2,18 @@ package net.mine_diver.developermode.feature.net;
 
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.feature.net.packet.ApplyNbtC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.BlastC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.ClearC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.NbtS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.FreezeC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.FrozenS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.GiveC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.GrowC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.HealC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.PowersC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.PowersS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.RequestNbtC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.SmiteC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.StatusS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.SummonC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.TimeC2SPacket;
@@ -48,6 +51,9 @@ public final class DevPackets {
         event.register(DeveloperMode.NAMESPACE.id("warp"), WarpC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("time"), TimeC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("weather"), WeatherC2SPacket.TYPE);
+        event.register(DeveloperMode.NAMESPACE.id("grow"), GrowC2SPacket.TYPE);
+        event.register(DeveloperMode.NAMESPACE.id("blast"), BlastC2SPacket.TYPE);
+        event.register(DeveloperMode.NAMESPACE.id("smite"), SmiteC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("clear"), ClearC2SPacket.TYPE);
     }
 }

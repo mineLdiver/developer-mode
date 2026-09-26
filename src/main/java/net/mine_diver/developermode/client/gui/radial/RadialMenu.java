@@ -5,10 +5,11 @@ import net.mine_diver.developermode.client.gui.window.EntityListWindow;
 import net.mine_diver.developermode.client.gui.window.SummonWindow;
 import net.mine_diver.developermode.client.gui.window.ItemPickerWindow;
 import net.mine_diver.developermode.client.Sight;
+import net.mine_diver.developermode.client.tool.Tool;
+import net.mine_diver.developermode.client.tool.ToolMode;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Heal;
 import net.mine_diver.developermode.feature.player.Power;
-import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Clearing;
 import net.mine_diver.developermode.feature.world.Time;
 import net.mine_diver.developermode.feature.world.Weather;
@@ -38,6 +39,9 @@ import java.util.List;
 public final class RadialMenu {
     /** Enough for any level, and what the screen sizes its per slot state to. */
     public static final int MAX_SLOTS = 16;
+
+    /** The dye whose damage value makes it bone meal. */
+    private static final int BONE_MEAL = 15;
 
     private static RadialMenu root;
 
@@ -103,10 +107,6 @@ public final class RadialMenu {
 
         RadialMenu world = new RadialMenu("World")
                 .add(new RadialEntry(
-                        "Summon", "Place a new entity in the world",
-                        new ItemStack(Item.EGG),
-                        returnTo -> SummonWindow.open()))
-                .add(new RadialEntry(
                         "Entities", "Everything loaded, nearest first",
                         new ItemStack(Item.COMPASS),
                         returnTo -> EntityListWindow.open()))
@@ -127,6 +127,23 @@ public final class RadialMenu {
                         new ItemStack(Item.CLOCK),
                         time));
 
+        // Grouped by what choosing one does rather than by what it acts on,
+        // which is sometimes the world and sometimes you: each one closes the
+        // ring on something to point with, and does nothing until you do.
+        RadialMenu tools = new RadialMenu("Tools")
+                .add(new RadialEntry(
+                        "Summon", "Place new entities wherever you point",
+                        new ItemStack(Item.EGG),
+                        returnTo -> SummonWindow.open()))
+                .add(tool(Tool.WARP, "Go wherever you point",
+                        new ItemStack(Item.MAP)))
+                .add(tool(Tool.GROW, "Bone meal whatever you point at",
+                        new ItemStack(Item.DYE, 1, BONE_MEAL)))
+                .add(tool(Tool.BLAST, "TNT wherever you point, and none of it for you",
+                        new ItemStack(Block.TNT)))
+                .add(tool(Tool.SMITE, "Lightning wherever you point",
+                        new ItemStack(Item.GLOWSTONE_DUST)));
+
         RadialMenu player = new RadialMenu("Player")
                 .add(RequestEntry.power(
                         Power.GOD, "God mode", "Nothing in the world hurts you",
@@ -143,11 +160,7 @@ public final class RadialMenu {
                 .add(RequestEntry.action(
                         DevStatus.HEAL, "Heal", "Full health, no fire, full air",
                         new ItemStack(Item.COOKED_PORKCHOP),
-                        returnTo -> Heal.request()))
-                .add(RequestEntry.action(
-                        DevStatus.WARP, "Warp", "Stand where you are looking",
-                        new ItemStack(Item.MAP),
-                        returnTo -> Warp.request(Sight.reach())));
+                        returnTo -> Heal.request()));
 
         root = new RadialMenu("Developer")
                 .add(new RadialEntry(
@@ -163,9 +176,23 @@ public final class RadialMenu {
                         new ItemStack(Item.GOLDEN_BOOTS),
                         player))
                 .add(new RadialEntry(
+                        "Tools", "Something to point at the world",
+                        new ItemStack(Item.STICK),
+                        tools))
+                .add(new RadialEntry(
                         "Items", "Pick something to give yourself",
                         new ItemStack(Block.CHEST),
                         returnTo -> ComposerScreen.reveal(ItemPickerWindow.class, ItemPickerWindow::new)));
+    }
+
+    /** A tool, armed rather than used, and lit while it is the one in hand. */
+    private static RadialEntry tool(Tool tool, String hint, ItemStack icon) {
+        return new RadialEntry(tool.label(), hint, icon, returnTo -> ToolMode.arm(tool)) {
+            @Override
+            public boolean on() {
+                return ToolMode.armed() == tool;
+            }
+        };
     }
 
     /** A time of day, lit for the quarter of the day nearest it. */

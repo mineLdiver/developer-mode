@@ -3,6 +3,7 @@ package net.mine_diver.developermode.client.summon;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.inspect.InspectMode;
+import net.mine_diver.developermode.client.tool.ToolMode;
 import net.mine_diver.developermode.feature.Facing;
 import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
@@ -86,6 +87,7 @@ public final class SummonMode {
      */
     public static void arm(String entityType, NbtCompound nbt) {
         InspectMode.exit();
+        ToolMode.exit();
         active = true;
         type = entityType;
         // Copied, so the arming is fixed at the moment it was taken. The window

@@ -6,6 +6,8 @@ import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.client.inspect.InspectRenderer;
 import net.mine_diver.developermode.client.summon.SummonMode;
 import net.mine_diver.developermode.client.summon.SummonRenderer;
+import net.mine_diver.developermode.client.tool.ToolMode;
+import net.mine_diver.developermode.client.tool.ToolRenderer;
 import net.minecraft.client.render.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -35,7 +37,9 @@ class GameRendererMixin {
         Projection.capture();
         InspectMode.update(tickDelta);
         SummonMode.update();
+        ToolMode.update();
         InspectRenderer.renderWorld(tickDelta);
         SummonRenderer.renderWorld(tickDelta);
+        ToolRenderer.renderWorld(tickDelta);
     }
 }
