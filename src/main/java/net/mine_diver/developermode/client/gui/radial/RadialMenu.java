@@ -110,7 +110,8 @@ public final class RadialMenu {
                 .add(new RadialEntry(
                         "Entities", "Everything loaded, nearest first",
                         new ItemStack(Item.COMPASS),
-                        returnTo -> EntityListWindow.open()))
+                        returnTo -> EntityListWindow.open())
+                        .marked(RadialEntry.Badge.WINDOW))
                 .add(RequestEntry.action(
                         DevStatus.SWEEP, "Sweep", "Every dropped item and arrow in sight",
                         new ItemStack(Block.CACTUS),
@@ -135,7 +136,8 @@ public final class RadialMenu {
                 .add(new RadialEntry(
                         "Summon", "Place new entities wherever you point",
                         new ItemStack(Item.EGG),
-                        returnTo -> SummonWindow.open()))
+                        returnTo -> SummonWindow.open())
+                        .marked(RadialEntry.Badge.WINDOW))
                 .add(tool(Tool.WARP, "Go wherever you point",
                         new ItemStack(Item.MAP)))
                 .add(tool(Tool.GROW, "Bone meal whatever you point at",
@@ -167,7 +169,8 @@ public final class RadialMenu {
                 .add(new RadialEntry(
                         "Composer", "Open the window desktop",
                         new ItemStack(Block.CRAFTING_TABLE),
-                        returnTo -> ComposerScreen.open()))
+                        returnTo -> ComposerScreen.open())
+                        .marked(RadialEntry.Badge.WINDOW))
                 .add(new RadialEntry(
                         "World", "What is out there",
                         new ItemStack(Block.GRASS_BLOCK),
@@ -183,7 +186,8 @@ public final class RadialMenu {
                 .add(new RadialEntry(
                         "Items", "Pick something to give yourself",
                         new ItemStack(Block.CHEST),
-                        returnTo -> ComposerScreen.reveal(ItemPickerWindow.class, ItemPickerWindow::new)));
+                        returnTo -> ComposerScreen.reveal(ItemPickerWindow.class, ItemPickerWindow::new))
+                        .marked(RadialEntry.Badge.WINDOW));
     }
 
     /** A tool, armed rather than used, and lit while it is the one in hand. */
@@ -193,7 +197,7 @@ public final class RadialMenu {
             public boolean on() {
                 return ToolMode.armed() == tool;
             }
-        };
+        }.marked(RadialEntry.Badge.TOOL);
     }
 
     /** A time of day, lit for the quarter of the day nearest it, and one the sun can be locked at. */

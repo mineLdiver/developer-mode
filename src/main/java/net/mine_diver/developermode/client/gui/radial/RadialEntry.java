@@ -16,11 +16,33 @@ import net.minecraft.item.ItemStack;
  * null check at the call site.
  */
 public class RadialEntry {
+    /**
+     * What choosing a slot will do, where that is more than doing it.
+     *
+     * <p>Doing something straight away is what a slot is expected to do, so
+     * it has no mark: a mark is only for when something follows the click.
+     * A slot that leads to another level says so with the sheets stacked
+     * behind it, which is its own mark.
+     */
+    public enum Badge {
+        /** Does it now, and there is nothing more to it. */
+        NONE,
+        /** Opens a window, where the rest of it happens. */
+        WINDOW,
+        /** Hands you a tool, which does nothing until you aim it and click. */
+        TOOL,
+        /** Turns something on or off, and shows which. */
+        SWITCH,
+        /** Can also be held, to lock the world to it. */
+        LOCK
+    }
+
     private final String label;
     private final String hint;
     private final ItemStack icon;
     private final RadialAction action;
     private final RadialMenu submenu;
+    private Badge badge = Badge.NONE;
 
     public RadialEntry(String label, String hint, ItemStack icon, RadialAction action) {
         this(label, hint, icon, action, null);
@@ -38,6 +60,17 @@ public class RadialEntry {
         this.icon = icon;
         this.action = action;
         this.submenu = submenu;
+    }
+
+    /** Sets the mark this slot carries, for a slot built as one kind of thing. */
+    public RadialEntry marked(Badge badge) {
+        this.badge = badge;
+        return this;
+    }
+
+    /** What choosing this slot will do, drawn on it so it can be read beforehand. */
+    public Badge badge() {
+        return lockable() ? Badge.LOCK : badge;
     }
 
     /** The level this leads to, or null if it is something to do rather than somewhere to go. */

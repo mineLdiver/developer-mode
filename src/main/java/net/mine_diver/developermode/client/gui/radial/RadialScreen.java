@@ -192,8 +192,8 @@ public final class RadialScreen extends DevScreen {
     private static final float LOCK_BAND = 3;
     /** How far past its band the flash spreads before it has faded out. */
     private static final float LOCK_FLASH_SPREAD = 7;
-    /** How far in from the slot's rim the padlock sits, clear of the icon at its largest. */
-    private static final float PADLOCK_INSET = 7;
+    /** How far in from the slot's rim its badge sits, clear of the icon at its largest. */
+    private static final float BADGE_INSET = 7;
     /** How far an open padlock's shackle stands up out of its body. */
     private static final float PADLOCK_OPEN_RAISE = 2;
     /** How faint the track a filling band runs along is. */
@@ -728,7 +728,10 @@ public final class RadialScreen extends DevScreen {
                 renderStack(ringX, ringY, edge, middle, slice, visible);
             }
             if (entry.lockable()) {
-                renderLock(ringX, ringY, edge, from, to, entry, live ? slot : -1, selected, visible);
+                renderLock(ringX, ringY, edge, from, to, entry, live ? slot : -1, visible);
+            }
+            if (entry.badge() != RadialEntry.Badge.NONE) {
+                renderBadge(ringX, ringY, edge, middle, entry, live ? slot : -1, selected, visible);
             }
         }
 
@@ -738,16 +741,8 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
-     * The padlock on a slot that can be locked, the band outside one that is,
-     * and the same band filling or emptying while the button is held on it.
-     *
-     * <p>The padlock is what says a slot can be held, before any of them is.
-     * It is a mark inside each slot rather than anything along the rim,
-     * because a level of lockable slots would join marks on the rim up into
-     * one more circle around the dial, and that reads as the dial's rather
-     * than as each slot's. It stands open until the slot is locked, and while
-     * the button is held its shackle closes as the band fills and it takes on
-     * the band's gold, or opens again when unlocking.
+     * The band outside a slot that the world is locked to, and the same band
+     * filling or emptying while the button is held on it.
      *
      * <p>Locking fills it clockwise and unlocking empties it the same way, so
      * the band that is there afterwards is the one you watched arrive, and a
@@ -756,12 +751,10 @@ public final class RadialScreen extends DevScreen {
      * itself and fading, which says something happened even while the answer
      * is still on its way back from a server.
      *
-     * @param slot    the slot's index on the live level, or -1 on one leaving
-     * @param pointed whether the stick is on it, which brings an open
-     *                padlock up out of the background
+     * @param slot the slot's index on the live level, or -1 on one leaving
      */
     private void renderLock(float ringX, float ringY, float edge, double from, double to,
-                            RadialEntry entry, int slot, boolean pointed, float visible) {
+                            RadialEntry entry, int slot, float visible) {
         float inner = edge + 1;
         float outer = inner + LOCK_BAND;
         float progress = slot >= 0 ? pressProgress(slot) : 0;
@@ -772,15 +765,6 @@ public final class RadialScreen extends DevScreen {
             // as how far it has come.
             Draw.ring(ringX, ringY, inner, outer, from, to, fade(Theme.LOCKED, visible * TRACK_ALPHA));
         }
-
-        // Closed is where it is going when locking, and where it starts when
-        // unlocking.
-        float closed = locked ? 1 - progress : progress;
-        int open = pointed ? Theme.TEXT_DIM : Theme.TEXT_FAINT;
-        double middle = Math.toRadians((from + to) / 2);
-        float at = edge - PADLOCK_INSET;
-        renderPadlock((float) (ringX + Math.sin(middle) * at), (float) (ringY - Math.cos(middle) * at),
-                PADLOCK_OPEN_RAISE * (1 - closed), fade(blend(open, Theme.LOCKED, closed), visible));
 
         double across = (to - from) * progress;
         if (locked) {
@@ -800,6 +784,45 @@ public final class RadialScreen extends DevScreen {
     }
 
     /**
+     * The mark inside a slot that says what choosing it will do.
+     *
+     * <p>A mark inside each slot rather than anything along the rim, because
+     * a level of slots that all do the same kind of thing would join marks on
+     * the rim up into one more circle around the dial, and that reads as the
+     * dial's rather than as each slot's. Each one also shows the state of what
+     * it stands for where there is one: a padlock closes as its band fills, a
+     * switch shows which way it is set, and a tool's sight lights while that
+     * tool is in hand. Faint when the slot is left alone, and brought up when
+     * it is pointed at.
+     *
+     * @param slot    the slot's index on the live level, or -1 on one leaving
+     * @param pointed whether the stick is on it
+     */
+    private void renderBadge(float ringX, float ringY, float edge, double middle,
+                             RadialEntry entry, int slot, boolean pointed, float visible) {
+        double radians = Math.toRadians(middle);
+        float at = edge - BADGE_INSET;
+        float x = (float) (ringX + Math.sin(radians) * at);
+        float y = (float) (ringY - Math.cos(radians) * at);
+        int idle = pointed ? Theme.TEXT_DIM : Theme.TEXT_FAINT;
+
+        switch (entry.badge()) {
+            case LOCK -> {
+                float progress = slot >= 0 ? pressProgress(slot) : 0;
+                // Closed is where it is going when locking, and where it starts
+                // when unlocking.
+                float closed = entry.locked() ? 1 - progress : progress;
+                renderPadlock(x, y, PADLOCK_OPEN_RAISE * (1 - closed),
+                        fade(blend(idle, Theme.LOCKED, closed), visible));
+            }
+            case TOOL -> renderSight(x, y, fade(entry.on() ? Theme.ACCENT : idle, visible));
+            case SWITCH -> renderSwitch(x, y, entry.on(), fade(idle, visible), fade(Theme.ACCENT, visible));
+            case WINDOW -> renderWindow(x, y, fade(idle, visible));
+            default -> {}
+        }
+    }
+
+    /**
      * A padlock a few pixels across, centered on a point.
      *
      * @param raise how far the shackle stands up out of the body, with one leg
@@ -812,6 +835,29 @@ public final class RadialScreen extends DevScreen {
         float shackle = top - raise;
         Draw.ring(x, shackle, 1.6, 2.8, -90, 90, color);
         if (raise > 0) Draw.rect(x - 2.8F, shackle, x - 1.6F, top, color);
+    }
+
+    /** A gun sight: a ring with a dot in it and a tick out from each side. */
+    private static void renderSight(float x, float y, int color) {
+        Draw.ring(x, y, 2, 3, 0, 360, color);
+        Draw.rect(x - 0.5F, y - 0.5F, x + 0.5F, y + 0.5F, color);
+        Draw.rect(x - 0.5F, y - 4.5F, x + 0.5F, y - 3, color);
+        Draw.rect(x - 0.5F, y + 3, x + 0.5F, y + 4.5F, color);
+        Draw.rect(x - 4.5F, y - 0.5F, x - 3, y + 0.5F, color);
+        Draw.rect(x + 3, y - 0.5F, x + 4.5F, y + 0.5F, color);
+    }
+
+    /** A slider switch: a round knob on a line, to the right and lit when on. */
+    private static void renderSwitch(float x, float y, boolean on, int off, int lit) {
+        int color = on ? lit : off;
+        Draw.rect(x - 4, y - 0.5F, x + 4, y + 0.5F, color);
+        Draw.ring(x + (on ? 2 : -2), y, 0, 2.2, 0, 360, color);
+    }
+
+    /** A window: a frame with its title bar filled in. */
+    private static void renderWindow(float x, float y, int color) {
+        Draw.outline(x - 3.5F, y - 3, 7, 6, color);
+        Draw.rect(x - 3.5F, y - 3, x + 3.5F, y - 1, color);
     }
 
     /** How far the band on this slot has filled, from nothing to done. */

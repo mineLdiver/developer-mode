@@ -31,6 +31,11 @@ final class RequestEntry {
     static RadialEntry power(int power, String label, String hint, ItemStack icon) {
         return new RadialEntry(label, hint, icon, returnTo -> Powers.toggle(player(), power)) {
             @Override
+            public Badge badge() {
+                return Badge.SWITCH;
+            }
+
+            @Override
             public boolean on() {
                 return Powers.has(player(), power);
             }
