@@ -6,6 +6,10 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.util.ScreenScaler;
 import org.lwjgl.opengl.GL11;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Immediate mode drawing helpers, in GUI (scaled) coordinates.
  *
@@ -205,6 +209,67 @@ public final class Draw {
             truncated = truncated.substring(0, truncated.length() - 1);
         }
         return truncated + "...";
+    }
+
+    /**
+     * Breaks text at spaces into lines that each fit in {@code maxWidth}.
+     *
+     * <p>Text that fits on one line comes back exactly as given. Anything
+     * longer is balanced: it takes as many lines as it needs at the full
+     * width, and then as narrow a width as still holds it in that many, so a
+     * second line is not one stranded word under a full one.
+     *
+     * <p>A word too long for a line of its own is cut rather than left to
+     * overflow, and text that needs more than {@code maxLines} ends in an
+     * ellipsis on the last one, so the result always fits the box it was
+     * measured for.
+     */
+    public static List<String> wrap(Minecraft minecraft, String text, int maxWidth, int maxLines) {
+        text = sanitize(text);
+        if (minecraft.textRenderer.getWidth(text) <= maxWidth) return List.of(text);
+
+        String[] words = text.trim().split(" +");
+        List<String> lines = fill(minecraft, words, maxWidth, maxLines);
+        String whole = String.join(" ", words);
+        if (!String.join(" ", lines).equals(whole)) return lines;
+
+        int narrow = 1;
+        int wide = maxWidth;
+        while (narrow < wide) {
+            int width = (narrow + wide) / 2;
+            if (String.join(" ", fill(minecraft, words, width, lines.size())).equals(whole)) wide = width;
+            else narrow = width + 1;
+        }
+        return fill(minecraft, words, wide, lines.size());
+    }
+
+    /** Fills each line as far as it will go, and cuts what is left over on the last. */
+    private static List<String> fill(Minecraft minecraft, String[] words, int maxWidth, int maxLines) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+
+        for (int word = 0; word < words.length; word++) {
+            String longer = line.isEmpty() ? words[word] : line + " " + words[word];
+            if (minecraft.textRenderer.getWidth(longer) <= maxWidth) {
+                line.setLength(0);
+                line.append(longer);
+                continue;
+            }
+            if (!line.isEmpty()) {
+                if (lines.size() == maxLines - 1) {
+                    // Out of lines: everything left goes on this one, to be
+                    // cut down to what fits.
+                    String rest = String.join(" ", Arrays.copyOfRange(words, word, words.length));
+                    lines.add(ellipsize(minecraft, line + " " + rest, maxWidth));
+                    return lines;
+                }
+                lines.add(line.toString());
+            }
+            line.setLength(0);
+            line.append(ellipsize(minecraft, words[word], maxWidth));
+        }
+        if (!line.isEmpty()) lines.add(line.toString());
+        return lines;
     }
 
     /**
