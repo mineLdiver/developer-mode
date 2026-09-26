@@ -1,7 +1,10 @@
 package net.mine_diver.developermode.client.summon;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.inspect.InspectMode;
+import net.mine_diver.developermode.feature.Facing;
+import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.packet.SummonC2SPacket;
@@ -24,7 +27,6 @@ import org.lwjgl.input.Mouse;
  * few clicks rather than a few round trips through the menu. Right click stops.
  */
 public final class SummonMode {
-    private static final double REACH = 48;
     /** Where it goes when you are pointing at open sky. */
     private static final double FALLBACK_DISTANCE = 4;
     /** Nudge off the hit face so the entity is not born inside the block. */
@@ -134,11 +136,11 @@ public final class SummonMode {
         Vec3d origin = camera.getPosition(1);
         Vec3d look = camera.getLookVector(1);
 
-        HitResult hit = camera.raycast(REACH, 1);
+        HitResult hit = Ray.cast(camera.world, origin, look, Sight.reach());
         if (hit != null && hit.type == HitResultType.BLOCK) {
-            targetX = hit.pos.x + normalX(hit.side) * SURFACE_CLEARANCE;
-            targetY = hit.pos.y + normalY(hit.side) * SURFACE_CLEARANCE;
-            targetZ = hit.pos.z + normalZ(hit.side) * SURFACE_CLEARANCE;
+            targetX = hit.pos.x + Facing.x(hit.side) * SURFACE_CLEARANCE;
+            targetY = hit.pos.y + Facing.y(hit.side) * SURFACE_CLEARANCE;
+            targetZ = hit.pos.z + Facing.z(hit.side) * SURFACE_CLEARANCE;
             grounded = true;
         } else {
             targetX = origin.x + look.x * FALLBACK_DISTANCE;
@@ -204,17 +206,5 @@ public final class SummonMode {
         } else {
             error = DevStatus.message(DevStatus.SUMMON);
         }
-    }
-
-    private static double normalX(int side) {
-        return side == 4 ? -1 : side == 5 ? 1 : 0;
-    }
-
-    private static double normalY(int side) {
-        return side == 0 ? -1 : side == 1 ? 1 : 0;
-    }
-
-    private static double normalZ(int side) {
-        return side == 2 ? -1 : side == 3 ? 1 : 0;
     }
 }

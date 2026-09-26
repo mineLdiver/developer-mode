@@ -31,8 +31,8 @@ public class SummonC2SPacket extends Packet implements ManagedPacket<SummonC2SPa
             PacketType.builder(false, true, SummonC2SPacket::new).build();
 
     private static final int MAX_TYPE_LENGTH = 256;
-    /** Generous next to the picker's own 48 block reach, and still finite. */
-    private static final double MAX_DISTANCE = 128;
+    /** Beta's widest draw distance, which is as far as anyone can aim, and still finite. */
+    private static final double MAX_DISTANCE = 256;
 
     public String type = "";
     public double x;

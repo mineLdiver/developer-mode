@@ -1,10 +1,12 @@
 package net.mine_diver.developermode.client.inspect;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.gui.Projection;
 import net.mine_diver.developermode.client.gui.window.BlockEntityEditorWindow;
 import net.mine_diver.developermode.client.gui.window.EntityEditorWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
+import net.mine_diver.developermode.feature.Ray;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -27,10 +29,13 @@ import java.util.List;
  * two blocks away wins over a cow ten blocks behind it. A block with nothing
  * behind its face is not a candidate at all, which leaves entities reachable
  * through walls the way they were.
+ *
+ * <p>It reaches as far as the world is drawn, so anything on screen can be
+ * pointed at. What keeps that from outlining a whole landscape is the cone
+ * rather than the distance: the ray is aimed, and only what it could plausibly
+ * be aimed at is a candidate.
  */
 public final class InspectMode {
-    /** How far the pointer's ray looks. This runs every frame. */
-    private static final double REACH = 32;
     /** Cosine of the half angle that counts as "in front of you". */
     private static final double CONE = 0.9;
     private static final float PICK_MARGIN = 0.25F;
@@ -151,10 +156,12 @@ public final class InspectMode {
 
         Vec3d origin = Vec3d.create(eyeX + near.x, eyeY + near.y, eyeZ + near.z);
         Vec3d look = Vec3d.create(towardX / span, towardY / span, towardZ / span);
-        Vec3d end = origin.add(look.x * REACH, look.y * REACH, look.z * REACH);
+
+        double reach = Sight.reach();
+        Vec3d end = origin.add(look.x * reach, look.y * reach, look.z * reach);
 
         Box sweep = camera.boundingBox
-                .stretch(look.x * REACH, look.y * REACH, look.z * REACH)
+                .stretch(look.x * reach, look.y * reach, look.z * reach)
                 .expand(4, 4, 4);
 
         double bestDistance = Double.MAX_VALUE;
@@ -168,7 +175,7 @@ public final class InspectMode {
             double toY = (box.minY + box.maxY) / 2 - origin.y;
             double toZ = (box.minZ + box.maxZ) / 2 - origin.z;
             double length = Math.sqrt(toX * toX + toY * toY + toZ * toZ);
-            if (length > REACH) continue;
+            if (length > reach) continue;
 
             // Outlining everything loaded would light up the whole chunk, so
             // only show what is roughly in front of you: the things a small
@@ -195,7 +202,7 @@ public final class InspectMode {
             }
         }
 
-        focusBlockEntity(minecraft, origin, end, bestDistance);
+        focusBlockEntity(minecraft, origin, look, reach, bestDistance);
     }
 
     /**
@@ -206,9 +213,9 @@ public final class InspectMode {
      * does not shadow an entity standing behind it, which is the same rule the
      * outlines already draw by.
      */
-    private static void focusBlockEntity(Minecraft minecraft, Vec3d origin, Vec3d end,
-                                         double bestDistance) {
-        HitResult hit = minecraft.world.raycast(origin, end);
+    private static void focusBlockEntity(Minecraft minecraft, Vec3d origin, Vec3d look,
+                                         double reach, double bestDistance) {
+        HitResult hit = Ray.cast(minecraft.world, origin, look, reach);
         if (hit == null || hit.type != HitResultType.BLOCK) return;
         if (minecraft.world.getBlockEntity(hit.blockX, hit.blockY, hit.blockZ) == null) return;
 
