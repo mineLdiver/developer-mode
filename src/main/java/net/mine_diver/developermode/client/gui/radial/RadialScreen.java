@@ -649,7 +649,10 @@ public final class RadialScreen extends DevScreen {
             RadialEntry entry = level.get(slot);
             boolean enabled = entry.enabled();
             boolean selected = slot == highlight;
-            int color = !enabled ? Theme.PANEL_SUNKEN : selected ? Theme.ACCENT_FILL : Theme.PANEL;
+            int color = !enabled ? Theme.PANEL_SUNKEN
+                    : selected ? Theme.ACCENT_FILL
+                    : entry.on() ? Theme.PANEL_LIT
+                    : Theme.PANEL;
 
             // Past the nominal edge on purpose, so a taken slot reads as coming
             // up out of the ring rather than just changing colour.

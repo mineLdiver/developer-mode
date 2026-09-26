@@ -19,6 +19,9 @@ public final class DevStatus {
     public static final String GIVE = "give";
     public static final String SUMMON = "summon";
     public static final String ENTITY = "entity";
+    public static final String POWERS = "powers";
+    public static final String HEAL = "heal";
+    public static final String WARP = "warp";
 
     private static final Map<String, String> MESSAGES = new HashMap<>();
     private static final Map<String, Integer> SEQUENCES = new HashMap<>();

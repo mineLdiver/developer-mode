@@ -4,17 +4,24 @@
   "package": "net.mine_diver.developermode.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "BlockStateMixin",
+    "EntityAccessor",
+    "EntityMixin",
     "EntityRegistryAccessor",
+    "PlayerEntityMixin",
     "WorldMixin"
   ],
   "server": [
-    "PlayerManagerMixin"
+    "PlayerManagerMixin",
+    "ServerPlayNetworkHandlerMixin"
   ],
   "client": [
+    "ClientPlayerEntityMixin",
     "GameRendererMixin",
     "HandledScreenMixin",
     "InGameHudMixin",
-    "MinecraftMixin"
+    "MinecraftMixin",
+    "PlayerFlightMixin"
   ],
   "injectors": {
     "defaultRequire": 1

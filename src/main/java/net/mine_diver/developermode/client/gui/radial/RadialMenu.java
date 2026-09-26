@@ -4,6 +4,11 @@ import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.window.EntityListWindow;
 import net.mine_diver.developermode.client.gui.window.SummonWindow;
 import net.mine_diver.developermode.client.gui.window.ItemPickerWindow;
+import net.mine_diver.developermode.client.Sight;
+import net.mine_diver.developermode.feature.net.DevStatus;
+import net.mine_diver.developermode.feature.player.Heal;
+import net.mine_diver.developermode.feature.player.Power;
+import net.mine_diver.developermode.feature.player.Warp;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -83,6 +88,28 @@ public final class RadialMenu {
                         new ItemStack(Item.COMPASS),
                         returnTo -> EntityListWindow.open()));
 
+        RadialMenu player = new RadialMenu("Player")
+                .add(PlayerEntry.power(
+                        Power.GOD, "God mode", "Nothing in the world hurts you",
+                        new ItemStack(Item.GOLDEN_APPLE)))
+                .add(PlayerEntry.power(
+                        Power.FLIGHT, "Flight", "Jump to rise, sneak to sink",
+                        new ItemStack(Item.FEATHER)))
+                .add(PlayerEntry.power(
+                        Power.NOCLIP, "Noclip", "Through blocks, flying with it",
+                        new ItemStack(Block.GLASS)))
+                .add(PlayerEntry.power(
+                        Power.INSTANT_BREAK, "Insta break", "One hit, anything, bedrock too",
+                        new ItemStack(Item.DIAMOND_PICKAXE)))
+                .add(PlayerEntry.action(
+                        DevStatus.HEAL, "Heal", "Full health, no fire, full air",
+                        new ItemStack(Item.COOKED_PORKCHOP),
+                        returnTo -> Heal.request()))
+                .add(PlayerEntry.action(
+                        DevStatus.WARP, "Warp", "Stand where you are looking",
+                        new ItemStack(Item.MAP),
+                        returnTo -> Warp.request(Sight.reach())));
+
         root = new RadialMenu("Developer")
                 .add(new RadialEntry(
                         "Composer", "Open the window desktop",
@@ -92,6 +119,10 @@ public final class RadialMenu {
                         "World", "What is out there",
                         new ItemStack(Block.GRASS_BLOCK),
                         world))
+                .add(new RadialEntry(
+                        "Player", "What you are while you test",
+                        new ItemStack(Item.GOLDEN_BOOTS),
+                        player))
                 .add(new RadialEntry(
                         "Items", "Pick something to give yourself",
                         new ItemStack(Block.CHEST),

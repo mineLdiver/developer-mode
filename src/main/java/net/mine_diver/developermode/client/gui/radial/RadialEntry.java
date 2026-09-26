@@ -58,6 +58,17 @@ public class RadialEntry {
         return true;
     }
 
+    /**
+     * Whether what this slot switches is currently on.
+     *
+     * <p>Not the same question as {@link #enabled()}, which is about whether
+     * the slot can be chosen at all. A slot that is on is lit in the ring, so
+     * a level of switches can be read without pointing at each one in turn.
+     */
+    public boolean on() {
+        return false;
+    }
+
     public void renderIcon(Minecraft minecraft, int centerX, int centerY) {
         renderIcon(minecraft, centerX, centerY, ItemDraw.SIZE);
     }

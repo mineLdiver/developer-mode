@@ -9,6 +9,8 @@ public final class Theme {
     public static final int PANEL          = 0xE81A1D21;
     public static final int PANEL_RAISED   = 0xF022262B;
     public static final int PANEL_SUNKEN   = 0x66000000;
+    /** A panel standing for something that is switched on. */
+    public static final int PANEL_LIT      = 0xE8223C38;
 
     public static final int BORDER         = 0xFF33393F;
     public static final int BORDER_FOCUSED = 0xFF4EC9B0;
