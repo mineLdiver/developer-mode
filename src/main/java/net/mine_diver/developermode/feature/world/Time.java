@@ -1,0 +1,57 @@
+package net.mine_diver.developermode.feature.world;
+
+import net.mine_diver.developermode.feature.net.packet.TimeC2SPacket;
+import net.minecraft.world.World;
+import net.modificationstation.stationapi.api.network.packet.PacketHelper;
+
+/**
+ * Moving the sun.
+ *
+ * <p>The clock only ever goes forward. Scheduled block ticks are due at a
+ * world time, so turning it back would hold every one of them until the clock
+ * caught up again: water would stop mid flow and redstone mid pulse, for as
+ * long as the day was turned back by. Going forward only brings them due,
+ * which is what waiting would have done anyway.
+ *
+ * <p>The four times are a quarter of a day apart, which is also how much of
+ * the day each of them stands for when the ring shows what time it is.
+ */
+public final class Time {
+    /** Ticks in a day, sunrise to sunrise. */
+    public static final int DAY = 24000;
+
+    public static final int DAWN = 0;
+    public static final int NOON = DAY / 4;
+    public static final int DUSK = DAY / 2;
+    public static final int MIDNIGHT = DAY * 3 / 4;
+
+    private Time() {}
+
+    /** @param timeOfDay ticks since sunrise */
+    public static void request(int timeOfDay) {
+        PacketHelper.send(new TimeC2SPacket(timeOfDay));
+    }
+
+    /**
+     * Whether the day is nearer this time than any of the others.
+     *
+     * <p>Half open, so that exactly one of the four is ever the answer.
+     */
+    public static boolean around(World world, int timeOfDay) {
+        return Math.floorMod(world.getTime() - timeOfDay + DAY / 8, DAY) < DAY / 4;
+    }
+
+    /**
+     * Forward to the next time the day reads this, which is now if it
+     * already does.
+     *
+     * @return what went wrong, or null if the sun is there
+     */
+    public static String set(World world, int timeOfDay) {
+        long now = world.getTime();
+        long then = now - Math.floorMod(now, DAY) + timeOfDay;
+        if (then < now) then += DAY;
+        world.getProperties().setTime(then);
+        return null;
+    }
+}

@@ -9,6 +9,9 @@ import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Heal;
 import net.mine_diver.developermode.feature.player.Power;
 import net.mine_diver.developermode.feature.player.Warp;
+import net.mine_diver.developermode.feature.world.Clearing;
+import net.mine_diver.developermode.feature.world.Time;
+import net.mine_diver.developermode.feature.world.Weather;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -78,6 +81,26 @@ public final class RadialMenu {
     }
 
     public static void bootstrap() {
+        // Laid out as the sky's own dial: noon at the top, midnight at the
+        // bottom, and the day running clockwise between them.
+        RadialMenu time = new RadialMenu("Time")
+                .add(timeOfDay(Time.NOON, "Noon", "The sun straight overhead",
+                        new ItemStack(Block.GLOWSTONE)))
+                .add(timeOfDay(Time.DUSK, "Dusk", "The sun going down",
+                        new ItemStack(Block.JACK_O_LANTERN)))
+                .add(timeOfDay(Time.MIDNIGHT, "Midnight", "The middle of the night",
+                        new ItemStack(Block.OBSIDIAN)))
+                .add(timeOfDay(Time.DAWN, "Dawn", "The sun coming up",
+                        new ItemStack(Block.DANDELION)));
+
+        RadialMenu weather = new RadialMenu("Weather")
+                .add(weatherKind(Weather.CLEAR, "Clear", "Blue sky, for as long as it lasts",
+                        new ItemStack(Block.GLASS)))
+                .add(weatherKind(Weather.RAIN, "Rain", "Rain, and snow where it is cold",
+                        new ItemStack(Item.WATER_BUCKET)))
+                .add(weatherKind(Weather.STORM, "Storm", "Rain, thunder and lightning",
+                        new ItemStack(Item.GUNPOWDER)));
+
         RadialMenu world = new RadialMenu("World")
                 .add(new RadialEntry(
                         "Summon", "Place a new entity in the world",
@@ -86,26 +109,42 @@ public final class RadialMenu {
                 .add(new RadialEntry(
                         "Entities", "Everything loaded, nearest first",
                         new ItemStack(Item.COMPASS),
-                        returnTo -> EntityListWindow.open()));
+                        returnTo -> EntityListWindow.open()))
+                .add(RequestEntry.action(
+                        DevStatus.SWEEP, "Sweep", "Every dropped item and arrow in sight",
+                        new ItemStack(Block.CACTUS),
+                        returnTo -> Clearing.request(Clearing.LITTER, Sight.reach())))
+                .add(RequestEntry.action(
+                        DevStatus.PURGE, "Purge", "Every mob in sight, gone without a drop",
+                        new ItemStack(Item.DIAMOND_SWORD),
+                        returnTo -> Clearing.request(Clearing.MOBS, Sight.reach())))
+                .add(new RadialEntry(
+                        "Weather", "Rain or shine",
+                        new ItemStack(Item.SNOWBALL),
+                        weather))
+                .add(new RadialEntry(
+                        "Time", "Move the sun, only ever forward",
+                        new ItemStack(Item.CLOCK),
+                        time));
 
         RadialMenu player = new RadialMenu("Player")
-                .add(PlayerEntry.power(
+                .add(RequestEntry.power(
                         Power.GOD, "God mode", "Nothing in the world hurts you",
                         new ItemStack(Item.GOLDEN_APPLE)))
-                .add(PlayerEntry.power(
+                .add(RequestEntry.power(
                         Power.FLIGHT, "Flight", "Jump to rise, sneak to sink",
                         new ItemStack(Item.FEATHER)))
-                .add(PlayerEntry.power(
+                .add(RequestEntry.power(
                         Power.NOCLIP, "Noclip", "Through blocks, flying with it",
                         new ItemStack(Block.GLASS)))
-                .add(PlayerEntry.power(
+                .add(RequestEntry.power(
                         Power.INSTANT_BREAK, "Insta break", "One hit, anything, bedrock too",
                         new ItemStack(Item.DIAMOND_PICKAXE)))
-                .add(PlayerEntry.action(
+                .add(RequestEntry.action(
                         DevStatus.HEAL, "Heal", "Full health, no fire, full air",
                         new ItemStack(Item.COOKED_PORKCHOP),
                         returnTo -> Heal.request()))
-                .add(PlayerEntry.action(
+                .add(RequestEntry.action(
                         DevStatus.WARP, "Warp", "Stand where you are looking",
                         new ItemStack(Item.MAP),
                         returnTo -> Warp.request(Sight.reach())));
@@ -127,5 +166,19 @@ public final class RadialMenu {
                         "Items", "Pick something to give yourself",
                         new ItemStack(Block.CHEST),
                         returnTo -> ComposerScreen.reveal(ItemPickerWindow.class, ItemPickerWindow::new)));
+    }
+
+    /** A time of day, lit for the quarter of the day nearest it. */
+    private static RadialEntry timeOfDay(int timeOfDay, String label, String hint, ItemStack icon) {
+        return RequestEntry.state(DevStatus.TIME, label, hint, icon,
+                world -> Time.around(world, timeOfDay),
+                returnTo -> Time.request(timeOfDay));
+    }
+
+    /** A kind of weather, lit while the sky is doing it. */
+    private static RadialEntry weatherKind(byte weather, String label, String hint, ItemStack icon) {
+        return RequestEntry.state(DevStatus.WEATHER, label, hint, icon,
+                world -> Weather.of(world) == weather,
+                returnTo -> Weather.request(weather));
     }
 }

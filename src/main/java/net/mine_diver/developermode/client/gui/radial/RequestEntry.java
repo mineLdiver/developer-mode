@@ -6,17 +6,20 @@ import net.mine_diver.developermode.feature.player.Powers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
+
+import java.util.function.Predicate;
 
 /**
- * The slots of the Player level, which all have the same problem.
+ * Slots that ask the world for something, which all have the same problem.
  *
  * <p>Every one of them is a request the world is entitled to turn down, and a
  * refusal looks exactly like a grant from in here: nothing opens, and nothing
  * in the world says anything. So each one gives up its description for the
  * reason the last attempt failed, and takes it back once one succeeds.
  */
-final class PlayerEntry {
-    private PlayerEntry() {}
+final class RequestEntry {
+    private RequestEntry() {}
 
     /**
      * A switch on one of the player's powers.
@@ -56,6 +59,31 @@ final class PlayerEntry {
         };
     }
 
+    /**
+     * One of several states the world can be put in, lit while it is the one
+     * the world is in.
+     *
+     * <p>Read from the world this client holds rather than from what was last
+     * asked for, for the same reason a power is: the ring shows what happened.
+     * Choosing the lit one again is not refused, since putting the world where
+     * it already is does no harm and is sometimes the point.
+     */
+    static RadialEntry state(String kind, String label, String hint, ItemStack icon,
+                             Predicate<World> current, RadialAction action) {
+        return new RadialEntry(label, hint, icon, action) {
+            @Override
+            public boolean on() {
+                World world = world();
+                return world != null && current.test(world);
+            }
+
+            @Override
+            public String hint() {
+                return said(kind, super.hint());
+            }
+        };
+    }
+
     /** Why the last request of this kind was refused, or what the slot is for. */
     private static String said(String kind, String describes) {
         String refusal = DevStatus.ok(kind) ? "" : DevStatus.message(kind);
@@ -66,5 +94,11 @@ final class PlayerEntry {
     private static PlayerEntity player() {
         Minecraft minecraft = DeveloperModeClient.minecraft();
         return minecraft == null ? null : minecraft.player;
+    }
+
+    /** The world as this client last heard of it, or null before there is one. */
+    private static World world() {
+        Minecraft minecraft = DeveloperModeClient.minecraft();
+        return minecraft == null ? null : minecraft.world;
     }
 }
