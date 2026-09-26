@@ -9,6 +9,7 @@
     "EntityMixin",
     "EntityRegistryAccessor",
     "PlayerEntityMixin",
+    "WorldLocksMixin",
     "WorldMixin"
   ],
   "server": [

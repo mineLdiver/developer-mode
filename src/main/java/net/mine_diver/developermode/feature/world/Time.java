@@ -38,16 +38,25 @@ public final class Time {
      * <p>Half open, so that exactly one of the four is ever the answer.
      */
     public static boolean around(World world, int timeOfDay) {
-        return Math.floorMod(world.getTime() - timeOfDay + DAY / 8, DAY) < DAY / 4;
+        long now = Locks.isTimeLocked(world) ? Locks.lockedTime(world) : world.getTime();
+        return Math.floorMod(now - timeOfDay + DAY / 8, DAY) < DAY / 4;
     }
 
     /**
      * Forward to the next time the day reads this, which is now if it
      * already does.
      *
+     * <p>While the sun is locked, this moves where it is locked instead, and
+     * the clock is left to go on as it was. It catches up when it is unlocked.
+     *
      * @return what went wrong, or null if the sun is there
      */
     public static String set(World world, int timeOfDay) {
+        if (Locks.isTimeLocked(world)) {
+            Locks.lockTimeAt(world, timeOfDay);
+            return null;
+        }
+
         long now = world.getTime();
         long then = now - Math.floorMod(now, DAY) + timeOfDay;
         if (then < now) then += DAY;

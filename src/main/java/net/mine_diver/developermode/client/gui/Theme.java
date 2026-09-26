@@ -25,6 +25,8 @@ public final class Theme {
     /** The hard middle of that light, so it has a point as well as a presence. */
     public static final int GLOW_CORE      = 0xFFE4FFF7;
     public static final int DANGER         = 0xFFE06C75;
+    /** Something the world was told to keep, and is keeping. */
+    public static final int LOCKED         = 0xFFE5C07B;
 
     public static final int TEXT           = 0xFFE6E9EC;
     public static final int TEXT_DIM       = 0xFF8B939B;

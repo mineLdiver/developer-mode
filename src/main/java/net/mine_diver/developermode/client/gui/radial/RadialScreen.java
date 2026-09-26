@@ -178,6 +178,27 @@ public final class RadialScreen extends DevScreen {
     /** Beta's glyphs are eight pixels tall, and two more keep lines apart. */
     private static final int CAPTION_LINE_HEIGHT = 10;
 
+    /**
+     * How long the button can stay down on a lockable slot and still be a
+     * click. Past it the band starts to fill, and letting go stops being a
+     * choice and becomes changing your mind.
+     */
+    private static final long LOCK_DELAY_MILLIS = 200;
+    /** How long the button has to stay down, from the press, to lock or unlock. */
+    private static final long LOCK_MILLIS = 900;
+    /** How long the ring that says a lock went through takes to spread and fade. */
+    private static final long LOCK_FLASH_MILLIS = 450;
+    /** Thickness of the band outside a slot that is locked, or filling towards it. */
+    private static final float LOCK_BAND = 3;
+    /** How far past its band the flash spreads before it has faded out. */
+    private static final float LOCK_FLASH_SPREAD = 7;
+    /** How far in from the slot's rim the padlock sits, clear of the icon at its largest. */
+    private static final float PADLOCK_INSET = 7;
+    /** How far an open padlock's shackle stands up out of its body. */
+    private static final float PADLOCK_OPEN_RAISE = 2;
+    /** How faint the track a filling band runs along is. */
+    private static final float TRACK_ALPHA = 0.35F;
+
     /** Sheets drawn behind a slot that has a level under it. */
     private static final int STACK_LAYERS = 2;
     /** How far the sharp window fades back into the blur, in GUI pixels. */
@@ -213,6 +234,15 @@ public final class RadialScreen extends DevScreen {
 
     /** The slot taken at each level above, so going back converges on it. */
     private final Deque<Integer> trailSlots = new ArrayDeque<>();
+
+    /** The lockable slot the left button went down on, or -1. */
+    private int pressedSlot = -1;
+    private long pressedAt;
+    /** Set once a press has locked or unlocked, so letting go does nothing more. */
+    private boolean pressSpent;
+    /** The slot that last locked or unlocked, and when, for the flash. */
+    private int flashSlot = -1;
+    private long flashAt;
 
     /** How far each slot stands out, so the lift eases instead of snapping. */
     private final float[] lift = new float[RadialMenu.MAX_SLOTS];
@@ -295,6 +325,7 @@ public final class RadialScreen extends DevScreen {
             updatePull();
             hovered = slotUnderPull();
         }
+        updatePress(now);
 
         updateAperture(elapsed);
         updateSnap(elapsed);
@@ -337,8 +368,15 @@ public final class RadialScreen extends DevScreen {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
         if (button == 0) {
-            if (hovered >= 0) {
-                activate(menu.get(hovered));
+            RadialEntry entry = menu.get(hovered);
+            if (entry != null && entry.lockable() && entry.enabled()) {
+                // Nothing happens yet: whether this is a click or a lock is
+                // not known until the button comes back up or the band fills.
+                pressedSlot = hovered;
+                pressedAt = System.currentTimeMillis();
+                pressSpent = false;
+            } else if (entry != null) {
+                activate(entry);
             } else {
                 aiming = true;
                 aimCancelled = false;
@@ -348,6 +386,7 @@ public final class RadialScreen extends DevScreen {
         }
 
         if (button == 1) {
+            pressedSlot = -1;
             // While aiming this disarms the release rather than ending it, so
             // there is always a way to put the button down without choosing.
             if (aiming) {
@@ -364,6 +403,14 @@ public final class RadialScreen extends DevScreen {
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int button) {
+        if (button == 0 && pressedSlot >= 0) {
+            boolean click = !pressSpent && hovered == pressedSlot
+                    && System.currentTimeMillis() - pressedAt < LOCK_DELAY_MILLIS;
+            RadialEntry entry = menu.get(pressedSlot);
+            pressedSlot = -1;
+            if (click) activate(entry);
+            return;
+        }
         if (button != 0 || !aiming) return;
 
         aiming = false;
@@ -489,6 +536,10 @@ public final class RadialScreen extends DevScreen {
         transition = 0;
         arrival = 1;
         Arrays.fill(lift, 0);
+        // Slot numbers belong to a level, so on another one they would point
+        // at whatever happens to sit in the same seat.
+        pressedSlot = -1;
+        flashSlot = -1;
     }
 
     private void updateTransition(float elapsedMillis) {
@@ -676,11 +727,118 @@ public final class RadialScreen extends DevScreen {
             if (entry.submenu() != null) {
                 renderStack(ringX, ringY, edge, middle, slice, visible);
             }
+            if (entry.lockable()) {
+                renderLock(ringX, ringY, edge, from, to, entry, live ? slot : -1, selected, visible);
+            }
         }
 
         renderBoundaries(level, ringX, ringY, inner, outer, base);
         if (live) renderSpur(scale, highlight);
         renderIcons(level, scale, base, highlight, live);
+    }
+
+    /**
+     * The padlock on a slot that can be locked, the band outside one that is,
+     * and the same band filling or emptying while the button is held on it.
+     *
+     * <p>The padlock is what says a slot can be held, before any of them is.
+     * It is a mark inside each slot rather than anything along the rim,
+     * because a level of lockable slots would join marks on the rim up into
+     * one more circle around the dial, and that reads as the dial's rather
+     * than as each slot's. It stands open until the slot is locked, and while
+     * the button is held its shackle closes as the band fills and it takes on
+     * the band's gold, or opens again when unlocking.
+     *
+     * <p>Locking fills it clockwise and unlocking empties it the same way, so
+     * the band that is there afterwards is the one you watched arrive, and a
+     * locked slot looks like a lock that was finished rather than a new color
+     * to learn. Its going through is marked by the band spreading out past
+     * itself and fading, which says something happened even while the answer
+     * is still on its way back from a server.
+     *
+     * @param slot    the slot's index on the live level, or -1 on one leaving
+     * @param pointed whether the stick is on it, which brings an open
+     *                padlock up out of the background
+     */
+    private void renderLock(float ringX, float ringY, float edge, double from, double to,
+                            RadialEntry entry, int slot, boolean pointed, float visible) {
+        float inner = edge + 1;
+        float outer = inner + LOCK_BAND;
+        float progress = slot >= 0 ? pressProgress(slot) : 0;
+        boolean locked = entry.locked();
+
+        if (progress > 0) {
+            // Where the band is going, so how far is left can be read as well
+            // as how far it has come.
+            Draw.ring(ringX, ringY, inner, outer, from, to, fade(Theme.LOCKED, visible * TRACK_ALPHA));
+        }
+
+        // Closed is where it is going when locking, and where it starts when
+        // unlocking.
+        float closed = locked ? 1 - progress : progress;
+        int open = pointed ? Theme.TEXT_DIM : Theme.TEXT_FAINT;
+        double middle = Math.toRadians((from + to) / 2);
+        float at = edge - PADLOCK_INSET;
+        renderPadlock((float) (ringX + Math.sin(middle) * at), (float) (ringY - Math.cos(middle) * at),
+                PADLOCK_OPEN_RAISE * (1 - closed), fade(blend(open, Theme.LOCKED, closed), visible));
+
+        double across = (to - from) * progress;
+        if (locked) {
+            Draw.ring(ringX, ringY, inner, outer, from + across, to, fade(Theme.LOCKED, visible));
+        } else if (progress > 0) {
+            Draw.ring(ringX, ringY, inner, outer, from, from + across, fade(Theme.LOCKED, visible));
+        }
+
+        if (slot >= 0 && slot == flashSlot) {
+            float flash = 1 - (System.currentTimeMillis() - flashAt) / (float) LOCK_FLASH_MILLIS;
+            if (flash > 0) {
+                float spread = LOCK_FLASH_SPREAD * (1 - flash);
+                Draw.ring(ringX, ringY, inner, outer + spread, from, to,
+                        fade(Theme.LOCKED, visible * flash * flash));
+            }
+        }
+    }
+
+    /**
+     * A padlock a few pixels across, centered on a point.
+     *
+     * @param raise how far the shackle stands up out of the body, with one leg
+     *              left in it the way an open padlock's is
+     */
+    private static void renderPadlock(float x, float y, float raise, int color) {
+        float top = y - 0.5F;
+        Draw.rect(x - 3.5F, top, x + 3.5F, y + 4, color);
+
+        float shackle = top - raise;
+        Draw.ring(x, shackle, 1.6, 2.8, -90, 90, color);
+        if (raise > 0) Draw.rect(x - 2.8F, shackle, x - 1.6F, top, color);
+    }
+
+    /** How far the band on this slot has filled, from nothing to done. */
+    private float pressProgress(int slot) {
+        if (slot != pressedSlot || pressSpent) return 0;
+        long held = System.currentTimeMillis() - pressedAt - LOCK_DELAY_MILLIS;
+        return Math.max(0, Math.min(1, held / (float) (LOCK_MILLIS - LOCK_DELAY_MILLIS)));
+    }
+
+    /**
+     * Locks or unlocks once the band fills, and lets go of the press if the
+     * stick has left the slot it started on, the way dragging off a button
+     * lets go of it.
+     */
+    private void updatePress(long now) {
+        if (pressedSlot < 0 || pressSpent) return;
+        if (hovered != pressedSlot) {
+            pressedSlot = -1;
+            return;
+        }
+        if (now - pressedAt < LOCK_MILLIS) return;
+
+        RadialEntry entry = menu.get(pressedSlot);
+        if (entry != null) entry.toggleLock();
+        pressSpent = true;
+        flashSlot = pressedSlot;
+        flashAt = now;
     }
 
     /**
@@ -841,17 +999,33 @@ public final class RadialScreen extends DevScreen {
                 : entry.hint() + "   (" + submenu.size() + ")";
 
         List<String> lines = Draw.wrap(minecraft, hint, HINT_WIDTH, HINT_LINES);
+        String cue = entry.lockable() ? lockCue(entry) : null;
+        int rows = lines.size() + 1 + (cue == null ? 0 : 1);
 
         // The name and its hint are one block, centered on the ring as a
         // whole, so a longer hint pushes the name up rather than running
         // down off the middle.
-        int top = ringY + 2 - (lines.size() + 1) * CAPTION_LINE_HEIGHT / 2;
+        int top = ringY + 2 - rows * CAPTION_LINE_HEIGHT / 2;
         Draw.textCentered(minecraft, label, ringX, top,
-                entry.enabled() ? Theme.ACCENT : Theme.TEXT_DIM);
+                !entry.enabled() ? Theme.TEXT_DIM : entry.locked() ? Theme.LOCKED : Theme.ACCENT);
         for (int line = 0; line < lines.size(); line++) {
             Draw.textCentered(minecraft, lines.get(line),
                     ringX, top + (line + 1) * CAPTION_LINE_HEIGHT, Theme.TEXT_FAINT);
         }
+        if (cue != null) {
+            boolean filling = pressProgress(hovered) > 0;
+            Draw.textCentered(minecraft, cue, ringX, top + (rows - 1) * CAPTION_LINE_HEIGHT,
+                    filling ? Theme.LOCKED : Theme.TEXT_FAINT);
+        }
+    }
+
+    /**
+     * What holding the button here would do, said under the hint, since
+     * nothing about a slot shows that it can be held until it is.
+     */
+    private String lockCue(RadialEntry entry) {
+        String verb = entry.locked() ? "unlock" : "lock";
+        return pressProgress(hovered) > 0 ? "keep holding to " + verb : "hold to " + verb;
     }
 
     /** Where in the tree this is, so depth is readable without going back up. */

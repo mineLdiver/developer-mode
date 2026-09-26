@@ -69,6 +69,25 @@ public class RadialEntry {
         return false;
     }
 
+    /**
+     * Whether holding the button down on this slot locks the world to it.
+     *
+     * <p>A click still does what it always does. Holding is a second, slower
+     * answer to the same slot, so a lock is never set by a click that went on
+     * a moment too long: it takes a hold long enough to watch it fill.
+     */
+    public boolean lockable() {
+        return false;
+    }
+
+    /** Whether the world is locked to what this slot chooses. */
+    public boolean locked() {
+        return false;
+    }
+
+    /** Locks the world to this slot, or unlocks it if it is locked already. */
+    public void toggleLock() {}
+
     public void renderIcon(Minecraft minecraft, int centerX, int centerY) {
         renderIcon(minecraft, centerX, centerY, ItemDraw.SIZE);
     }
