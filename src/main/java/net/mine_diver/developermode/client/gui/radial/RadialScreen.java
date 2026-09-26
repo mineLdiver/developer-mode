@@ -17,6 +17,7 @@ import org.lwjgl.input.Mouse;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.List;
 
 /**
  * The whole mod, in one hold.
@@ -165,6 +166,17 @@ public final class RadialScreen extends DevScreen {
 
     private static final int ICON_SIZE = 16;
     private static final int ICON_SIZE_LIFTED = 21;
+
+    /**
+     * How wide a line of a slot's hint may run. Wider than the hole, which
+     * one short line can overhang without harm, and no wider than that, so a
+     * longer hint wraps rather than spilling across the slots.
+     */
+    private static final int HINT_WIDTH = (int) (INNER_RADIUS * 2) + 40;
+    /** Enough for a sentence, and few enough that the name stays in the hole. */
+    private static final int HINT_LINES = 3;
+    /** Beta's glyphs are eight pixels tall, and two more keep lines apart. */
+    private static final int CAPTION_LINE_HEIGHT = 10;
 
     /** Sheets drawn behind a slot that has a level under it. */
     private static final int STACK_LAYERS = 2;
@@ -828,11 +840,18 @@ public final class RadialScreen extends DevScreen {
                 ? entry.hint()
                 : entry.hint() + "   (" + submenu.size() + ")";
 
-        Draw.textCentered(minecraft, label, ringX, ringY - 8,
+        List<String> lines = Draw.wrap(minecraft, hint, HINT_WIDTH, HINT_LINES);
+
+        // The name and its hint are one block, centered on the ring as a
+        // whole, so a longer hint pushes the name up rather than running
+        // down off the middle.
+        int top = ringY + 2 - (lines.size() + 1) * CAPTION_LINE_HEIGHT / 2;
+        Draw.textCentered(minecraft, label, ringX, top,
                 entry.enabled() ? Theme.ACCENT : Theme.TEXT_DIM);
-        Draw.textCentered(minecraft,
-                Draw.ellipsize(minecraft, hint, (int) (INNER_RADIUS * 2) + 40),
-                ringX, ringY + 2, Theme.TEXT_FAINT);
+        for (int line = 0; line < lines.size(); line++) {
+            Draw.textCentered(minecraft, lines.get(line),
+                    ringX, top + (line + 1) * CAPTION_LINE_HEIGHT, Theme.TEXT_FAINT);
+        }
     }
 
     /** Where in the tree this is, so depth is readable without going back up. */
