@@ -1,7 +1,6 @@
 package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.api.Message;
-import net.mine_diver.developermode.feature.net.packet.LockC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.LockS2CPacket;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.world.PersistentState;
@@ -47,14 +46,6 @@ public final class Locks {
     private static final int LOCKED_COUNT = 2;
 
     private Locks() {}
-
-    /**
-     * @param value the time of day or the weather to lock to, which is
-     *              ignored when unlocking
-     */
-    public static void request(byte what, boolean lock, int value) {
-        PacketHelper.send(new LockC2SPacket(what, lock, value));
-    }
 
     public static int lockedTime(World world) {
         LockedSky locks = ((LockingWorld) world).developermode_locks();

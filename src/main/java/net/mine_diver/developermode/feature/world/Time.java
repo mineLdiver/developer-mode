@@ -1,9 +1,7 @@
 package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.api.Message;
-import net.mine_diver.developermode.feature.net.packet.TimeC2SPacket;
 import net.minecraft.world.World;
-import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 
 /**
  * Moving the sun.
@@ -27,11 +25,6 @@ public final class Time {
     public static final int MIDNIGHT = DAY * 3 / 4;
 
     private Time() {}
-
-    /** @param timeOfDay ticks since sunrise */
-    public static void request(int timeOfDay) {
-        PacketHelper.send(new TimeC2SPacket(timeOfDay));
-    }
 
     /**
      * Whether the day is nearer this time than any of the others.

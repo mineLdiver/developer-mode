@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.radial;
 
+import net.mine_diver.developermode.api.setting.Setting;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.window.EntityListWindow;
@@ -10,17 +11,17 @@ import net.mine_diver.developermode.client.tool.Tool;
 import net.mine_diver.developermode.client.tool.ToolMode;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Heal;
-import net.mine_diver.developermode.feature.player.Power;
+import net.mine_diver.developermode.feature.setting.DeveloperSettings;
+import net.mine_diver.developermode.feature.setting.TimeSetting;
+import net.mine_diver.developermode.feature.setting.WeatherSetting;
 import net.mine_diver.developermode.feature.world.Clearing;
-import net.mine_diver.developermode.feature.world.Locks;
-import net.mine_diver.developermode.feature.world.Time;
-import net.mine_diver.developermode.feature.world.Weather;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * One level of the ring: as many slots as it has entries, and no more.
@@ -47,17 +48,22 @@ public final class RadialMenu {
 
     private static RadialMenu root;
 
-    private final String key;
+    private final Supplier<String> key;
     private final List<RadialEntry> entries = new ArrayList<>();
 
     /** @param key the translation key of its name, usually the same as the slot that leads to it */
     public RadialMenu(String key) {
+        this(() -> key);
+    }
+
+    /** @param key asked for the translation key of its name each time it is drawn */
+    public RadialMenu(Supplier<String> key) {
         this.key = key;
     }
 
     /** Named so that a level can say where you are once you are below the root. */
     public String title() {
-        return Lang.get(key);
+        return Lang.get(key.get());
     }
 
     public RadialMenu add(RadialEntry entry) {
@@ -90,23 +96,18 @@ public final class RadialMenu {
     public static void bootstrap() {
         // Laid out as the sky's own dial: noon at the top, midnight at the
         // bottom, and the day running clockwise between them.
-        RadialMenu time = new RadialMenu("gui.developermode.radial.time")
-                .add(timeOfDay(Time.NOON, "gui.developermode.radial.noon",
-                        new ItemStack(Block.GLOWSTONE)))
-                .add(timeOfDay(Time.DUSK, "gui.developermode.radial.dusk",
-                        new ItemStack(Block.JACK_O_LANTERN)))
-                .add(timeOfDay(Time.MIDNIGHT, "gui.developermode.radial.midnight",
-                        new ItemStack(Block.OBSIDIAN)))
-                .add(timeOfDay(Time.DAWN, "gui.developermode.radial.dawn",
-                        new ItemStack(Block.DANDELION)));
+        Setting timeSetting = DeveloperSettings.TIME;
+        RadialMenu time = new RadialMenu(timeSetting::translationKey)
+                .add(RequestEntry.choice(timeSetting, TimeSetting.NOON, new ItemStack(Block.GLOWSTONE)))
+                .add(RequestEntry.choice(timeSetting, TimeSetting.DUSK, new ItemStack(Block.JACK_O_LANTERN)))
+                .add(RequestEntry.choice(timeSetting, TimeSetting.MIDNIGHT, new ItemStack(Block.OBSIDIAN)))
+                .add(RequestEntry.choice(timeSetting, TimeSetting.DAWN, new ItemStack(Block.DANDELION)));
 
-        RadialMenu weather = new RadialMenu("gui.developermode.radial.weather")
-                .add(weatherKind(Weather.CLEAR, "gui.developermode.radial.clear",
-                        new ItemStack(Block.GLASS)))
-                .add(weatherKind(Weather.RAIN, "gui.developermode.radial.rain",
-                        new ItemStack(Item.WATER_BUCKET)))
-                .add(weatherKind(Weather.STORM, "gui.developermode.radial.storm",
-                        new ItemStack(Item.GUNPOWDER)));
+        Setting weatherSetting = DeveloperSettings.WEATHER;
+        RadialMenu weather = new RadialMenu(weatherSetting::translationKey)
+                .add(RequestEntry.choice(weatherSetting, WeatherSetting.CLEAR, new ItemStack(Block.GLASS)))
+                .add(RequestEntry.choice(weatherSetting, WeatherSetting.RAIN, new ItemStack(Item.WATER_BUCKET)))
+                .add(RequestEntry.choice(weatherSetting, WeatherSetting.STORM, new ItemStack(Item.GUNPOWDER)));
 
         RadialMenu world = new RadialMenu("gui.developermode.radial.world")
                 .add(new RadialEntry(
@@ -123,11 +124,11 @@ public final class RadialMenu {
                         new ItemStack(Item.DIAMOND_SWORD),
                         returnTo -> Clearing.request(Clearing.MOBS, Sight.reach())))
                 .add(new RadialEntry(
-                        "gui.developermode.radial.weather",
+                        weatherSetting::translationKey,
                         new ItemStack(Item.SNOWBALL),
                         weather))
                 .add(new RadialEntry(
-                        "gui.developermode.radial.time",
+                        timeSetting::translationKey,
                         new ItemStack(Item.CLOCK),
                         time));
 
@@ -146,21 +147,11 @@ public final class RadialMenu {
                 .add(tool(Tool.SMITE, new ItemStack(Item.GLOWSTONE_DUST)));
 
         RadialMenu player = new RadialMenu("gui.developermode.radial.player")
-                .add(RequestEntry.power(
-                        Power.GOD, "gui.developermode.radial.god",
-                        new ItemStack(Item.GOLDEN_APPLE)))
-                .add(RequestEntry.power(
-                        Power.FLIGHT, "gui.developermode.radial.flight",
-                        new ItemStack(Item.FEATHER)))
-                .add(RequestEntry.power(
-                        Power.NOCLIP, "gui.developermode.radial.noclip",
-                        new ItemStack(Block.GLASS)))
-                .add(RequestEntry.power(
-                        Power.INSTANT_BREAK, "gui.developermode.radial.insta_break",
-                        new ItemStack(Item.DIAMOND_PICKAXE)))
-                .add(RequestEntry.power(
-                        Power.ENDLESS, "gui.developermode.radial.endless",
-                        new ItemStack(Block.DISPENSER)))
+                .add(RequestEntry.toggle(DeveloperSettings.GOD, new ItemStack(Item.GOLDEN_APPLE)))
+                .add(RequestEntry.toggle(DeveloperSettings.FLIGHT, new ItemStack(Item.FEATHER)))
+                .add(RequestEntry.toggle(DeveloperSettings.NOCLIP, new ItemStack(Block.GLASS)))
+                .add(RequestEntry.toggle(DeveloperSettings.INSTANT_BREAK, new ItemStack(Item.DIAMOND_PICKAXE)))
+                .add(RequestEntry.toggle(DeveloperSettings.ENDLESS, new ItemStack(Block.DISPENSER)))
                 .add(RequestEntry.action(
                         DevStatus.HEAL, "gui.developermode.radial.heal",
                         new ItemStack(Item.COOKED_PORKCHOP),
@@ -199,23 +190,5 @@ public final class RadialMenu {
                 return ToolMode.armed() == tool;
             }
         }.marked(RadialEntry.Badge.TOOL);
-    }
-
-    /** A time of day, lit for the quarter of the day nearest it, and one the sun can be locked at. */
-    private static RadialEntry timeOfDay(int timeOfDay, String key, ItemStack icon) {
-        return RequestEntry.state(DevStatus.TIME, key, icon,
-                world -> Time.around(world, timeOfDay),
-                returnTo -> Time.request(timeOfDay),
-                world -> Locks.lockedTime(world) == timeOfDay,
-                lock -> Locks.request(Locks.TIME, lock, timeOfDay));
-    }
-
-    /** A kind of weather, lit while the sky is doing it, and one the sky can be locked to. */
-    private static RadialEntry weatherKind(byte weather, String key, ItemStack icon) {
-        return RequestEntry.state(DevStatus.WEATHER, key, icon,
-                world -> Weather.of(world) == weather,
-                returnTo -> Weather.request(weather),
-                world -> Locks.lockedWeather(world) == weather,
-                lock -> Locks.request(Locks.WEATHER, lock, weather));
     }
 }
