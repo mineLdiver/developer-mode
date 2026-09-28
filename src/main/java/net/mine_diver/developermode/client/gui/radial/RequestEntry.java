@@ -1,8 +1,8 @@
 package net.mine_diver.developermode.client.gui.radial;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Powers;
 import net.minecraft.client.Minecraft;

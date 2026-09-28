@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.feature.world;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.feature.net.packet.WeatherC2SPacket;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProperties;

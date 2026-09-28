@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.feature.world;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.feature.net.packet.LockC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.LockS2CPacket;
 import net.minecraft.entity.player.PlayerEntity;

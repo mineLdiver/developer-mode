@@ -1,9 +1,9 @@
 package net.mine_diver.developermode.client.gui.composer;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
-import net.mine_diver.developermode.feature.Message;
 import net.minecraft.client.Minecraft;
 
 /**

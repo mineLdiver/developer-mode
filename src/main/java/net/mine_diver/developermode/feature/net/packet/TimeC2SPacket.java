@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Time;

@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.feature.entity;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.mixin.EntityRegistryAccessor;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
