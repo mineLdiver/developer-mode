@@ -22,6 +22,10 @@ public final class DevStatus {
     public static final String POWERS = "powers";
     public static final String HEAL = "heal";
     public static final String WARP = "warp";
+    public static final String TIME = "time";
+    public static final String WEATHER = "weather";
+    public static final String SWEEP = "sweep";
+    public static final String PURGE = "purge";
 
     private static final Map<String, String> MESSAGES = new HashMap<>();
     private static final Map<String, Integer> SEQUENCES = new HashMap<>();
