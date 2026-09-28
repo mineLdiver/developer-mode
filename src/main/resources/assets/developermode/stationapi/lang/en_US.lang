@@ -24,6 +24,10 @@ gui.@.radial.summon=Summon
 gui.@.radial.summon.hint=Place new entities wherever you point
 gui.@.radial.heal=Heal
 gui.@.radial.heal.hint=Full health, no fire, full air
+gui.@.radial.presets=Presets
+gui.@.radial.presets.hint=Several settings at once
+gui.@.radial.edit_presets=Edit presets
+gui.@.radial.edit_presets.hint=Make them, change them, put them in order
 gui.@.radial.locked=locked
 gui.@.radial.lock=hold to lock
 gui.@.radial.unlock=hold to unlock
@@ -69,6 +73,29 @@ setting.@.weather.rain=Rain
 setting.@.weather.rain.hint=Rain, and snow where it is cold
 setting.@.weather.storm=Storm
 setting.@.weather.storm.hint=Rain, thunder and lightning
+
+# Presets. A preset's own name is whatever it was saved as; these name the
+# two every client starts with, and say what one holds.
+gui.@.presets.creative=Creative
+gui.@.presets.daylight=Daylight
+gui.@.presets.part=%s: %s
+gui.@.presets.part.locked=%s: %s locked
+gui.@.presets.nothing=Does nothing yet
+gui.@.presets.title=Presets
+gui.@.presets.name=Name
+gui.@.presets.unsaved=new preset
+gui.@.presets.new=New
+gui.@.presets.earlier=Up
+gui.@.presets.later=Down
+gui.@.presets.capture=Capture
+gui.@.presets.save=Save
+gui.@.presets.left_out=any
+gui.@.presets.lock=Lock
+gui.@.presets.more=%s to %s of %s, scroll for more
+gui.@.presets.saved=Saved %s
+gui.@.presets.deleted=Deleted %s
+gui.@.presets.captured=Filled in from where you are
+gui.@.presets.hint=right click deletes a preset, or steps back
 
 # Tools. .verb finishes "left click to", and .one and .many count uses.
 gui.@.tool.warp=Warp
@@ -235,6 +262,7 @@ message.@.nothing_to_lock=Nothing to lock
 message.@.no_such_setting=The server doesn't have that setting
 message.@.no_such_value=No such value as %s
 message.@.setting_failed=%s went wrong, see the log
+message.@.presets_full=No room for more presets
 message.@.applied=Applied
 message.@.unreadable_nbt=Unreadable NBT
 message.@.entity_gone=That entity is gone
