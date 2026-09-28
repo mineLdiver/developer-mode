@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
 import net.mine_diver.developermode.client.gui.TextField;
@@ -49,7 +50,7 @@ public final class SummonWindow extends DevWindow {
     private String status = "";
 
     public SummonWindow() {
-        super("Summon", 168, 200);
+        super(Lang.get("gui.developermode.summon.title"), 168, 200);
         types.addAll(EntitySummoning.types());
         applyFilter();
         search.setFocused(true);
@@ -69,7 +70,7 @@ public final class SummonWindow extends DevWindow {
         invalidatePreviewsOnWorldChange(minecraft);
 
         search.bounds(contentX(), contentY(), contentWidth());
-        search.render(minecraft, "Search " + types.size() + " types");
+        search.render(minecraft, Lang.get("gui.developermode.summon.search", types.size()));
 
         int listTop = contentY() + TextField.HEIGHT + GAP;
         int listHeight = contentHeight() - TextField.HEIGHT - GAP - FOOTER_HEIGHT;
@@ -119,9 +120,11 @@ public final class SummonWindow extends DevWindow {
         renderScrollbar(listTop, listHeight, visible);
 
         int footerY = contentY() + contentHeight() - FOOTER_HEIGHT + 1;
-        Draw.text(minecraft, Draw.ellipsize(minecraft, status.isEmpty() ? "left click summons a plain one" : status, contentWidth()),
+        String hint = status.isEmpty() ? Lang.get("gui.developermode.summon.hint") : status;
+        Draw.text(minecraft, Draw.ellipsize(minecraft, hint, contentWidth()),
                 contentX(), footerY, status.isEmpty() ? Theme.TEXT_FAINT : Theme.DANGER);
-        Draw.text(minecraft, "right click sets up its NBT", contentX(), footerY + 10, Theme.TEXT_FAINT);
+        Draw.text(minecraft, Lang.get("gui.developermode.summon.hint.preset"),
+                contentX(), footerY + 10, Theme.TEXT_FAINT);
     }
 
     @Override
@@ -151,7 +154,7 @@ public final class SummonWindow extends DevWindow {
         // every frame once spawned, and there is no recovering from that
         // without quitting. Refuse it here, where a message is still possible.
         if (unrenderable.contains(type) || previewOf(DeveloperModeClient.minecraft(), type) == null) {
-            status = type + " cannot be built without more setup";
+            status = Lang.get("gui.developermode.summon.unbuildable", type);
             return;
         }
 

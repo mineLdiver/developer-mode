@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.tool;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.WorldDraw;
@@ -96,14 +97,15 @@ public final class ToolRenderer {
         int height = scaler.getScaledHeight();
 
         HitResult target = ToolMode.target();
-        String title = tool.label() + " armed";
+        String title = Lang.get("gui.developermode.armed", tool.label());
         String detail = !ToolMode.error().isEmpty()
                 ? ToolMode.error()
                 : target == null
-                        ? "nothing in reach"
-                        : "at " + target.blockX + ", " + target.blockY + ", " + target.blockZ;
-        String help = "left click to " + tool.verb() + "    right click to put away"
-                + (ToolMode.used() > 0 ? "    " + tool.count(ToolMode.used()) : "");
+                        ? Lang.get("gui.developermode.armed.no_target")
+                        : Lang.get("gui.developermode.armed.target", target.blockX, target.blockY, target.blockZ);
+        String help = ToolMode.used() > 0
+                ? Lang.get("gui.developermode.armed.help.used", tool.verb(), tool.count(ToolMode.used()))
+                : Lang.get("gui.developermode.armed.help", tool.verb());
 
         int panelWidth = Math.max(Math.max(Draw.textWidth(minecraft, title), Draw.textWidth(minecraft, detail)),
                 Draw.textWidth(minecraft, help)) + 10;

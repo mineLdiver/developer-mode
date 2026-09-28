@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.world;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.WeatherC2SPacket;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProperties;
@@ -51,11 +52,11 @@ public final class Weather {
     }
 
     /** @return what went wrong, or null if the sky is changing */
-    public static String set(World world, byte weather) {
-        if (!legal(weather)) return "No such weather";
+    public static Message set(World world, byte weather) {
+        if (!legal(weather)) return Message.of("message.developermode.no_such_weather");
         // Beta only runs the weather under an open sky, so anywhere else the
         // counts would be set and never looked at.
-        if (world.dimension.hasCeiling) return "No sky here";
+        if (world.dimension.hasCeiling) return Message.of("message.developermode.no_sky");
 
         WorldProperties properties = world.getProperties();
         properties.setRaining(weather != CLEAR);

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.minecraft.entity.player.PlayerEntity;
@@ -72,22 +73,24 @@ public class GiveC2SPacket extends Packet implements ManagedPacket<GiveC2SPacket
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (itemId < 0 || itemId >= Item.ITEMS.length || Item.ITEMS[itemId] == null) {
-            reply(player, "No such item", false);
+            reply(player, Message.of("message.developermode.no_such_item"), false);
             return;
         }
 
         Item item = Item.ITEMS[itemId];
         int given = Math.max(1, Math.min(count, item.getMaxCount()));
         boolean added = player.inventory.addStack(new ItemStack(itemId, given, damage));
-        reply(player, added ? "Given " + given : "Inventory full", added);
+        reply(player, added
+                ? Message.of("message.developermode.given", given)
+                : Message.of("message.developermode.inventory_full"), added);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.GIVE, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.GIVE, message, ok));
     }
 
     @Override

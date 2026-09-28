@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Time;
@@ -28,7 +29,6 @@ public class TimeC2SPacket extends Packet implements ManagedPacket<TimeC2SPacket
             PacketType.builder(false, true, TimeC2SPacket::new).build();
 
     public int timeOfDay;
-
 
     public TimeC2SPacket() {}
 
@@ -60,20 +60,20 @@ public class TimeC2SPacket extends Packet implements ManagedPacket<TimeC2SPacket
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (timeOfDay < 0 || timeOfDay >= Time.DAY) {
-            reply(player, "Nonsense time", false);
+            reply(player, Message.of("message.developermode.nonsense_time"), false);
             return;
         }
 
-        String failure = Time.set(player.world, timeOfDay);
-        reply(player, failure == null ? "Time moved" : failure, failure == null);
+        Message failure = Time.set(player.world, timeOfDay);
+        reply(player, failure == null ? Message.of("message.developermode.time_moved") : failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.TIME, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.TIME, message, ok));
     }
 
     @Override

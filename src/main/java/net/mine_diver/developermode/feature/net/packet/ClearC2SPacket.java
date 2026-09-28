@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.net.packet;
 
 import net.mine_diver.developermode.feature.Aim;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Clearing;
@@ -31,7 +32,6 @@ public class ClearC2SPacket extends Packet implements ManagedPacket<ClearC2SPack
 
     public byte what;
     public double reach;
-
 
     public ClearC2SPacket() {}
 
@@ -69,20 +69,22 @@ public class ClearC2SPacket extends Packet implements ManagedPacket<ClearC2SPack
         String kind = what == Clearing.MOBS ? DevStatus.PURGE : DevStatus.SWEEP;
 
         if (!Ops.allows(player)) {
-            reply(player, kind, "Requires operator", false);
+            reply(player, kind, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (!Aim.sensible(reach)) {
-            reply(player, kind, "Nonsense reach", false);
+            reply(player, kind, Message.of("message.developermode.nonsense_reach"), false);
             return;
         }
 
         int cleared = Clearing.clear(player, what, Aim.clamp(reach));
-        reply(player, kind, cleared == 0 ? "Nothing in sight" : "Cleared " + cleared, cleared > 0);
+        reply(player, kind, cleared == 0
+                ? Message.of("message.developermode.nothing_in_sight")
+                : Message.of("message.developermode.cleared", cleared), cleared > 0);
     }
 
-    private static void reply(PlayerEntity player, String kind, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(kind, text, ok));
+    private static void reply(PlayerEntity player, String kind, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(kind, message, ok));
     }
 
     @Override

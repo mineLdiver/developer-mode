@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.ItemDraw;
 import net.mine_diver.developermode.client.gui.NbtPanel;
@@ -33,7 +34,7 @@ public final class SlotEditorWindow extends DevWindow {
     private ItemStack icon;
 
     public SlotEditorWindow(int syncId, int slotId, ItemStack stack) {
-        super("Item", 248, 190);
+        super(Lang.get("gui.developermode.slot.title"), 248, 190);
         setTarget(syncId, slotId, stack);
     }
 
@@ -57,7 +58,7 @@ public final class SlotEditorWindow extends DevWindow {
         // once the slot holds something else.
         this.icon = stack == null ? null : stack.copy();
 
-        setTitle("Item: " + name);
+        setTitle(Lang.get("gui.developermode.slot.title.named", name));
         panel.setTarget(NbtTarget.slot(syncId, slotId));
     }
 
@@ -76,7 +77,7 @@ public final class SlotEditorWindow extends DevWindow {
             textX = contentX() + ItemDraw.SIZE + GAP;
         }
 
-        Draw.text(minecraft, "slot " + slotId + "   container " + syncId,
+        Draw.text(minecraft, Lang.get("gui.developermode.slot.detail", slotId, syncId),
                 textX, contentY() + 5, Theme.TEXT_FAINT);
 
         panel.render(minecraft, contentX(), contentY() + HEADER_HEIGHT, contentWidth(),
@@ -110,15 +111,15 @@ public final class SlotEditorWindow extends DevWindow {
 
     /** The stack's display name, or its translation key when it has none. */
     private static String nameOf(ItemStack stack) {
-        if (stack == null) return "Empty";
+        if (stack == null) return Lang.get("gui.developermode.slot.empty");
 
         String key;
         try {
             key = stack.getTranslationKey();
         } catch (Exception error) {
-            return "Item";
+            return Lang.get("gui.developermode.slot.title");
         }
-        if (key == null) return "Item";
+        if (key == null) return Lang.get("gui.developermode.slot.title");
 
         String translated = I18n.getTranslation(key + ".name");
         return translated == null || translated.isEmpty() || translated.equals(key + ".name")

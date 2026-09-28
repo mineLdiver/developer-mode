@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -28,13 +29,13 @@ public final class EntityListWindow extends DevWindow {
     private static final int REFRESH_INTERVAL_TICKS = 20;
 
     private final List<Entity> entries = new ArrayList<>();
-    private final Button thawAllButton = new Button("Release all");
+    private final Button thawAllButton = new Button(Lang.get("gui.developermode.entities.release_all"));
 
     private int scrollRow;
     private int refreshCountdown;
 
     public EntityListWindow() {
-        super("Entities", 176, 168);
+        super(Lang.get("gui.developermode.entities.title"), 176, 168);
         refresh();
     }
 
@@ -77,7 +78,7 @@ public final class EntityListWindow extends DevWindow {
         }
 
         if (entries.isEmpty()) {
-            Draw.textCentered(minecraft, "nothing loaded", contentX() + contentWidth() / 2,
+            Draw.textCentered(minecraft, Lang.get("gui.developermode.entities.none"), contentX() + contentWidth() / 2,
                     contentY() + 4, Theme.TEXT_FAINT);
         }
 
@@ -89,7 +90,9 @@ public final class EntityListWindow extends DevWindow {
         thawAllButton.enabled = frozenCount > 0;
         thawAllButton.render(minecraft, mouseX, mouseY);
 
-        String summary = entries.size() + " loaded" + (frozenCount > 0 ? ", " + frozenCount + " frozen" : "");
+        String summary = frozenCount > 0
+                ? Lang.get("gui.developermode.entities.summary.frozen", entries.size(), frozenCount)
+                : Lang.get("gui.developermode.entities.summary", entries.size());
         Draw.text(minecraft, summary, contentX() + 58, footerY + 2, Theme.TEXT_FAINT);
     }
 

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.entity;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.storage.DevStorage;
 import net.mine_diver.developermode.feature.storage.Nbt;
 import net.minecraft.nbt.NbtCompound;
@@ -48,14 +49,14 @@ public final class SummonPresets {
      *
      * @return null on success, or a message describing what went wrong
      */
-    public static String save(String type, String name, NbtCompound nbt) {
-        if (name.isEmpty()) return "name it first";
+    public static Message save(String type, String name, NbtCompound nbt) {
+        if (name.isEmpty()) return Message.of("message.developermode.name_it_first");
 
         NbtCompound forType = root().getCompound(type);
         forType.put(name, nbt.copy());
         root().put(type, forType);
 
-        return DevStorage.write(DOCUMENT, root()) ? null : "could not write the file, see the log";
+        return DevStorage.write(DOCUMENT, root()) ? null : Message.of("message.developermode.could_not_write");
     }
 
     public static void delete(String type, String name) {

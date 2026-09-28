@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.NbtPanel;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
@@ -24,7 +25,7 @@ public final class BlockEntityEditorWindow extends DevWindow {
     private int blockZ;
 
     public BlockEntityEditorWindow(int x, int y, int z) {
-        super("Block entity", 248, 190);
+        super(Lang.get("gui.developermode.block_entity"), 248, 190);
         setTarget(x, y, z);
     }
 
@@ -95,9 +96,11 @@ public final class BlockEntityEditorWindow extends DevWindow {
      */
     private String name() {
         Minecraft minecraft = DeveloperModeClient.minecraft();
-        if (minecraft == null || minecraft.world == null) return "Block entity";
+        if (minecraft == null || minecraft.world == null) return Lang.get("gui.developermode.block_entity");
 
         BlockEntity blockEntity = minecraft.world.getBlockEntity(blockX, blockY, blockZ);
-        return blockEntity == null ? "Block entity" : blockEntity.getClass().getSimpleName();
+        return blockEntity == null
+                ? Lang.get("gui.developermode.block_entity")
+                : blockEntity.getClass().getSimpleName();
     }
 }

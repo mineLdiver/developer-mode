@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.net.packet;
 
 import net.mine_diver.developermode.feature.Aim;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Smite;
@@ -28,7 +29,6 @@ public class SmiteC2SPacket extends Packet implements ManagedPacket<SmiteC2SPack
             PacketType.builder(false, true, SmiteC2SPacket::new).build();
 
     public double reach;
-
 
     public SmiteC2SPacket() {}
 
@@ -60,20 +60,20 @@ public class SmiteC2SPacket extends Packet implements ManagedPacket<SmiteC2SPack
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (!Aim.sensible(reach)) {
-            reply(player, "Nonsense reach", false);
+            reply(player, Message.of("message.developermode.nonsense_reach"), false);
             return;
         }
 
-        String failure = Smite.smite(player, Aim.clamp(reach));
-        reply(player, failure == null ? "Struck" : failure, failure == null);
+        Message failure = Smite.smite(player, Aim.clamp(reach));
+        reply(player, failure == null ? Message.of("message.developermode.struck") : failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.SMITE, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.SMITE, message, ok));
     }
 
     @Override

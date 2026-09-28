@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.player.Warp;
@@ -67,20 +68,20 @@ public class WarpC2SPacket extends Packet implements ManagedPacket<WarpC2SPacket
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (Double.isNaN(reach) || Double.isInfinite(reach)) {
-            reply(player, "Nonsense reach", false);
+            reply(player, Message.of("message.developermode.nonsense_reach"), false);
             return;
         }
 
-        String failure = Warp.warp(player, Math.min(Math.max(reach, 0), MAX_REACH));
-        reply(player, failure == null ? "Warped" : failure, failure == null);
+        Message failure = Warp.warp(player, Math.min(Math.max(reach, 0), MAX_REACH));
+        reply(player, failure == null ? Message.of("message.developermode.warped") : failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.WARP, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.WARP, message, ok));
     }
 
     @Override

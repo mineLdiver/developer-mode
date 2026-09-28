@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.mixin;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.window.SlotEditorWindow;
@@ -44,7 +45,7 @@ abstract class HandledScreenMixin extends Screen {
     private void developermode_offerSlot(int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!developermode_inspecting()) return;
 
-        Draw.text(minecraft, "editing NBT   click a slot", 4, 4, Theme.ACCENT);
+        Draw.text(minecraft, Lang.get("gui.developermode.slot_picking"), 4, 4, Theme.ACCENT);
 
         Slot slot = getSlotAt(mouseX, mouseY);
         if (slot == null || !slot.hasStack()) return;

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.player.Heal;
@@ -40,16 +41,16 @@ public class HealC2SPacket extends Packet implements ManagedPacket<HealC2SPacket
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
 
-        String failure = Heal.heal(player);
-        reply(player, failure == null ? "Healed" : failure, failure == null);
+        Message failure = Heal.heal(player);
+        reply(player, failure == null ? Message.of("message.developermode.healed") : failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.HEAL, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.HEAL, message, ok));
     }
 
     @Override

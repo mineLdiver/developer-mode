@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.feature.Aim;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.BlastC2SPacket;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.hit.HitResult;
@@ -33,9 +34,9 @@ public final class Blast {
     }
 
     /** @return what went wrong, or null if it went off */
-    public static String blast(PlayerEntity player, double reach) {
+    public static Message blast(PlayerEntity player, double reach) {
         HitResult hit = Aim.block(player, reach);
-        if (hit == null) return "Nothing in reach";
+        if (hit == null) return Message.of("message.developermode.nothing_in_reach");
 
         player.world.createExplosion(player, hit.pos.x, hit.pos.y, hit.pos.z, POWER, false);
         return null;

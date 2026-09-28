@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.radial;
 
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.ItemDraw;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
@@ -10,6 +11,9 @@ import net.minecraft.item.ItemStack;
  *
  * <p>Label, hint, icon and availability are methods rather than fields so a
  * slot can describe whatever it is pointed at right now.
+ *
+ * <p>Named by a translation key, with its hint under {@code .hint} beneath it,
+ * and translated each time it is drawn.
  *
  * <p>A slot either does something or leads somewhere. Which one it is decides
  * what a click on it means, so the two are kept apart rather than left to a
@@ -37,26 +41,23 @@ public class RadialEntry {
         LOCK
     }
 
-    private final String label;
-    private final String hint;
+    private final String key;
     private final ItemStack icon;
     private final RadialAction action;
     private final RadialMenu submenu;
     private Badge badge = Badge.NONE;
 
-    public RadialEntry(String label, String hint, ItemStack icon, RadialAction action) {
-        this(label, hint, icon, action, null);
+    public RadialEntry(String key, ItemStack icon, RadialAction action) {
+        this(key, icon, action, null);
     }
 
     /** A category: clicking it descends instead of doing anything. */
-    public RadialEntry(String label, String hint, ItemStack icon, RadialMenu submenu) {
-        this(label, hint, icon, null, submenu);
+    public RadialEntry(String key, ItemStack icon, RadialMenu submenu) {
+        this(key, icon, null, submenu);
     }
 
-    private RadialEntry(String label, String hint, ItemStack icon,
-                        RadialAction action, RadialMenu submenu) {
-        this.label = label;
-        this.hint = hint;
+    private RadialEntry(String key, ItemStack icon, RadialAction action, RadialMenu submenu) {
+        this.key = key;
         this.icon = icon;
         this.action = action;
         this.submenu = submenu;
@@ -79,11 +80,11 @@ public class RadialEntry {
     }
 
     public String label() {
-        return label;
+        return Lang.get(key);
     }
 
     public String hint() {
-        return hint;
+        return Lang.get(key + ".hint");
     }
 
     /** A disabled slot still shows, and its hint should say why it is off. */

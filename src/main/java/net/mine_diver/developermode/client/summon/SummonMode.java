@@ -1,10 +1,12 @@
 package net.mine_diver.developermode.client.summon;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.client.tool.ToolMode;
 import net.mine_diver.developermode.feature.Facing;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.mine_diver.developermode.feature.net.DevStatus;
@@ -168,10 +170,10 @@ public final class SummonMode {
         preview = EntitySummoning.create(type, minecraft.world);
         if (preview == null || preset == null) return;
 
-        String failure = EntitySummoning.applyPreset(preview, preset);
+        Message failure = EntitySummoning.applyPreset(preview, preset);
         // Placing would fail the same way for the same reason, so this is not
         // stepping on a placement error, it is getting ahead of one.
-        if (failure != null) error = "preset: " + failure;
+        if (failure != null) error = Lang.of(Message.of("message.developermode.preset", failure));
     }
 
     private static void handleButtons() {
@@ -206,7 +208,7 @@ public final class SummonMode {
             placed++;
             error = "";
         } else {
-            error = DevStatus.message(DevStatus.SUMMON);
+            error = Lang.of(DevStatus.message(DevStatus.SUMMON));
         }
     }
 }

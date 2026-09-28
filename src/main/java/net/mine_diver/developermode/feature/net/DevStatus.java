@@ -1,5 +1,7 @@
 package net.mine_diver.developermode.feature.net;
 
+import net.mine_diver.developermode.feature.Message;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,14 +32,14 @@ public final class DevStatus {
     public static final String SWEEP = "sweep";
     public static final String PURGE = "purge";
 
-    private static final Map<String, String> MESSAGES = new HashMap<>();
+    private static final Map<String, Message> MESSAGES = new HashMap<>();
     private static final Map<String, Integer> SEQUENCES = new HashMap<>();
     private static final Map<String, Boolean> OUTCOMES = new HashMap<>();
 
     private DevStatus() {}
 
-    public static void set(String kind, String text, boolean ok) {
-        MESSAGES.put(kind, text);
+    public static void set(String kind, Message message, boolean ok) {
+        MESSAGES.put(kind, message);
         OUTCOMES.put(kind, ok);
         SEQUENCES.merge(kind, 1, Integer::sum);
     }
@@ -47,8 +49,9 @@ public final class DevStatus {
         return OUTCOMES.getOrDefault(kind, false);
     }
 
-    public static String message(String kind) {
-        return MESSAGES.getOrDefault(kind, "");
+    /** The last message of this kind, or null if there has not been one. */
+    public static Message message(String kind) {
+        return MESSAGES.get(kind);
     }
 
     public static int sequence(String kind) {

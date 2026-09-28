@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.player;
 
 import net.mine_diver.developermode.feature.Facing;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.net.packet.WarpC2SPacket;
 import net.mine_diver.developermode.mixin.EntityAccessor;
@@ -36,14 +37,14 @@ public final class Warp {
     }
 
     /** @return what went wrong, or null if they got there */
-    public static String warp(PlayerEntity player, double reach) {
+    public static Message warp(PlayerEntity player, double reach) {
         // Beta keeps an entity's y at its eyes and hangs the box below it, so
         // this is already the camera.
         Vec3d origin = Vec3d.create(player.x, player.y, player.z);
         Vec3d look = player.getLookVector(1);
 
         HitResult hit = Ray.cast(player.world, origin, look, reach);
-        if (hit == null || hit.type != HitResultType.BLOCK) return "Nothing in reach";
+        if (hit == null || hit.type != HitResultType.BLOCK) return Message.of("message.developermode.nothing_in_reach");
 
         Vec3d feet = landing(player.boundingBox, hit);
         // Back into Beta's terms, where the coordinate asked for is the eyes.

@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.summon;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.WorldDraw;
@@ -74,13 +75,17 @@ public final class SummonRenderer {
         int width = scaler.getScaledWidth();
         int height = scaler.getScaledHeight();
 
-        String title = "Summoning " + SummonMode.type()
-                + (SummonMode.hasPreset() ? " with preset" : "");
+        String title = Lang.get(SummonMode.hasPreset()
+                ? "gui.developermode.summoning.preset"
+                : "gui.developermode.summoning", SummonMode.type());
         String detail = !SummonMode.error().isEmpty()
                 ? SummonMode.error()
-                : SummonMode.isGrounded() ? "on a surface" : "in mid air";
-        String help = "left click to place    right click to stop"
-                + (SummonMode.placed() > 0 ? "    " + SummonMode.placed() + " placed" : "");
+                : Lang.get(SummonMode.isGrounded()
+                        ? "gui.developermode.summoning.grounded"
+                        : "gui.developermode.summoning.airborne");
+        String help = SummonMode.placed() > 0
+                ? Lang.get("gui.developermode.summoning.help.placed", SummonMode.placed())
+                : Lang.get("gui.developermode.summoning.help");
 
         int panelWidth = Math.max(Math.max(Draw.textWidth(minecraft, title), Draw.textWidth(minecraft, detail)),
                 Draw.textWidth(minecraft, help)) + 10;

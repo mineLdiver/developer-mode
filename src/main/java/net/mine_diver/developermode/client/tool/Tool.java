@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.tool;
 
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Blast;
@@ -15,41 +16,44 @@ import java.util.function.DoubleConsumer;
  * left click for as long as it is armed. What it says about itself is what
  * the HUD needs to keep it impossible to forget: a name, what a click does,
  * and how to count what it has done.
+ *
+ * <p>All of it is under one translation key: the name is the key itself, and
+ * the rest are {@code .hint}, {@code .verb}, {@code .one} and {@code .many}
+ * beneath it.
  */
 public enum Tool {
-    WARP("Warp", "warp", "warp", "warps", DevStatus.WARP, Warp::request),
-    GROW("Grow", "grow", "grown", "grown", DevStatus.GROW, Grow::request),
-    BLAST("Blast", "blast", "blast", "blasts", DevStatus.BLAST, Blast::request),
-    SMITE("Smite", "strike", "strike", "strikes", DevStatus.SMITE, Smite::request);
+    WARP("gui.developermode.tool.warp", DevStatus.WARP, Warp::request),
+    GROW("gui.developermode.tool.grow", DevStatus.GROW, Grow::request),
+    BLAST("gui.developermode.tool.blast", DevStatus.BLAST, Blast::request),
+    SMITE("gui.developermode.tool.smite", DevStatus.SMITE, Smite::request);
 
-    private final String label;
-    private final String verb;
-    private final String one;
-    private final String many;
+    private final String key;
     private final String kind;
     private final DoubleConsumer request;
 
-    Tool(String label, String verb, String one, String many, String kind, DoubleConsumer request) {
-        this.label = label;
-        this.verb = verb;
-        this.one = one;
-        this.many = many;
+    Tool(String key, String kind, DoubleConsumer request) {
+        this.key = key;
         this.kind = kind;
         this.request = request;
     }
 
+    /** The translation key the name is under, and the rest beneath it. */
+    public String key() {
+        return key;
+    }
+
     public String label() {
-        return label;
+        return Lang.get(key);
     }
 
     /** What a left click does, as in "left click to strike". */
     public String verb() {
-        return verb;
+        return Lang.get(key + ".verb");
     }
 
     /** How many times it has gone through, as in "3 strikes". */
     public String count(int done) {
-        return done + " " + (done == 1 ? one : many);
+        return Lang.get(key + (done == 1 ? ".one" : ".many"), done);
     }
 
     /** The status kind its answers come back under. */

@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.tool;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.summon.SummonMode;
 import net.mine_diver.developermode.feature.Ray;
@@ -138,7 +139,7 @@ public final class ToolMode {
             used++;
             error = "";
         } else {
-            error = DevStatus.message(kind);
+            error = Lang.of(DevStatus.message(kind));
             errorAt = key(target);
         }
     }

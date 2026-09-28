@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.player.Power;
@@ -65,7 +66,7 @@ public class PowersC2SPacket extends Packet implements ManagedPacket<PowersC2SPa
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             // What they have rather than what they asked for, so a client that
             // was hoping is put straight rather than left hoping.
             PacketHelper.sendTo(player, new PowersS2CPacket(Powers.of(player)));
@@ -74,12 +75,12 @@ public class PowersC2SPacket extends Packet implements ManagedPacket<PowersC2SPa
 
         int granted = Power.legal(mask);
         Powers.set(player, granted);
-        reply(player, "", true);
+        reply(player, null, true);
         PacketHelper.sendTo(player, new PowersS2CPacket(granted));
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.POWERS, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.POWERS, message, ok));
     }
 
     @Override

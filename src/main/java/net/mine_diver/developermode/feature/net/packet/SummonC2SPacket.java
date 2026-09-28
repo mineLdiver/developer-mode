@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
@@ -88,28 +89,28 @@ public class SummonC2SPacket extends Packet implements ManagedPacket<SummonC2SPa
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (!finite(x) || !finite(y) || !finite(z) || !finite(yaw)) {
-            reply(player, "Nonsense position", false);
+            reply(player, Message.of("message.developermode.nonsense_position"), false);
             return;
         }
         if (player.getSquaredDistance(x, y, z) > MAX_DISTANCE * MAX_DISTANCE) {
-            reply(player, "Too far away", false);
+            reply(player, Message.of("message.developermode.too_far"), false);
             return;
         }
 
-        String failure = EntitySummoning.summon(player.world, type, x, y, z, yaw, PacketNbt.fromBytes(nbt));
-        reply(player, failure == null ? "Summoned " + type : failure, failure == null);
+        Message failure = EntitySummoning.summon(player.world, type, x, y, z, yaw, PacketNbt.fromBytes(nbt));
+        reply(player, failure == null ? Message.of("message.developermode.summoned", type) : failure, failure == null);
     }
 
     private static boolean finite(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.SUMMON, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.SUMMON, message, ok));
     }
 
     @Override

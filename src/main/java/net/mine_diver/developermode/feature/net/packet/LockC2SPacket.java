@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Locks;
@@ -70,16 +71,16 @@ public class LockC2SPacket extends Packet implements ManagedPacket<LockC2SPacket
         String kind = what == Locks.WEATHER ? DevStatus.WEATHER : DevStatus.TIME;
 
         if (!Ops.allows(player)) {
-            reply(player, kind, "Requires operator", false);
+            reply(player, kind, Message.of("message.developermode.requires_operator"), false);
             return;
         }
 
-        String failure = Locks.lock(player.world, what, lock, value);
-        reply(player, kind, failure == null ? "" : failure, failure == null);
+        Message failure = Locks.lock(player.world, what, lock, value);
+        reply(player, kind, failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String kind, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(kind, text, ok));
+    private static void reply(PlayerEntity player, String kind, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(kind, message, ok));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.ItemCatalogue;
 import net.mine_diver.developermode.client.gui.ItemDraw;
@@ -42,7 +43,7 @@ public final class ItemPickerWindow extends DevWindow {
     private int statusSequence = DevStatus.sequence(DevStatus.GIVE);
 
     public ItemPickerWindow() {
-        super("Items", COLUMNS * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 2, 178);
+        super(Lang.get("gui.developermode.items.title"), COLUMNS * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 2, 178);
         buildCatalogue();
         applyFilter();
         search.setFocused(true);
@@ -57,14 +58,14 @@ public final class ItemPickerWindow extends DevWindow {
         // the click that asked for it has returned.
         if (DevStatus.sequence(DevStatus.GIVE) != statusSequence) {
             statusSequence = DevStatus.sequence(DevStatus.GIVE);
-            setStatus(DevStatus.message(DevStatus.GIVE));
+            setStatus(Lang.of(DevStatus.message(DevStatus.GIVE)));
         }
     }
 
     @Override
     protected void renderContent(Minecraft minecraft, int mouseX, int mouseY, float delta, boolean focused) {
         search.bounds(contentX(), contentY(), contentWidth());
-        search.render(minecraft, "Search " + catalogue.size() + " items");
+        search.render(minecraft, Lang.get("gui.developermode.items.search", catalogue.size()));
 
         hovered = null;
         int columns = columns();
@@ -173,7 +174,7 @@ public final class ItemPickerWindow extends DevWindow {
             Draw.text(minecraft, Draw.ellipsize(minecraft, status, contentWidth()), contentX(), footerY, Theme.ACCENT);
             return;
         }
-        Draw.text(minecraft, "left stack   right one", contentX(), footerY, Theme.TEXT_FAINT);
+        Draw.text(minecraft, Lang.get("gui.developermode.items.hint"), contentX(), footerY, Theme.TEXT_FAINT);
     }
 
     private void setStatus(String message) {

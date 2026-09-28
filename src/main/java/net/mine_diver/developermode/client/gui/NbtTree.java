@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.client.Lang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtByte;
@@ -260,7 +261,7 @@ public final class NbtTree {
             editor.setFocused(true);
             error = "";
         } else {
-            error = typeName(row.element) + " is not editable here";
+            error = Lang.get("gui.developermode.nbt.not_editable", typeName(row.element));
         }
     }
 
@@ -346,14 +347,14 @@ public final class NbtTree {
             } else if (element instanceof NbtDouble value) {
                 value.value = Double.parseDouble(text.trim());
             } else if (!storeWhole(owner, element, key, Long.parseLong(text.trim()))) {
-                error = "\"" + text + "\" does not fit in a " + typeName(element);
+                error = Lang.get("gui.developermode.nbt.does_not_fit", text, typeName(element));
                 return;
             }
             error = "";
             dirty = true;
             revision++;
         } catch (NumberFormatException failure) {
-            error = "\"" + text + "\" is not a " + typeName(element);
+            error = Lang.get("gui.developermode.nbt.not_a", text, typeName(element));
         }
     }
 
@@ -544,9 +545,12 @@ public final class NbtTree {
         if (element instanceof NbtFloat value) return raw ? value.value + "f" : String.valueOf(value.value);
         if (element instanceof NbtDouble value) return raw ? value.value + "d" : String.valueOf(value.value);
         if (element instanceof NbtString value) return raw ? "\"" + value.value + "\"" : value.value;
-        if (element instanceof NbtByteArray value) return "[" + value.value.length + " bytes]";
-        if (element instanceof NbtIntArray value) return "[" + value.data.length + " ints]";
-        if (element instanceof NbtLongArray value) return "[" + value.data.length + " longs]";
+        if (element instanceof NbtByteArray value)
+            return Lang.get("gui.developermode.nbt.byte_array", value.value.length);
+        if (element instanceof NbtIntArray value)
+            return Lang.get("gui.developermode.nbt.int_array", value.data.length);
+        if (element instanceof NbtLongArray value)
+            return Lang.get("gui.developermode.nbt.long_array", value.data.length);
         if (element instanceof NbtCompound value) {
             NbtShape shape = shapeOf(value);
             String summary = shape == null ? null : shape.summarize(value);
@@ -565,18 +569,18 @@ public final class NbtTree {
     }
 
     private static String typeName(NbtElement element) {
-        if (element instanceof NbtByte) return "byte";
-        if (element instanceof NbtShort) return "short";
-        if (element instanceof NbtInt) return "int";
-        if (element instanceof NbtLong) return "long";
-        if (element instanceof NbtFloat) return "float";
-        if (element instanceof NbtDouble) return "double";
-        if (element instanceof NbtString) return "string";
-        if (element instanceof NbtByteArray) return "byte array";
-        if (element instanceof NbtIntArray) return "int array";
-        if (element instanceof NbtLongArray) return "long array";
-        if (element instanceof NbtCompound) return "compound";
-        if (element instanceof NbtList) return "list";
-        return "tag";
+        if (element instanceof NbtByte) return Lang.get("gui.developermode.nbt.type.byte");
+        if (element instanceof NbtShort) return Lang.get("gui.developermode.nbt.type.short");
+        if (element instanceof NbtInt) return Lang.get("gui.developermode.nbt.type.int");
+        if (element instanceof NbtLong) return Lang.get("gui.developermode.nbt.type.long");
+        if (element instanceof NbtFloat) return Lang.get("gui.developermode.nbt.type.float");
+        if (element instanceof NbtDouble) return Lang.get("gui.developermode.nbt.type.double");
+        if (element instanceof NbtString) return Lang.get("gui.developermode.nbt.type.string");
+        if (element instanceof NbtByteArray) return Lang.get("gui.developermode.nbt.type.byte_array");
+        if (element instanceof NbtIntArray) return Lang.get("gui.developermode.nbt.type.int_array");
+        if (element instanceof NbtLongArray) return Lang.get("gui.developermode.nbt.type.long_array");
+        if (element instanceof NbtCompound) return Lang.get("gui.developermode.nbt.type.compound");
+        if (element instanceof NbtList) return Lang.get("gui.developermode.nbt.type.list");
+        return Lang.get("gui.developermode.nbt.type.tag");
     }
 }

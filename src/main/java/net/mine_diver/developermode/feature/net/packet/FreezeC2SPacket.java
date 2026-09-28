@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.entity.Entities;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.FreezeMode;
@@ -65,7 +66,8 @@ public class FreezeC2SPacket extends Packet implements ManagedPacket<FreezeC2SPa
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY, "Requires operator", false));
+            PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY,
+                    Message.of("message.developermode.requires_operator"), false));
             return;
         }
 

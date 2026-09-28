@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.mine_diver.developermode.feature.net.Ops;
@@ -66,25 +67,25 @@ public class ApplyNbtC2SPacket extends Packet implements ManagedPacket<ApplyNbtC
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
 
         NbtCompound compound = PacketNbt.fromBytes(nbt);
         if (compound == null) {
-            reply(player, "Unreadable NBT", false);
+            reply(player, Message.of("message.developermode.unreadable_nbt"), false);
             return;
         }
 
-        String failure = target.apply(player, compound);
-        reply(player, failure == null ? "Applied" : failure, failure == null);
+        Message failure = target.apply(player, compound);
+        reply(player, failure == null ? Message.of("message.developermode.applied") : failure, failure == null);
 
         NbtCompound fresh = target.dump(player);
         if (fresh != null) PacketHelper.sendTo(player, new NbtS2CPacket(target, fresh));
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY, message, ok));
     }
 
     @Override

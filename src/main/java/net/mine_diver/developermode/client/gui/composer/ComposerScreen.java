@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.composer;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
@@ -260,8 +261,9 @@ public final class ComposerScreen extends DevScreen {
     }
 
     private void renderEmptyState() {
-        Draw.textCentered(minecraft, "Nothing open", width / 2, height / 2 - 10, Theme.TEXT_DIM);
-        Draw.textCentered(minecraft, "hold " + menuKeyName() + " and flick a direction",
+        Draw.textCentered(minecraft, Lang.get("gui.developermode.composer.empty"),
+                width / 2, height / 2 - 10, Theme.TEXT_DIM);
+        Draw.textCentered(minecraft, Lang.get("gui.developermode.composer.empty.hint", menuKeyName()),
                 width / 2, height / 2 + 2, Theme.TEXT_FAINT);
     }
 
@@ -270,11 +272,12 @@ public final class ComposerScreen extends DevScreen {
         Draw.rect(0, top, width, height, Theme.PANEL);
         Draw.rect(0, top, width, top + 1, Theme.BORDER);
 
-        Draw.text(minecraft, "Developer Mode", 5, top + 2, Theme.ACCENT);
+        Draw.text(minecraft, Lang.get("gui.developermode.composer.title"), 5, top + 2, Theme.ACCENT);
 
         int frozen = FrozenEntities.frozenCount();
-        String hint = menuKeyName() + " menu    esc close    " + windows.size() + " open"
-                + (frozen > 0 ? "    " + frozen + " frozen" : "");
+        String hint = frozen > 0
+                ? Lang.get("gui.developermode.composer.hint.frozen", menuKeyName(), windows.size(), frozen)
+                : Lang.get("gui.developermode.composer.hint", menuKeyName(), windows.size());
         Draw.text(minecraft, hint, width - Draw.textWidth(minecraft, hint) - 5, top + 2, Theme.TEXT_FAINT);
     }
 

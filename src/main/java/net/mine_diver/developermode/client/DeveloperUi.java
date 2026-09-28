@@ -66,7 +66,7 @@ public final class DeveloperUi {
         int held = FrozenEntities.heldCount();
         if (held == 0) return;
 
-        String message = held + (held == 1 ? " entity held" : " entities held");
+        String message = Lang.get(held == 1 ? "gui.developermode.held.one" : "gui.developermode.held.many", held);
         Draw.text(minecraft, message, 4, 14, Theme.ACCENT);
     }
 }

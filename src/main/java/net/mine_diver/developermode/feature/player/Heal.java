@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.player;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.HealC2SPacket;
 import net.mine_diver.developermode.mixin.EntityAccessor;
 import net.minecraft.entity.player.PlayerEntity;
@@ -28,8 +29,8 @@ public final class Heal {
      *
      * @return what went wrong, or null if the player is whole again
      */
-    public static String heal(PlayerEntity player) {
-        if (player.health <= 0) return "Not while dead";
+    public static Message heal(PlayerEntity player) {
+        if (player.health <= 0) return Message.of("message.developermode.not_while_dead");
 
         EntityAccessor entity = (EntityAccessor) player;
         player.health = player.maxHealth;

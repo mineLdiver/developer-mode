@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.mine_diver.developermode.feature.net.Ops;
@@ -56,14 +57,16 @@ public class RequestNbtC2SPacket extends Packet implements ManagedPacket<Request
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY, "Requires operator", false));
+            PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.ENTITY,
+                    Message.of("message.developermode.requires_operator"), false));
             return;
         }
 
         NbtCompound nbt = target.dump(player);
         if (nbt == null) {
             PacketHelper.sendTo(player,
-                    new StatusS2CPacket(DevStatus.ENTITY, "No " + target.describe() + " to read", false));
+                    new StatusS2CPacket(DevStatus.ENTITY,
+                            Message.of("message.developermode.nothing_to_read", target.describe()), false));
             return;
         }
         PacketHelper.sendTo(player, new NbtS2CPacket(target, nbt));

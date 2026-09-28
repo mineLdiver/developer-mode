@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.client.Lang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -79,10 +80,10 @@ public final class ItemShape implements NbtShape {
 
         String name = name(compound);
         int textX = x + SLOT + 4;
-        Draw.text(minecraft, Draw.ellipsize(minecraft, name == null ? "Unknown item" : name,
+        Draw.text(minecraft, Draw.ellipsize(minecraft, name == null ? Lang.get("gui.developermode.item.unknown") : name,
                         x + width - textX), textX, y + 4,
                 hovered ? Theme.ACCENT : Theme.TEXT);
-        Draw.text(minecraft, Draw.ellipsize(minecraft, "click to change", x + width - textX),
+        Draw.text(minecraft, Draw.ellipsize(minecraft, Lang.get("gui.developermode.item.change"), x + width - textX),
                 textX, y + 14, Theme.TEXT_FAINT);
     }
 

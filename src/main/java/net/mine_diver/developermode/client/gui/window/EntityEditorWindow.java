@@ -2,6 +2,7 @@ package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Freezing;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
@@ -30,8 +31,8 @@ public final class EntityEditorWindow extends DevWindow {
     private static final int BUTTON_WIDTH = 54;
     private static final int GAP = 4;
 
-    private final Button freezeButton = new Button("Freeze");
-    private final Button pickButton = new Button("Pick");
+    private final Button freezeButton = new Button(Lang.get("gui.developermode.entity.hold"));
+    private final Button pickButton = new Button(Lang.get("gui.developermode.entity.pick"));
     private final NbtPanel panel = new NbtPanel();
 
     private Entity entity;
@@ -43,7 +44,7 @@ public final class EntityEditorWindow extends DevWindow {
     private float turntable;
 
     public EntityEditorWindow(Entity entity) {
-        super("Entity", 248, 216);
+        super(Lang.get("gui.developermode.entity.title"), 248, 216);
         setTarget(entity);
     }
 
@@ -118,7 +119,7 @@ public final class EntityEditorWindow extends DevWindow {
             EntityPreview.render(minecraft, entity,
                     previewX + 1, previewY + 1, PREVIEW_WIDTH - 2, PREVIEW_HEIGHT - 2, turntable);
         } else {
-            Draw.textCentered(minecraft, "gone", previewX + PREVIEW_WIDTH / 2,
+            Draw.textCentered(minecraft, Lang.get("gui.developermode.entity.gone"), previewX + PREVIEW_WIDTH / 2,
                     previewY + PREVIEW_HEIGHT / 2 - 4, Theme.TEXT_FAINT);
         }
 
@@ -127,21 +128,24 @@ public final class EntityEditorWindow extends DevWindow {
         if (entity != null) {
             Draw.text(minecraft, Draw.ellipsize(minecraft, Entities.name(entity), infoWidth),
                     infoX, previewY + 1, alive ? Theme.TEXT : Theme.TEXT_FAINT);
-            Draw.text(minecraft, "id " + entity.id, infoX, previewY + 12, Theme.TEXT_DIM);
+            Draw.text(minecraft, Lang.get("gui.developermode.entity.id", entity.id),
+                    infoX, previewY + 12, Theme.TEXT_DIM);
             Draw.text(minecraft, position(entity), infoX, previewY + 23, Theme.TEXT_FAINT);
-            Draw.text(minecraft, hasDrifted() ? "moved, reload to catch up" : freezeState(),
+            Draw.text(minecraft, hasDrifted() ? Lang.get("gui.developermode.entity.drifted") : freezeState(),
                     infoX, previewY + 34,
                     hasDrifted() ? Theme.DANGER
                             : FrozenEntities.isFrozen(entity) ? Theme.ACCENT : Theme.TEXT_FAINT);
         } else {
-            Draw.text(minecraft, "Nothing targeted", infoX, previewY + 1, Theme.TEXT_DIM);
+            Draw.text(minecraft, Lang.get("gui.developermode.entity.none"), infoX, previewY + 1, Theme.TEXT_DIM);
         }
 
         int buttonY = previewY + PREVIEW_HEIGHT - Button.HEIGHT;
         freezeButton.bounds(infoX, buttonY, BUTTON_WIDTH);
         freezeButton.enabled = alive;
         freezeButton.toggled = alive && FrozenEntities.isHeld(entity);
-        freezeButton.label = freezeButton.toggled ? "Held" : "Hold";
+        freezeButton.label = Lang.get(freezeButton.toggled
+                ? "gui.developermode.entity.held"
+                : "gui.developermode.entity.hold");
         freezeButton.render(minecraft, mouseX, mouseY);
 
         pickButton.bounds(infoX + BUTTON_WIDTH + GAP, buttonY, BUTTON_WIDTH);
@@ -208,8 +212,10 @@ public final class EntityEditorWindow extends DevWindow {
 
     private String freezeState() {
         if (entity == null) return "";
-        if (FrozenEntities.isHeld(entity)) return "held";
-        return FrozenEntities.isFrozen(entity) ? "frozen while open" : "ticking";
+        if (FrozenEntities.isHeld(entity)) return Lang.get("gui.developermode.entity.state.held");
+        return Lang.get(FrozenEntities.isFrozen(entity)
+                ? "gui.developermode.entity.state.frozen"
+                : "gui.developermode.entity.state.ticking");
     }
 
     private static String position(Entity entity) {

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net.packet;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Weather;
@@ -27,7 +28,6 @@ public class WeatherC2SPacket extends Packet implements ManagedPacket<WeatherC2S
             PacketType.builder(false, true, WeatherC2SPacket::new).build();
 
     public byte weather;
-
 
     public WeatherC2SPacket() {}
 
@@ -59,16 +59,16 @@ public class WeatherC2SPacket extends Packet implements ManagedPacket<WeatherC2S
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
 
-        String failure = Weather.set(player.world, weather);
-        reply(player, failure == null ? "" : failure, failure == null);
+        Message failure = Weather.set(player.world, weather);
+        reply(player, failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.WEATHER, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.WEATHER, message, ok));
     }
 
     @Override

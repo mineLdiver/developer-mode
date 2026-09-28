@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.world;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.TimeC2SPacket;
 import net.minecraft.world.World;
 import net.modificationstation.stationapi.api.network.packet.PacketHelper;
@@ -51,7 +52,7 @@ public final class Time {
      *
      * @return what went wrong, or null if the sun is there
      */
-    public static String set(World world, int timeOfDay) {
+    public static Message set(World world, int timeOfDay) {
         if (Locks.isTimeLocked(world)) {
             Locks.lockTimeAt(world, timeOfDay);
             return null;

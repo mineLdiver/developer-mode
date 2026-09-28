@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.inspect;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.WorldDraw;
@@ -84,12 +85,13 @@ public final class InspectRenderer {
         boolean anything = block || focused != null;
 
         String title = block ? blockName(minecraft)
-                : focused == null ? "Nothing under the crosshair" : Entities.name(focused);
+                : focused == null ? Lang.get("gui.developermode.inspect.nothing") : Entities.name(focused);
         String detail = block
                 ? InspectMode.blockX() + " " + InspectMode.blockY() + " " + InspectMode.blockZ()
                 : focused == null
-                        ? InspectMode.candidates().size() + " in range"
-                        : String.format("%.1fm   id %d", distanceTo(minecraft, focused), focused.id);
+                        ? Lang.get("gui.developermode.inspect.in_range", InspectMode.candidates().size())
+                        : Lang.get("gui.developermode.inspect.entity",
+                                String.format("%.1f", distanceTo(minecraft, focused)), focused.id);
 
         int panelWidth = Math.max(Math.max(Draw.textWidth(minecraft, title), Draw.textWidth(minecraft, detail)),
                 Draw.textWidth(minecraft, help)) + 10;
@@ -107,11 +109,13 @@ public final class InspectRenderer {
 
     /** What the client calls the block entity it is looking at, if it has one. */
     private static String blockName(Minecraft minecraft) {
-        if (minecraft.world == null) return "Block entity";
+        if (minecraft.world == null) return Lang.get("gui.developermode.block_entity");
 
         var blockEntity = minecraft.world.getBlockEntity(
                 InspectMode.blockX(), InspectMode.blockY(), InspectMode.blockZ());
-        return blockEntity == null ? "Block entity" : blockEntity.getClass().getSimpleName();
+        return blockEntity == null
+                ? Lang.get("gui.developermode.block_entity")
+                : blockEntity.getClass().getSimpleName();
     }
 
     private static double distanceTo(Minecraft minecraft, Entity entity) {

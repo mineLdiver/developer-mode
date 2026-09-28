@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.client.Lang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
@@ -83,7 +84,7 @@ public final class ChoiceList {
         Draw.outline(x, y, WIDTH, height(), Theme.BORDER_FOCUSED);
 
         search.bounds(x + PADDING, y + PADDING, WIDTH - PADDING * 2);
-        search.render(minecraft, "Search " + all.size());
+        search.render(minecraft, Lang.get("gui.developermode.search", all.size()));
 
         int listTop = y + PADDING + TextField.HEIGHT + PADDING;
         for (int i = 0; i < VISIBLE_ROWS; i++) {

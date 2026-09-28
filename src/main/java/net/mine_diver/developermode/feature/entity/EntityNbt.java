@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.entity;
 
+import net.mine_diver.developermode.feature.Message;
 import net.minecraft.entity.Entity;
 import net.minecraft.nbt.NbtCompound;
 
@@ -26,7 +27,7 @@ public final class EntityNbt {
      *
      * @return null on success, or a message describing what went wrong
      */
-    public static String apply(Entity entity, NbtCompound nbt) {
+    public static Message apply(Entity entity, NbtCompound nbt) {
         NbtCompound rollback = dump(entity);
         try {
             entity.read(nbt);
@@ -42,10 +43,13 @@ public final class EntityNbt {
         }
     }
 
-    /** How to put an exception in a status line. */
-    public static String describe(Throwable error) {
+    /**
+     * How to put an exception in a status line. Its own words, untranslated,
+     * since they are whatever the code that threw chose to say.
+     */
+    public static Message describe(Throwable error) {
         String message = error.getMessage();
         String type = error.getClass().getSimpleName();
-        return message == null || message.isEmpty() ? type : type + ": " + message;
+        return Message.literal(message == null || message.isEmpty() ? type : type + ": " + message);
     }
 }

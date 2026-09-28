@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.EntityPreview;
@@ -10,6 +11,7 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.mine_diver.developermode.feature.entity.SummonPresets;
@@ -49,8 +51,8 @@ public final class SummonPresetWindow extends DevWindow {
     private static final int SAVED_ROW_HEIGHT = 10;
     private static final int STATUS_DURATION_TICKS = 80;
 
-    private final Button summonButton = new Button("Summon");
-    private final Button saveButton = new Button("Save");
+    private final Button summonButton = new Button(Lang.get("gui.developermode.preset.summon"));
+    private final Button saveButton = new Button(Lang.get("gui.developermode.preset.save"));
     private final TextField nameField = new TextField(24);
     private final NbtTree tree = new NbtTree();
     /** Names saved for this type, refreshed when they change rather than per frame. */
@@ -74,7 +76,7 @@ public final class SummonPresetWindow extends DevWindow {
     private int statusTicks;
 
     public SummonPresetWindow(String type) {
-        super("Preset", 256, 236);
+        super(Lang.get("gui.developermode.preset.title"), 256, 236);
         setType(type);
     }
 
@@ -93,7 +95,7 @@ public final class SummonPresetWindow extends DevWindow {
     /** Retargets at a type, on a fresh dump. Any unsaved edit is gone. */
     public void setType(String type) {
         this.type = type;
-        setTitle("Preset: " + type);
+        setTitle(Lang.get("gui.developermode.preset.title.named", type));
         refreshSaved();
         reload();
     }
@@ -132,7 +134,9 @@ public final class SummonPresetWindow extends DevWindow {
                 previewBroken = true;
             }
         } else {
-            Draw.textCentered(minecraft, previewBroken ? "no model" : "no world",
+            Draw.textCentered(minecraft, Lang.get(previewBroken
+                            ? "gui.developermode.preset.no_model"
+                            : "gui.developermode.preset.no_world"),
                     previewX + PREVIEW_WIDTH / 2, previewY + PREVIEW_HEIGHT / 2 - 4, Theme.TEXT_FAINT);
         }
 
@@ -144,12 +148,12 @@ public final class SummonPresetWindow extends DevWindow {
         tree.render(minecraft, mouseX, mouseY);
 
         if (working == null) {
-            Draw.text(minecraft, "Nothing to edit without a world", contentX(), treeY + 1, Theme.TEXT_DIM);
+            Draw.text(minecraft, Lang.get("gui.developermode.preset.no_tree"), contentX(), treeY + 1, Theme.TEXT_DIM);
         }
 
         int footerY = contentY() + contentHeight() - FOOTER_HEIGHT + 1;
         nameField.bounds(contentX(), footerY, NAME_WIDTH);
-        nameField.render(minecraft, "Name to save as");
+        nameField.render(minecraft, Lang.get("gui.developermode.preset.name"));
 
         saveButton.bounds(contentX() + NAME_WIDTH + GAP, footerY + 1, BUTTON_WIDTH);
         saveButton.enabled = working != null;
@@ -160,9 +164,9 @@ public final class SummonPresetWindow extends DevWindow {
         summonButton.render(minecraft, mouseX, mouseY);
 
         String message = !tree.error().isEmpty() ? tree.error()
-                : previewBroken ? "nothing here can draw this, it would crash the world render"
+                : previewBroken ? Lang.get("gui.developermode.preset.unrenderable")
                 : !status.isEmpty() ? status
-                : "Pos and Rotation come from where you click";
+                : Lang.get("gui.developermode.preset.hint");
         int ink = !tree.error().isEmpty() || previewBroken || (statusIsError && !status.isEmpty())
                 ? Theme.DANGER
                 : status.isEmpty() ? Theme.TEXT_FAINT : Theme.ACCENT;
@@ -180,12 +184,12 @@ public final class SummonPresetWindow extends DevWindow {
         nameField.setFocused(false);
 
         if (saveButton.enabled && saveButton.contains(mouseX, mouseY)) {
-            String failure = SummonPresets.save(type, nameField.text().trim(), working);
+            Message failure = SummonPresets.save(type, nameField.text().trim(), working);
             if (failure == null) {
-                setStatus("Saved as " + nameField.text().trim(), false);
+                setStatus(Lang.get("gui.developermode.preset.saved", nameField.text().trim()), false);
                 refreshSaved();
             } else {
-                setStatus(failure, true);
+                setStatus(Lang.of(failure), true);
             }
             return;
         }
@@ -206,7 +210,7 @@ public final class SummonPresetWindow extends DevWindow {
             if (button == 1) {
                 SummonPresets.delete(type, clicked);
                 refreshSaved();
-                setStatus("Deleted " + clicked, false);
+                setStatus(Lang.get("gui.developermode.preset.deleted", clicked), false);
             } else {
                 loadSaved(clicked);
             }
@@ -252,9 +256,11 @@ public final class SummonPresetWindow extends DevWindow {
                 saved.isEmpty() ? Theme.TEXT : Theme.ACCENT);
 
         if (saved.isEmpty()) {
-            Draw.text(minecraft, "nothing saved yet", listX, previewY + 14, Theme.TEXT_FAINT);
-            Draw.text(minecraft, "edit below, name it,", listX, previewY + 28, Theme.TEXT_FAINT);
-            Draw.text(minecraft, "and Save keeps it", listX, previewY + 38, Theme.TEXT_FAINT);
+            Draw.text(minecraft, Lang.get("gui.developermode.preset.none"), listX, previewY + 14, Theme.TEXT_FAINT);
+            Draw.text(minecraft, Lang.get("gui.developermode.preset.none.hint1"),
+                    listX, previewY + 28, Theme.TEXT_FAINT);
+            Draw.text(minecraft, Lang.get("gui.developermode.preset.none.hint2"),
+                    listX, previewY + 38, Theme.TEXT_FAINT);
             return;
         }
 
@@ -272,7 +278,7 @@ public final class SummonPresetWindow extends DevWindow {
                     listX, rowY + 1, hovered ? Theme.ACCENT : Theme.TEXT);
         }
 
-        Draw.text(minecraft, "click loads    right click deletes",
+        Draw.text(minecraft, Lang.get("gui.developermode.preset.list.hint"),
                 listX, previewY + PREVIEW_HEIGHT - 9, Theme.TEXT_FAINT);
     }
 
@@ -297,7 +303,7 @@ public final class SummonPresetWindow extends DevWindow {
     private void loadSaved(String name) {
         NbtCompound loaded = SummonPresets.load(type, name);
         if (loaded == null) {
-            setStatus("Could not load " + name, true);
+            setStatus(Lang.get("gui.developermode.preset.load_failed", name), true);
             return;
         }
         working = loaded;
@@ -306,7 +312,7 @@ public final class SummonPresetWindow extends DevWindow {
         customized = true;
         nameField.setText(name);
         rebuildPreview();
-        setStatus("Loaded " + name, false);
+        setStatus(Lang.get("gui.developermode.preset.loaded", name), false);
     }
 
     private void refreshSaved() {
@@ -346,8 +352,8 @@ public final class SummonPresetWindow extends DevWindow {
         if (preview == null) return;
 
         if (working != null) {
-            String failure = EntitySummoning.applyPreset(preview, working);
-            if (failure != null) setStatus(failure, true);
+            Message failure = EntitySummoning.applyPreset(preview, working);
+            if (failure != null) setStatus(Lang.of(failure), true);
         }
         EntitySummoning.place(preview, 0, 0, 0, 0);
     }

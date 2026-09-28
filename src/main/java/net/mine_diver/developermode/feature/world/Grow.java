@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.feature.Aim;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.GrowC2SPacket;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.hit.HitResult;
@@ -27,9 +28,9 @@ public final class Grow {
     }
 
     /** @return what went wrong, or null if something grew */
-    public static String grow(PlayerEntity player, double reach) {
+    public static Message grow(PlayerEntity player, double reach) {
         HitResult hit = Aim.block(player, reach);
-        if (hit == null) return "Nothing in reach";
+        if (hit == null) return Message.of("message.developermode.nothing_in_reach");
 
         World world = player.world;
         int x = hit.blockX;
@@ -47,6 +48,6 @@ public final class Grow {
             world.setBlocksDirty(x - 8, y - 8, z - 8, x + 8, y + 8, z + 8);
             return null;
         }
-        return "Nothing grows on that";
+        return Message.of("message.developermode.nothing_grows");
     }
 }

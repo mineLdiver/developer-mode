@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.radial;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Blur;
 import net.mine_diver.developermode.client.gui.DevScreen;
 import net.mine_diver.developermode.client.gui.Draw;
@@ -246,7 +247,6 @@ public final class RadialScreen extends DevScreen {
 
     /** How far each slot stands out, so the lift eases instead of snapping. */
     private final float[] lift = new float[RadialMenu.MAX_SLOTS];
-
 
 
     private float aperture;
@@ -1031,7 +1031,9 @@ public final class RadialScreen extends DevScreen {
                     Draw.ellipsize(minecraft, path(), (int) (INNER_RADIUS * 1.7F)),
                     ringX, ringY - 8, blend(Theme.TEXT_DIM, Theme.ACCENT, arrival));
             Draw.textCentered(minecraft,
-                    trail.isEmpty() ? "hold left to look" : "right click to go back",
+                    Lang.get(trail.isEmpty()
+                            ? "gui.developermode.radial.look"
+                            : "gui.developermode.radial.back"),
                     ringX, ringY + 2, Theme.TEXT_FAINT);
             return;
         }
@@ -1070,8 +1072,14 @@ public final class RadialScreen extends DevScreen {
      * nothing about a slot shows that it can be held until it is.
      */
     private String lockCue(RadialEntry entry) {
-        String verb = entry.locked() ? "unlock" : "lock";
-        return pressProgress(hovered) > 0 ? "keep holding to " + verb : "hold to " + verb;
+        if (pressProgress(hovered) > 0) {
+            return Lang.get(entry.locked()
+                    ? "gui.developermode.radial.unlocking"
+                    : "gui.developermode.radial.locking");
+        }
+        return Lang.get(entry.locked()
+                ? "gui.developermode.radial.unlock"
+                : "gui.developermode.radial.lock");
     }
 
     /** Where in the tree this is, so depth is readable without going back up. */
@@ -1084,10 +1092,12 @@ public final class RadialScreen extends DevScreen {
     }
 
     private String help() {
-        if (!aiming) return "hold left click to look around";
-        return aimCancelled
-                ? "cancelled, let go safely"
-                : targeted() ? "let go to open    right click to cancel" : "let go to come back";
+        if (!aiming) return Lang.get("gui.developermode.radial.help.idle");
+        return Lang.get(aimCancelled
+                ? "gui.developermode.radial.help.canceled"
+                : targeted()
+                        ? "gui.developermode.radial.help.targeted"
+                        : "gui.developermode.radial.help.untargeted");
     }
 
     /** Mixes one colour towards another, keeping the alpha of the first. */

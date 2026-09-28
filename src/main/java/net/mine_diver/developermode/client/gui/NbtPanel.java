@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.NbtInbox;
 import net.mine_diver.developermode.feature.net.NbtTarget;
@@ -33,9 +34,9 @@ public final class NbtPanel {
     private static final int REQUEST_INTERVAL_TICKS = 10;
 
     private final NbtTree tree = new NbtTree();
-    private final Button applyButton = new Button("Apply");
-    private final Button reloadButton = new Button("Reload");
-    private final Button rawButton = new Button("Raw");
+    private final Button applyButton = new Button(Lang.get("gui.developermode.nbt.apply"));
+    private final Button reloadButton = new Button(Lang.get("gui.developermode.nbt.reload"));
+    private final Button rawButton = new Button(Lang.get("gui.developermode.nbt.raw"));
 
     private NbtTarget target;
     private NbtCompound working;
@@ -152,7 +153,7 @@ public final class NbtPanel {
         }
         if (reloadButton.enabled && reloadButton.contains(mouseX, mouseY)) {
             reload();
-            setStatus("Reloaded", false);
+            setStatus(Lang.get("gui.developermode.nbt.reloaded"), false);
             return true;
         }
         if (rawButton.contains(mouseX, mouseY)) {
@@ -194,7 +195,7 @@ public final class NbtPanel {
         }
         if (DevStatus.sequence(DevStatus.ENTITY) != statusSequence) {
             statusSequence = DevStatus.sequence(DevStatus.ENTITY);
-            setStatus(DevStatus.message(DevStatus.ENTITY), !DevStatus.ok(DevStatus.ENTITY));
+            setStatus(Lang.of(DevStatus.message(DevStatus.ENTITY)), !DevStatus.ok(DevStatus.ENTITY));
         }
     }
 }

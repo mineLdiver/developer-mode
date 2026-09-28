@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.net;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.entity.Entities;
 import net.mine_diver.developermode.feature.entity.EntityNbt;
 import net.minecraft.block.entity.BlockEntity;
@@ -97,24 +98,26 @@ public record NbtTarget(byte kind, int x, int y, int z) {
     }
 
     /** @return null on success, or a message describing what went wrong */
-    public String apply(PlayerEntity player, NbtCompound nbt) {
+    public Message apply(PlayerEntity player, NbtCompound nbt) {
         switch (kind) {
             case ENTITY -> {
                 Entity entity = Entities.byId(player.world, x);
-                return entity == null ? "That entity is gone" : EntityNbt.apply(entity, nbt);
+                return entity == null ? Message.of("message.developermode.entity_gone") : EntityNbt.apply(entity, nbt);
             }
             case BLOCK -> {
                 BlockEntity blockEntity = player.world.getBlockEntity(x, y, z);
-                return blockEntity == null ? "Nothing there" : applyTo(blockEntity, nbt);
+                return blockEntity == null
+                        ? Message.of("message.developermode.nothing_there")
+                        : applyTo(blockEntity, nbt);
             }
             case SLOT -> {
                 ScreenHandler handler = player.currentScreenHandler;
-                if (handler == null || handler.syncId != x) return "That container is closed";
+                if (handler == null || handler.syncId != x) return Message.of("message.developermode.container_closed");
 
                 ItemStack stack = stackIn(player);
-                if (stack == null) return "That slot is empty";
+                if (stack == null) return Message.of("message.developermode.slot_empty");
 
-                String failure = applyTo(stack, nbt);
+                Message failure = applyTo(stack, nbt);
                 if (failure != null) return failure;
 
                 // Comparing against a copy taken earlier is how a container
@@ -124,7 +127,7 @@ public record NbtTarget(byte kind, int x, int y, int z) {
                 return null;
             }
             default -> {
-                return "Nothing to write to";
+                return Message.of("message.developermode.nothing_to_write");
             }
         }
     }
@@ -137,7 +140,7 @@ public record NbtTarget(byte kind, int x, int y, int z) {
      * off the block it belongs to and leave the world with one it can no longer
      * find. The position it actually sits at wins.
      */
-    private String applyTo(BlockEntity blockEntity, NbtCompound nbt) {
+    private Message applyTo(BlockEntity blockEntity, NbtCompound nbt) {
         NbtCompound rollback = new NbtCompound();
         blockEntity.writeNbt(rollback);
 
@@ -167,7 +170,7 @@ public record NbtTarget(byte kind, int x, int y, int z) {
      * and the damage are as much a part of what a stack is as the rest, and
      * reading them back is how the id can be changed at all.
      */
-    private static String applyTo(ItemStack stack, NbtCompound nbt) {
+    private static Message applyTo(ItemStack stack, NbtCompound nbt) {
         NbtCompound rollback = stack.writeNbt(new NbtCompound());
         try {
             stack.readNbt(nbt);
@@ -196,12 +199,12 @@ public record NbtTarget(byte kind, int x, int y, int z) {
     }
 
     /** How to say what this points at, in a status message. */
-    public String describe() {
+    public Message describe() {
         return switch (kind) {
-            case ENTITY -> "entity " + x;
-            case BLOCK -> "block entity at " + x + " " + y + " " + z;
-            case SLOT -> "slot " + y;
-            default -> "nothing";
+            case ENTITY -> Message.of("message.developermode.target.entity", x);
+            case BLOCK -> Message.of("message.developermode.target.block", x, y, z);
+            case SLOT -> Message.of("message.developermode.target.slot", y);
+            default -> Message.of("message.developermode.target.none");
         };
     }
 }

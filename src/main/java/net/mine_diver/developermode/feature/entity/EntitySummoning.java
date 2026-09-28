@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.entity;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.mixin.EntityRegistryAccessor;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
@@ -110,20 +111,21 @@ public final class EntitySummoning {
      * @param preset NBT to load into it first, or null to summon it as built
      * @return null on success, or a message saying why nothing was summoned
      */
-    public static String summon(World world, String id, double x, double feetY, double z, float yaw, NbtCompound preset) {
-        if (world == null) return "Not in a world";
+    public static Message summon(World world, String id, double x, double feetY, double z, float yaw,
+                                 NbtCompound preset) {
+        if (world == null) return Message.of("message.developermode.not_in_world");
 
         Entity entity = create(id, world);
-        if (entity == null) return "Could not build a " + id;
+        if (entity == null) return Message.of("message.developermode.could_not_build", id);
 
         if (preset != null) {
-            String failure = applyPreset(entity, preset);
-            if (failure != null) return "preset: " + failure;
+            Message failure = applyPreset(entity, preset);
+            if (failure != null) return Message.of("message.developermode.preset", failure);
         }
 
         place(entity, x, feetY, z, yaw);
 
-        return world.spawnEntity(entity) ? null : "The world refused it, is that chunk loaded?";
+        return world.spawnEntity(entity) ? null : Message.of("message.developermode.world_refused");
     }
 
     /**
@@ -136,7 +138,7 @@ public final class EntitySummoning {
      *
      * @return null on success, or a message describing what went wrong
      */
-    public static String applyPreset(Entity entity, NbtCompound preset) {
+    public static Message applyPreset(Entity entity, NbtCompound preset) {
         return EntityNbt.apply(entity, preset.copy());
     }
 

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.world;
 
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.LockC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.LockS2CPacket;
 import net.minecraft.entity.player.PlayerEntity;
@@ -75,13 +76,13 @@ public final class Locks {
     }
 
     /** @return what went wrong, or null if it is locked or unlocked */
-    public static String lock(World world, byte what, boolean lock, int value) {
+    public static Message lock(World world, byte what, boolean lock, int value) {
         LockedSky locks = load(world);
-        if (locks == null) return "This world keeps nothing";
+        if (locks == null) return Message.of("message.developermode.world_keeps_nothing");
 
         if (what == TIME) {
             if (lock) {
-                if (value < 0 || value >= Time.DAY) return "Nonsense time";
+                if (value < 0 || value >= Time.DAY) return Message.of("message.developermode.nonsense_time");
                 // Brought round to it first, so unlocking later carries on
                 // from here rather than from wherever the clock was.
                 if (!isTimeLocked(world)) Time.set(world, value);
@@ -92,11 +93,12 @@ public final class Locks {
                 Time.set(world, locked);
             }
         } else if (what == WEATHER) {
-            if (world.dimension.hasCeiling) return "No sky here";
+            if (world.dimension.hasCeiling) return Message.of("message.developermode.no_sky");
             if (lock) {
-                if (!Weather.legal((byte) value) || value != (byte) value) return "No such weather";
+                if (!Weather.legal((byte) value) || value != (byte) value)
+                    return Message.of("message.developermode.no_such_weather");
                 locks.set(locks.time(), value);
-                String failure = Weather.set(world, (byte) value);
+                Message failure = Weather.set(world, (byte) value);
                 if (failure != null) return failure;
             } else if (locks.weather() != NONE) {
                 locks.set(locks.time(), NONE);
@@ -105,7 +107,7 @@ public final class Locks {
                 properties.setThunderTime(0);
             }
         } else {
-            return "Nothing to lock";
+            return Message.of("message.developermode.nothing_to_lock");
         }
         tellEveryone(world);
         return null;

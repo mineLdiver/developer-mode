@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.feature.net.packet;
 
 import net.mine_diver.developermode.feature.Aim;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.Ops;
 import net.mine_diver.developermode.feature.world.Blast;
@@ -28,7 +29,6 @@ public class BlastC2SPacket extends Packet implements ManagedPacket<BlastC2SPack
             PacketType.builder(false, true, BlastC2SPacket::new).build();
 
     public double reach;
-
 
     public BlastC2SPacket() {}
 
@@ -60,20 +60,20 @@ public class BlastC2SPacket extends Packet implements ManagedPacket<BlastC2SPack
         if (player == null) return;
 
         if (!Ops.allows(player)) {
-            reply(player, "Requires operator", false);
+            reply(player, Message.of("message.developermode.requires_operator"), false);
             return;
         }
         if (!Aim.sensible(reach)) {
-            reply(player, "Nonsense reach", false);
+            reply(player, Message.of("message.developermode.nonsense_reach"), false);
             return;
         }
 
-        String failure = Blast.blast(player, Aim.clamp(reach));
-        reply(player, failure == null ? "Boom" : failure, failure == null);
+        Message failure = Blast.blast(player, Aim.clamp(reach));
+        reply(player, failure == null ? Message.of("message.developermode.boom") : failure, failure == null);
     }
 
-    private static void reply(PlayerEntity player, String text, boolean ok) {
-        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.BLAST, text, ok));
+    private static void reply(PlayerEntity player, Message message, boolean ok) {
+        PacketHelper.sendTo(player, new StatusS2CPacket(DevStatus.BLAST, message, ok));
     }
 
     @Override
