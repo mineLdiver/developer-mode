@@ -11,6 +11,9 @@ import org.lwjgl.opengl.GL11;
  * vanilla's block outline does it.
  */
 public final class WorldDraw {
+    /** Enough that a ball a few blocks across still looks round. */
+    private static final int SPHERE_SEGMENTS = 48;
+
     private WorldDraw() {}
 
     /** Sets up state for wireframes. Pair with {@link #endLines()}. */
@@ -70,5 +73,35 @@ public final class WorldDraw {
         tessellator.vertex(box.minX, box.minY, box.maxZ);
         tessellator.vertex(box.minX, box.maxY, box.maxZ);
         tessellator.draw();
+    }
+
+    public static void line(double x1, double y1, double z1, double x2, double y2, double z2) {
+        Tessellator tessellator = Tessellator.INSTANCE;
+        tessellator.start(GL11.GL_LINES);
+        tessellator.vertex(x1, y1, z1);
+        tessellator.vertex(x2, y2, z2);
+        tessellator.draw();
+    }
+
+    /**
+     * Three great circles, one around each axis, which reads as a ball from
+     * any side without hiding what is inside it.
+     */
+    public static void sphere(double x, double y, double z, double radius) {
+        Tessellator tessellator = Tessellator.INSTANCE;
+        for (int axis = 0; axis < 3; axis++) {
+            tessellator.start(GL11.GL_LINE_LOOP);
+            for (int step = 0; step < SPHERE_SEGMENTS; step++) {
+                double angle = step * 2 * Math.PI / SPHERE_SEGMENTS;
+                double around = Math.cos(angle) * radius;
+                double across = Math.sin(angle) * radius;
+                switch (axis) {
+                    case 0 -> tessellator.vertex(x, y + around, z + across);
+                    case 1 -> tessellator.vertex(x + around, y, z + across);
+                    default -> tessellator.vertex(x + around, y + across, z);
+                }
+            }
+            tessellator.draw();
+        }
     }
 }

@@ -45,19 +45,9 @@ public final class Warp {
         HitResult hit = Ray.cast(player.world, origin, look, reach);
         if (hit == null || hit.type != HitResultType.BLOCK) return "Nothing in reach";
 
-        Box box = player.boundingBox;
-        double halfWidth = (box.maxX - box.minX) / 2;
-        double height = box.maxY - box.minY;
-        double up = Facing.y(hit.side);
-
-        // Off the face by as much of the player as that face is in the way of:
-        // half a width beside a wall, the whole height under a ceiling, and
-        // nothing at all on top of a floor, which is where the feet belong.
-        double feetX = hit.pos.x + Facing.x(hit.side) * (halfWidth + CLEARANCE);
-        double feetY = hit.pos.y + (up < 0 ? -(height + CLEARANCE) : up * CLEARANCE);
-        double feetZ = hit.pos.z + Facing.z(hit.side) * (halfWidth + CLEARANCE);
+        Vec3d feet = landing(player.boundingBox, hit);
         // Back into Beta's terms, where the coordinate asked for is the eyes.
-        double eyeY = feetY + (player.y - box.minY);
+        double eyeY = feet.y + (player.y - player.boundingBox.minY);
 
         // Arriving is not falling. Whatever speed and drop were building up
         // belong to where the player was, and carrying them over would land
@@ -70,8 +60,27 @@ public final class Warp {
         // Lambdas rather than method references, so the server only class is
         // not loaded on the side that never calls it.
         SideUtil.run(
-                () -> player.setPositionAndAngles(feetX, eyeY, feetZ, player.yaw, player.pitch),
-                () -> ServerWarp.teleport(player, feetX, eyeY, feetZ));
+                () -> player.setPositionAndAngles(feet.x, eyeY, feet.z, player.yaw, player.pitch),
+                () -> ServerWarp.teleport(player, feet.x, eyeY, feet.z));
         return null;
+    }
+
+    /**
+     * Where the feet go for something this size, stood off the face that was
+     * hit: by half a width beside a wall, the whole height under a ceiling,
+     * and nothing at all on top of a floor, which is where feet belong.
+     *
+     * <p>Shared with the preview, so the ghost stands exactly where the warp
+     * would put you.
+     */
+    public static Vec3d landing(Box box, HitResult hit) {
+        double halfWidth = (box.maxX - box.minX) / 2;
+        double height = box.maxY - box.minY;
+        double up = Facing.y(hit.side);
+
+        return Vec3d.create(
+                hit.pos.x + Facing.x(hit.side) * (halfWidth + CLEARANCE),
+                hit.pos.y + (up < 0 ? -(height + CLEARANCE) : up * CLEARANCE),
+                hit.pos.z + Facing.z(hit.side) * (halfWidth + CLEARANCE));
     }
 }

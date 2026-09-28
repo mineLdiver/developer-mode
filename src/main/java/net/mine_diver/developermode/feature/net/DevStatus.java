@@ -24,6 +24,9 @@ public final class DevStatus {
     public static final String WARP = "warp";
     public static final String TIME = "time";
     public static final String WEATHER = "weather";
+    public static final String GROW = "grow";
+    public static final String BLAST = "blast";
+    public static final String SMITE = "smite";
     public static final String SWEEP = "sweep";
     public static final String PURGE = "purge";
 
