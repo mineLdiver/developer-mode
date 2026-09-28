@@ -25,7 +25,7 @@ public final class BlockEntityEditorWindow extends DevWindow {
     private int blockZ;
 
     public BlockEntityEditorWindow(int x, int y, int z) {
-        super(Lang.get("gui.developermode.block_entity"), 248, 190);
+        super("gui.developermode.block_entity", 248, 190);
         setTarget(x, y, z);
     }
 
@@ -45,7 +45,9 @@ public final class BlockEntityEditorWindow extends DevWindow {
         blockX = x;
         blockY = y;
         blockZ = z;
-        setTitle(name() + " " + x + " " + y + " " + z);
+        String type = type();
+        setTitle(() -> (type == null ? Lang.get("gui.developermode.block_entity") : type)
+                + " " + x + " " + y + " " + z);
         panel.setTarget(NbtTarget.block(x, y, z));
     }
 
@@ -87,20 +89,18 @@ public final class BlockEntityEditorWindow extends DevWindow {
     }
 
     /**
-     * What to call it.
+     * What to call it, or null when the client has nothing there to name.
      *
      * <p>Read off the client's own copy, which exists for the block entities a
      * server bothers to send and not for the rest. The NBT in the panel came
      * from the world and is the authority on what this is; this is only a
      * heading.
      */
-    private String name() {
+    private String type() {
         Minecraft minecraft = DeveloperModeClient.minecraft();
-        if (minecraft == null || minecraft.world == null) return Lang.get("gui.developermode.block_entity");
+        if (minecraft == null || minecraft.world == null) return null;
 
         BlockEntity blockEntity = minecraft.world.getBlockEntity(blockX, blockY, blockZ);
-        return blockEntity == null
-                ? Lang.get("gui.developermode.block_entity")
-                : blockEntity.getClass().getSimpleName();
+        return blockEntity == null ? null : blockEntity.getClass().getSimpleName();
     }
 }

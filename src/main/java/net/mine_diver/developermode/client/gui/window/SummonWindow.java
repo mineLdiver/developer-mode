@@ -50,7 +50,7 @@ public final class SummonWindow extends DevWindow {
     private String status = "";
 
     public SummonWindow() {
-        super(Lang.get("gui.developermode.summon.title"), 168, 200);
+        super("gui.developermode.summon.title", 168, 200);
         types.addAll(EntitySummoning.types());
         applyFilter();
         search.setFocused(true);

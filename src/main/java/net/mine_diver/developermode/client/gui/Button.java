@@ -1,14 +1,19 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.client.Lang;
 import net.minecraft.client.Minecraft;
 
 /**
  * A small flat button. Also does duty as a toggle, via {@link #toggled}.
+ *
+ * <p>Holds the translation key of its label rather than the label, since a
+ * button lives as long as its window and is drawn in whatever language is
+ * current at the time.
  */
 public final class Button {
     public static final int HEIGHT = 12;
 
-    public String label;
+    public String key;
     public boolean enabled = true;
     public boolean toggled;
 
@@ -16,8 +21,8 @@ public final class Button {
     public int y;
     public int width;
 
-    public Button(String label) {
-        this.label = label;
+    public Button(String key) {
+        this.key = key;
     }
 
     public void bounds(int x, int y, int width) {
@@ -39,6 +44,6 @@ public final class Button {
 
         Draw.rect(x, y, x + width, y + HEIGHT, fill);
         Draw.outline(x, y, width, HEIGHT, edge);
-        Draw.textCentered(minecraft, Draw.ellipsize(minecraft, label, width - 6), x + width / 2, y + 2, ink);
+        Draw.textCentered(minecraft, Draw.ellipsize(minecraft, Lang.get(key), width - 6), x + width / 2, y + 2, ink);
     }
 }

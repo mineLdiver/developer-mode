@@ -31,8 +31,8 @@ public final class EntityEditorWindow extends DevWindow {
     private static final int BUTTON_WIDTH = 54;
     private static final int GAP = 4;
 
-    private final Button freezeButton = new Button(Lang.get("gui.developermode.entity.hold"));
-    private final Button pickButton = new Button(Lang.get("gui.developermode.entity.pick"));
+    private final Button freezeButton = new Button("gui.developermode.entity.hold");
+    private final Button pickButton = new Button("gui.developermode.entity.pick");
     private final NbtPanel panel = new NbtPanel();
 
     private Entity entity;
@@ -44,7 +44,7 @@ public final class EntityEditorWindow extends DevWindow {
     private float turntable;
 
     public EntityEditorWindow(Entity entity) {
-        super(Lang.get("gui.developermode.entity.title"), 248, 216);
+        super("gui.developermode.entity.title", 248, 216);
         setTarget(entity);
     }
 
@@ -143,9 +143,9 @@ public final class EntityEditorWindow extends DevWindow {
         freezeButton.bounds(infoX, buttonY, BUTTON_WIDTH);
         freezeButton.enabled = alive;
         freezeButton.toggled = alive && FrozenEntities.isHeld(entity);
-        freezeButton.label = Lang.get(freezeButton.toggled
+        freezeButton.key = freezeButton.toggled
                 ? "gui.developermode.entity.held"
-                : "gui.developermode.entity.hold");
+                : "gui.developermode.entity.hold";
         freezeButton.render(minecraft, mouseX, mouseY);
 
         pickButton.bounds(infoX + BUTTON_WIDTH + GAP, buttonY, BUTTON_WIDTH);

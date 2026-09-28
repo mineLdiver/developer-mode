@@ -1,8 +1,11 @@
 package net.mine_diver.developermode.client.gui.composer;
 
+import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.minecraft.client.Minecraft;
+
+import java.util.function.Supplier;
 
 /**
  * A floating panel inside the {@link ComposerScreen}.
@@ -36,10 +39,11 @@ public abstract class DevWindow {
     public int width;
     public int height;
 
-    private String title;
+    private Supplier<String> title;
 
-    protected DevWindow(String title, int width, int height) {
-        this.title = title;
+    /** @param key the translation key of its title, until {@link #setTitle} says otherwise */
+    protected DevWindow(String key, int width, int height) {
+        this.title = () -> Lang.get(key);
         this.width = width;
         this.height = height;
     }
@@ -50,7 +54,7 @@ public abstract class DevWindow {
                 focused ? Theme.TITLE_BAR_FOCUSED : Theme.TITLE_BAR);
         Draw.outline(x, y, width, height, focused ? Theme.BORDER_FOCUSED : Theme.BORDER);
 
-        Draw.text(minecraft, Draw.ellipsize(minecraft, title, width - CLOSE_SIZE - 10),
+        Draw.text(minecraft, Draw.ellipsize(minecraft, title(), width - CLOSE_SIZE - 10),
                 x + 5, y + 3, focused ? Theme.TEXT : Theme.TEXT_DIM);
 
         boolean closeHovered = isOverClose(mouseX, mouseY);
@@ -93,11 +97,16 @@ public abstract class DevWindow {
 
     /** What it calls itself, for anything listing windows from outside. */
     public final String title() {
-        return title;
+        return title.get();
     }
 
-    /** For a window that retargets, so the title bar can say what at. */
-    protected final void setTitle(String title) {
+    /**
+     * For a window that retargets, so the title bar can say what at.
+     *
+     * <p>Asked every time the title is drawn, so anything it translates comes
+     * out in the language current then.
+     */
+    protected final void setTitle(Supplier<String> title) {
         this.title = title;
     }
 

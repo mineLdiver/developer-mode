@@ -51,8 +51,8 @@ public final class SummonPresetWindow extends DevWindow {
     private static final int SAVED_ROW_HEIGHT = 10;
     private static final int STATUS_DURATION_TICKS = 80;
 
-    private final Button summonButton = new Button(Lang.get("gui.developermode.preset.summon"));
-    private final Button saveButton = new Button(Lang.get("gui.developermode.preset.save"));
+    private final Button summonButton = new Button("gui.developermode.preset.summon");
+    private final Button saveButton = new Button("gui.developermode.preset.save");
     private final TextField nameField = new TextField(24);
     private final NbtTree tree = new NbtTree();
     /** Names saved for this type, refreshed when they change rather than per frame. */
@@ -76,7 +76,7 @@ public final class SummonPresetWindow extends DevWindow {
     private int statusTicks;
 
     public SummonPresetWindow(String type) {
-        super(Lang.get("gui.developermode.preset.title"), 256, 236);
+        super("gui.developermode.preset.title", 256, 236);
         setType(type);
     }
 
@@ -95,7 +95,7 @@ public final class SummonPresetWindow extends DevWindow {
     /** Retargets at a type, on a fresh dump. Any unsaved edit is gone. */
     public void setType(String type) {
         this.type = type;
-        setTitle(Lang.get("gui.developermode.preset.title.named", type));
+        setTitle(() -> Lang.get("gui.developermode.preset.title.named", type));
         refreshSaved();
         reload();
     }

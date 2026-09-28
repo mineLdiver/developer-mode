@@ -34,9 +34,9 @@ public final class NbtPanel {
     private static final int REQUEST_INTERVAL_TICKS = 10;
 
     private final NbtTree tree = new NbtTree();
-    private final Button applyButton = new Button(Lang.get("gui.developermode.nbt.apply"));
-    private final Button reloadButton = new Button(Lang.get("gui.developermode.nbt.reload"));
-    private final Button rawButton = new Button(Lang.get("gui.developermode.nbt.raw"));
+    private final Button applyButton = new Button("gui.developermode.nbt.apply");
+    private final Button reloadButton = new Button("gui.developermode.nbt.reload");
+    private final Button rawButton = new Button("gui.developermode.nbt.raw");
 
     private NbtTarget target;
     private NbtCompound working;

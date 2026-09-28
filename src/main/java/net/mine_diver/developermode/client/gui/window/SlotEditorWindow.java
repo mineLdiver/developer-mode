@@ -30,11 +30,10 @@ public final class SlotEditorWindow extends DevWindow {
 
     private int syncId;
     private int slotId;
-    private String name = "";
     private ItemStack icon;
 
     public SlotEditorWindow(int syncId, int slotId, ItemStack stack) {
-        super(Lang.get("gui.developermode.slot.title"), 248, 190);
+        super("gui.developermode.slot.title", 248, 190);
         setTarget(syncId, slotId, stack);
     }
 
@@ -53,12 +52,11 @@ public final class SlotEditorWindow extends DevWindow {
     public void setTarget(int syncId, int slotId, ItemStack stack) {
         this.syncId = syncId;
         this.slotId = slotId;
-        this.name = nameOf(stack);
         // A copy, so that what the heading shows stays what was clicked even
         // once the slot holds something else.
         this.icon = stack == null ? null : stack.copy();
 
-        setTitle(Lang.get("gui.developermode.slot.title.named", name));
+        setTitle(() -> Lang.get("gui.developermode.slot.title.named", nameOf(icon)));
         panel.setTarget(NbtTarget.slot(syncId, slotId));
     }
 

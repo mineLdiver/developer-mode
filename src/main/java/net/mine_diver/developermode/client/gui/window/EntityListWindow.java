@@ -29,13 +29,13 @@ public final class EntityListWindow extends DevWindow {
     private static final int REFRESH_INTERVAL_TICKS = 20;
 
     private final List<Entity> entries = new ArrayList<>();
-    private final Button thawAllButton = new Button(Lang.get("gui.developermode.entities.release_all"));
+    private final Button thawAllButton = new Button("gui.developermode.entities.release_all");
 
     private int scrollRow;
     private int refreshCountdown;
 
     public EntityListWindow() {
-        super(Lang.get("gui.developermode.entities.title"), 176, 168);
+        super("gui.developermode.entities.title", 176, 168);
         refresh();
     }
 

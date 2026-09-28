@@ -43,7 +43,7 @@ public final class ItemPickerWindow extends DevWindow {
     private int statusSequence = DevStatus.sequence(DevStatus.GIVE);
 
     public ItemPickerWindow() {
-        super(Lang.get("gui.developermode.items.title"), COLUMNS * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 2, 178);
+        super("gui.developermode.items.title", COLUMNS * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 2, 178);
         buildCatalogue();
         applyFilter();
         search.setFocused(true);
