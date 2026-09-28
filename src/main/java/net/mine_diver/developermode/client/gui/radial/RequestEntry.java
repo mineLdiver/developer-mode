@@ -8,6 +8,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -61,20 +62,43 @@ final class RequestEntry {
 
     /**
      * One of several states the world can be put in, lit while it is the one
-     * the world is in.
+     * the world is in, and one the world can be locked to.
      *
      * <p>Read from the world this client holds rather than from what was last
      * asked for, for the same reason a power is: the ring shows what happened.
      * Choosing the lit one again is not refused, since putting the world where
      * it already is does no harm and is sometimes the point.
+     *
+     * @param lock asked with whether to lock or to unlock, which is the
+     *             opposite of what the slot shows
      */
     static RadialEntry state(String kind, String label, String hint, ItemStack icon,
-                             Predicate<World> current, RadialAction action) {
+                             Predicate<World> current, RadialAction action,
+                             Predicate<World> locked, Consumer<Boolean> lock) {
         return new RadialEntry(label, hint, icon, action) {
             @Override
             public boolean on() {
-                World world = world();
-                return world != null && current.test(world);
+                return holds(current);
+            }
+
+            @Override
+            public boolean lockable() {
+                return true;
+            }
+
+            @Override
+            public boolean locked() {
+                return holds(locked);
+            }
+
+            @Override
+            public void toggleLock() {
+                lock.accept(!locked());
+            }
+
+            @Override
+            public String label() {
+                return locked() ? super.label() + "  locked" : super.label();
             }
 
             @Override
@@ -82,6 +106,11 @@ final class RequestEntry {
                 return said(kind, super.hint());
             }
         };
+    }
+
+    private static boolean holds(Predicate<World> test) {
+        World world = world();
+        return world != null && test.test(world);
     }
 
     /** Why the last request of this kind was refused, or what the slot is for. */

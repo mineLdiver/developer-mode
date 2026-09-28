@@ -11,6 +11,7 @@ import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Heal;
 import net.mine_diver.developermode.feature.player.Power;
 import net.mine_diver.developermode.feature.world.Clearing;
+import net.mine_diver.developermode.feature.world.Locks;
 import net.mine_diver.developermode.feature.world.Time;
 import net.mine_diver.developermode.feature.world.Weather;
 import net.minecraft.block.Block;
@@ -195,17 +196,21 @@ public final class RadialMenu {
         };
     }
 
-    /** A time of day, lit for the quarter of the day nearest it. */
+    /** A time of day, lit for the quarter of the day nearest it, and one the sun can be locked at. */
     private static RadialEntry timeOfDay(int timeOfDay, String label, String hint, ItemStack icon) {
         return RequestEntry.state(DevStatus.TIME, label, hint, icon,
                 world -> Time.around(world, timeOfDay),
-                returnTo -> Time.request(timeOfDay));
+                returnTo -> Time.request(timeOfDay),
+                world -> Locks.lockedTime(world) == timeOfDay,
+                lock -> Locks.request(Locks.TIME, lock, timeOfDay));
     }
 
-    /** A kind of weather, lit while the sky is doing it. */
+    /** A kind of weather, lit while the sky is doing it, and one the sky can be locked to. */
     private static RadialEntry weatherKind(byte weather, String label, String hint, ItemStack icon) {
         return RequestEntry.state(DevStatus.WEATHER, label, hint, icon,
                 world -> Weather.of(world) == weather,
-                returnTo -> Weather.request(weather));
+                returnTo -> Weather.request(weather),
+                world -> Locks.lockedWeather(world) == weather,
+                lock -> Locks.request(Locks.WEATHER, lock, weather));
     }
 }
