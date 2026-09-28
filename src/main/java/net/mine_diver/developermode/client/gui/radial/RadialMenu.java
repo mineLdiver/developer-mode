@@ -158,6 +158,9 @@ public final class RadialMenu {
                 .add(RequestEntry.power(
                         Power.INSTANT_BREAK, "gui.developermode.radial.insta_break",
                         new ItemStack(Item.DIAMOND_PICKAXE)))
+                .add(RequestEntry.power(
+                        Power.ENDLESS, "gui.developermode.radial.endless",
+                        new ItemStack(Block.DISPENSER)))
                 .add(RequestEntry.action(
                         DevStatus.HEAL, "gui.developermode.radial.heal",
                         new ItemStack(Item.COOKED_PORKCHOP),

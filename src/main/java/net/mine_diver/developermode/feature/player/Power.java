@@ -22,8 +22,10 @@ public final class Power {
     public static final int NOCLIP = 1 << 2;
     /** A block comes out in one hit, whatever it is and whatever is in hand. */
     public static final int INSTANT_BREAK = 1 << 3;
+    /** Nothing placed, eaten, thrown or fired runs out, and nothing wears. */
+    public static final int ENDLESS = 1 << 4;
 
-    public static final int ALL = GOD | FLIGHT | NOCLIP | INSTANT_BREAK;
+    public static final int ALL = GOD | FLIGHT | NOCLIP | INSTANT_BREAK | ENDLESS;
 
     private Power() {}
 

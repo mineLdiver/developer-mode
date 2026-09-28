@@ -8,7 +8,10 @@
     "EntityAccessor",
     "EntityMixin",
     "EntityRegistryAccessor",
+    "ItemStackMixin",
     "PlayerEntityMixin",
+    "PlayerInteractMixin",
+    "PlayerInventoryMixin",
     "WorldLocksMixin",
     "WorldMixin"
   ],
