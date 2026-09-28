@@ -13,7 +13,10 @@ public final class Power {
 
     /** Nothing in the world can hurt you, or take you out of it. */
     public static final int GOD = 1;
-    /** Gravity stops applying, and the movement keys fly you instead. */
+    /**
+     * Being allowed to fly. Two quick jumps take off, and coming down onto the
+     * ground lands you again.
+     */
     public static final int FLIGHT = 1 << 1;
     /** Blocks stop being solid, and stop being able to smother you. */
     public static final int NOCLIP = 1 << 2;

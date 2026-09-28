@@ -21,6 +21,7 @@
     "GameRendererMixin",
     "HandledScreenMixin",
     "InGameHudMixin",
+    "LivingEntityFlightMixin",
     "MinecraftMixin",
     "PlayerFlightMixin"
   ],
