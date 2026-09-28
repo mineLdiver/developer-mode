@@ -3,9 +3,8 @@ package net.mine_diver.developermode.client.gui.composer;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.Theme;
+import net.mine_diver.developermode.feature.Message;
 import net.minecraft.client.Minecraft;
-
-import java.util.function.Supplier;
 
 /**
  * A floating panel inside the {@link ComposerScreen}.
@@ -39,11 +38,11 @@ public abstract class DevWindow {
     public int width;
     public int height;
 
-    private Supplier<String> title;
+    private Message title;
 
     /** @param key the translation key of its title, until {@link #setTitle} says otherwise */
     protected DevWindow(String key, int width, int height) {
-        this.title = () -> Lang.get(key);
+        this.title = Message.of(key);
         this.width = width;
         this.height = height;
     }
@@ -97,16 +96,16 @@ public abstract class DevWindow {
 
     /** What it calls itself, for anything listing windows from outside. */
     public final String title() {
-        return title.get();
+        return Lang.of(title);
     }
 
     /**
      * For a window that retargets, so the title bar can say what at.
      *
-     * <p>Asked every time the title is drawn, so anything it translates comes
-     * out in the language current then.
+     * <p>Translated every time it is drawn, so it comes out in the language
+     * current then.
      */
-    protected final void setTitle(Supplier<String> title) {
+    protected final void setTitle(Message title) {
         this.title = title;
     }
 

@@ -78,8 +78,8 @@ public final class SummonRenderer {
         String title = Lang.get(SummonMode.hasPreset()
                 ? "gui.developermode.summoning.preset"
                 : "gui.developermode.summoning", SummonMode.type());
-        String detail = !SummonMode.error().isEmpty()
-                ? SummonMode.error()
+        String detail = SummonMode.error() != null
+                ? Lang.of(SummonMode.error())
                 : Lang.get(SummonMode.isGrounded()
                         ? "gui.developermode.summoning.grounded"
                         : "gui.developermode.summoning.airborne");
@@ -97,7 +97,7 @@ public final class SummonRenderer {
 
         Draw.textCentered(minecraft, title, width / 2, panelY + 4, Theme.ACCENT);
         Draw.textCentered(minecraft, detail, width / 2, panelY + 14,
-                SummonMode.error().isEmpty() ? Theme.TEXT_DIM : Theme.DANGER);
+                SummonMode.error() == null ? Theme.TEXT_DIM : Theme.DANGER);
         Draw.textCentered(minecraft, help, width / 2, panelY + 25, Theme.TEXT_FAINT);
     }
 }

@@ -1,7 +1,6 @@
 package net.mine_diver.developermode.client.summon;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
-import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.client.tool.ToolMode;
@@ -50,7 +49,7 @@ public final class SummonMode {
     private static boolean buttonWasDown;
     private static boolean cancelWasDown;
     private static int placed;
-    private static String error = "";
+    private static Message error;
     private static int statusSequence = DevStatus.sequence(DevStatus.SUMMON);
 
     private SummonMode() {}
@@ -79,7 +78,7 @@ public final class SummonMode {
         return placed;
     }
 
-    public static String error() {
+    public static Message error() {
         return error;
     }
 
@@ -97,7 +96,7 @@ public final class SummonMode {
         preset = nbt == null ? null : nbt.copy();
         preview = null;
         placed = 0;
-        error = "";
+        error = null;
         statusSequence = DevStatus.sequence(DevStatus.SUMMON);
         // The click that chose the type is probably still held. Require a
         // release before the first placement, or it lands one immediately.
@@ -173,7 +172,7 @@ public final class SummonMode {
         Message failure = EntitySummoning.applyPreset(preview, preset);
         // Placing would fail the same way for the same reason, so this is not
         // stepping on a placement error, it is getting ahead of one.
-        if (failure != null) error = Lang.of(Message.of("message.developermode.preset", failure));
+        if (failure != null) error = Message.of("message.developermode.preset", failure);
     }
 
     private static void handleButtons() {
@@ -206,9 +205,9 @@ public final class SummonMode {
 
         if (DevStatus.ok(DevStatus.SUMMON)) {
             placed++;
-            error = "";
+            error = null;
         } else {
-            error = Lang.of(DevStatus.message(DevStatus.SUMMON));
+            error = DevStatus.message(DevStatus.SUMMON);
         }
     }
 }

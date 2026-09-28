@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui;
 
 import net.mine_diver.developermode.client.Lang;
+import net.mine_diver.developermode.feature.Message;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtByte;
@@ -85,7 +86,7 @@ public final class NbtTree {
     private NbtCompound root;
     private boolean raw;
     private Row editing;
-    private String error = "";
+    private Message error;
     private boolean dirty;
     private int revision;
     private int scrollRow;
@@ -105,7 +106,7 @@ public final class NbtTree {
     public void setRoot(NbtCompound root) {
         this.root = root;
         this.editing = null;
-        this.error = "";
+        this.error = null;
         this.dirty = false;
         this.revision++;
         rebuild();
@@ -142,7 +143,7 @@ public final class NbtTree {
         return revision;
     }
 
-    public String error() {
+    public Message error() {
         return error;
     }
 
@@ -158,7 +159,7 @@ public final class NbtTree {
         if (editing == null) return false;
         editing = null;
         editor.setFocused(false);
-        error = "";
+        error = null;
         return true;
     }
 
@@ -259,9 +260,9 @@ public final class NbtTree {
             editing = row;
             editor.setText(rawValue(row.element));
             editor.setFocused(true);
-            error = "";
+            error = null;
         } else {
-            error = Lang.get("gui.developermode.nbt.not_editable", typeName(row.element));
+            error = Message.of("gui.developermode.nbt.not_editable", typeName(row.element));
         }
     }
 
@@ -347,14 +348,14 @@ public final class NbtTree {
             } else if (element instanceof NbtDouble value) {
                 value.value = Double.parseDouble(text.trim());
             } else if (!storeWhole(owner, element, key, Long.parseLong(text.trim()))) {
-                error = Lang.get("gui.developermode.nbt.does_not_fit", text, typeName(element));
+                error = Message.of("gui.developermode.nbt.does_not_fit", text, typeName(element));
                 return;
             }
-            error = "";
+            error = null;
             dirty = true;
             revision++;
         } catch (NumberFormatException failure) {
-            error = Lang.get("gui.developermode.nbt.not_a", text, typeName(element));
+            error = Message.of("gui.developermode.nbt.not_a", text, typeName(element));
         }
     }
 
@@ -568,19 +569,20 @@ public final class NbtTree {
         return Theme.NBT_NUMBER;
     }
 
-    private static String typeName(NbtElement element) {
-        if (element instanceof NbtByte) return Lang.get("gui.developermode.nbt.type.byte");
-        if (element instanceof NbtShort) return Lang.get("gui.developermode.nbt.type.short");
-        if (element instanceof NbtInt) return Lang.get("gui.developermode.nbt.type.int");
-        if (element instanceof NbtLong) return Lang.get("gui.developermode.nbt.type.long");
-        if (element instanceof NbtFloat) return Lang.get("gui.developermode.nbt.type.float");
-        if (element instanceof NbtDouble) return Lang.get("gui.developermode.nbt.type.double");
-        if (element instanceof NbtString) return Lang.get("gui.developermode.nbt.type.string");
-        if (element instanceof NbtByteArray) return Lang.get("gui.developermode.nbt.type.byte_array");
-        if (element instanceof NbtIntArray) return Lang.get("gui.developermode.nbt.type.int_array");
-        if (element instanceof NbtLongArray) return Lang.get("gui.developermode.nbt.type.long_array");
-        if (element instanceof NbtCompound) return Lang.get("gui.developermode.nbt.type.compound");
-        if (element instanceof NbtList) return Lang.get("gui.developermode.nbt.type.list");
-        return Lang.get("gui.developermode.nbt.type.tag");
+    /** Which kind of tag this is, in words, for an error that names it. */
+    private static Message typeName(NbtElement element) {
+        if (element instanceof NbtByte) return Message.of("gui.developermode.nbt.type.byte");
+        if (element instanceof NbtShort) return Message.of("gui.developermode.nbt.type.short");
+        if (element instanceof NbtInt) return Message.of("gui.developermode.nbt.type.int");
+        if (element instanceof NbtLong) return Message.of("gui.developermode.nbt.type.long");
+        if (element instanceof NbtFloat) return Message.of("gui.developermode.nbt.type.float");
+        if (element instanceof NbtDouble) return Message.of("gui.developermode.nbt.type.double");
+        if (element instanceof NbtString) return Message.of("gui.developermode.nbt.type.string");
+        if (element instanceof NbtByteArray) return Message.of("gui.developermode.nbt.type.byte_array");
+        if (element instanceof NbtIntArray) return Message.of("gui.developermode.nbt.type.int_array");
+        if (element instanceof NbtLongArray) return Message.of("gui.developermode.nbt.type.long_array");
+        if (element instanceof NbtCompound) return Message.of("gui.developermode.nbt.type.compound");
+        if (element instanceof NbtList) return Message.of("gui.developermode.nbt.type.list");
+        return Message.of("gui.developermode.nbt.type.tag");
     }
 }

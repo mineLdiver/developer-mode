@@ -114,6 +114,7 @@ gui.@.composer.hint.frozen=%s menu    esc close    %s open    %s frozen
 
 gui.@.search=Search %s
 gui.@.block_entity=Block entity
+gui.@.block_entity.at=%s %s %s %s
 
 gui.@.items.title=Items
 gui.@.items.search=Search %s items

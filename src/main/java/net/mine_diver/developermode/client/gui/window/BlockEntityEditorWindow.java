@@ -1,10 +1,10 @@
 package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
-import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.NbtPanel;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.Minecraft;
@@ -46,8 +46,8 @@ public final class BlockEntityEditorWindow extends DevWindow {
         blockY = y;
         blockZ = z;
         String type = type();
-        setTitle(() -> (type == null ? Lang.get("gui.developermode.block_entity") : type)
-                + " " + x + " " + y + " " + z);
+        setTitle(Message.of("gui.developermode.block_entity.at",
+                type == null ? Message.of("gui.developermode.block_entity") : Message.literal(type), x, y, z));
         panel.setTarget(NbtTarget.block(x, y, z));
     }
 

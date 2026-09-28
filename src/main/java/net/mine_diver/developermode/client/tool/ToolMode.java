@@ -1,9 +1,9 @@
 package net.mine_diver.developermode.client.tool;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
-import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.summon.SummonMode;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.minecraft.client.Minecraft;
@@ -32,7 +32,7 @@ public final class ToolMode {
     private static boolean useWasDown;
     private static boolean cancelWasDown;
     private static int used;
-    private static String error = "";
+    private static Message error;
     /** The block the error was earned on, which is as long as it stays true. */
     private static long errorAt;
     private static int statusSequence;
@@ -56,7 +56,7 @@ public final class ToolMode {
         return used;
     }
 
-    public static String error() {
+    public static Message error() {
         return error;
     }
 
@@ -65,7 +65,7 @@ public final class ToolMode {
         armed = tool;
         target = null;
         used = 0;
-        error = "";
+        error = null;
         statusSequence = DevStatus.sequence(tool.kind());
         // The click that chose the tool may still be held. Require a release
         // before the first use, or it goes off the moment the ring closes.
@@ -97,7 +97,7 @@ public final class ToolMode {
         updateTarget(minecraft);
         // A refusal is about where it was aimed. Somewhere else is a new
         // question, and the old answer would only be in the way of it.
-        if (!error.isEmpty() && key(target) != errorAt) error = "";
+        if (error != null && key(target) != errorAt) error = null;
         readAnswers();
         handleButtons();
     }
@@ -137,9 +137,9 @@ public final class ToolMode {
 
         if (DevStatus.ok(kind)) {
             used++;
-            error = "";
+            error = null;
         } else {
-            error = Lang.of(DevStatus.message(kind));
+            error = DevStatus.message(kind);
             errorAt = key(target);
         }
     }

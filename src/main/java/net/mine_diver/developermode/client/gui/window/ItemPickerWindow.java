@@ -8,6 +8,7 @@ import net.mine_diver.developermode.client.gui.TextField;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.Give;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
@@ -38,7 +39,7 @@ public final class ItemPickerWindow extends DevWindow {
     private Entry hovered;
     private int hoveredX;
     private int hoveredY;
-    private String status = "";
+    private Message status;
     private int statusTicks;
     private int statusSequence = DevStatus.sequence(DevStatus.GIVE);
 
@@ -52,13 +53,13 @@ public final class ItemPickerWindow extends DevWindow {
     @Override
     public void tick() {
         search.tick();
-        if (statusTicks > 0 && --statusTicks == 0) status = "";
+        if (statusTicks > 0 && --statusTicks == 0) status = null;
 
         // Giving is a request, and the answer comes back as a packet long after
         // the click that asked for it has returned.
         if (DevStatus.sequence(DevStatus.GIVE) != statusSequence) {
             statusSequence = DevStatus.sequence(DevStatus.GIVE);
-            setStatus(Lang.of(DevStatus.message(DevStatus.GIVE)));
+            setStatus(DevStatus.message(DevStatus.GIVE));
         }
     }
 
@@ -170,14 +171,14 @@ public final class ItemPickerWindow extends DevWindow {
 
     private void renderFooter(Minecraft minecraft) {
         int footerY = contentY() + contentHeight() - FOOTER_HEIGHT + 1;
-        if (!status.isEmpty()) {
-            Draw.text(minecraft, Draw.ellipsize(minecraft, status, contentWidth()), contentX(), footerY, Theme.ACCENT);
+        if (status != null) {
+            Draw.text(minecraft, Draw.ellipsize(minecraft, Lang.of(status), contentWidth()), contentX(), footerY, Theme.ACCENT);
             return;
         }
         Draw.text(minecraft, Lang.get("gui.developermode.items.hint"), contentX(), footerY, Theme.TEXT_FAINT);
     }
 
-    private void setStatus(String message) {
+    private void setStatus(Message message) {
         status = message;
         statusTicks = STATUS_DURATION_TICKS;
     }

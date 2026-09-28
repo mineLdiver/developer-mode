@@ -7,9 +7,9 @@ import net.mine_diver.developermode.client.gui.NbtPanel;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resource.language.I18n;
 import net.minecraft.item.ItemStack;
 
 /**
@@ -56,7 +56,7 @@ public final class SlotEditorWindow extends DevWindow {
         // once the slot holds something else.
         this.icon = stack == null ? null : stack.copy();
 
-        setTitle(() -> Lang.get("gui.developermode.slot.title.named", nameOf(icon)));
+        setTitle(Message.of("gui.developermode.slot.title.named", nameOf(stack)));
         panel.setTarget(NbtTarget.slot(syncId, slotId));
     }
 
@@ -107,21 +107,16 @@ public final class SlotEditorWindow extends DevWindow {
         return panel.clearTypingFocus();
     }
 
-    /** The stack's display name, or its translation key when it has none. */
-    private static String nameOf(ItemStack stack) {
-        if (stack == null) return Lang.get("gui.developermode.slot.empty");
+    /** The stack's display name, under the key the game names it by. */
+    private static Message nameOf(ItemStack stack) {
+        if (stack == null) return Message.of("gui.developermode.slot.empty");
 
         String key;
         try {
             key = stack.getTranslationKey();
         } catch (Exception error) {
-            return Lang.get("gui.developermode.slot.title");
+            return Message.of("gui.developermode.slot.title");
         }
-        if (key == null) return Lang.get("gui.developermode.slot.title");
-
-        String translated = I18n.getTranslation(key + ".name");
-        return translated == null || translated.isEmpty() || translated.equals(key + ".name")
-                ? key
-                : translated;
+        return key == null ? Message.of("gui.developermode.slot.title") : Message.of(key + ".name");
     }
 }

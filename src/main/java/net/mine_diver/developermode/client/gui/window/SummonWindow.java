@@ -9,6 +9,7 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.mine_diver.developermode.feature.entity.SummonPresets;
 import net.minecraft.client.Minecraft;
@@ -47,7 +48,7 @@ public final class SummonWindow extends DevWindow {
 
     private World previewWorld;
     private int scrollRow;
-    private String status = "";
+    private Message status;
 
     public SummonWindow() {
         super("gui.developermode.summon.title", 168, 200);
@@ -120,9 +121,9 @@ public final class SummonWindow extends DevWindow {
         renderScrollbar(listTop, listHeight, visible);
 
         int footerY = contentY() + contentHeight() - FOOTER_HEIGHT + 1;
-        String hint = status.isEmpty() ? Lang.get("gui.developermode.summon.hint") : status;
+        String hint = status == null ? Lang.get("gui.developermode.summon.hint") : Lang.of(status);
         Draw.text(minecraft, Draw.ellipsize(minecraft, hint, contentWidth()),
-                contentX(), footerY, status.isEmpty() ? Theme.TEXT_FAINT : Theme.DANGER);
+                contentX(), footerY, status == null ? Theme.TEXT_FAINT : Theme.DANGER);
         Draw.text(minecraft, Lang.get("gui.developermode.summon.hint.preset"),
                 contentX(), footerY + 10, Theme.TEXT_FAINT);
     }
@@ -154,11 +155,11 @@ public final class SummonWindow extends DevWindow {
         // every frame once spawned, and there is no recovering from that
         // without quitting. Refuse it here, where a message is still possible.
         if (unrenderable.contains(type) || previewOf(DeveloperModeClient.minecraft(), type) == null) {
-            status = Lang.get("gui.developermode.summon.unbuildable", type);
+            status = Message.of("gui.developermode.summon.unbuildable", type);
             return;
         }
 
-        status = "";
+        status = null;
         SummonMode.arm(type, null);
         DeveloperModeClient.minecraft().setScreen(null);
     }

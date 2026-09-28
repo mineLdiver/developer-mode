@@ -98,8 +98,8 @@ public final class ToolRenderer {
 
         HitResult target = ToolMode.target();
         String title = Lang.get("gui.developermode.armed", tool.label());
-        String detail = !ToolMode.error().isEmpty()
-                ? ToolMode.error()
+        String detail = ToolMode.error() != null
+                ? Lang.of(ToolMode.error())
                 : target == null
                         ? Lang.get("gui.developermode.armed.no_target")
                         : Lang.get("gui.developermode.armed.target", target.blockX, target.blockY, target.blockZ);
@@ -117,7 +117,7 @@ public final class ToolRenderer {
 
         Draw.textCentered(minecraft, title, width / 2, panelY + 4, color(tool));
         Draw.textCentered(minecraft, detail, width / 2, panelY + 14,
-                ToolMode.error().isEmpty() ? Theme.TEXT_DIM : Theme.DANGER);
+                ToolMode.error() == null ? Theme.TEXT_DIM : Theme.DANGER);
         Draw.textCentered(minecraft, help, width / 2, panelY + 25, Theme.TEXT_FAINT);
     }
 

@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui;
 
 import net.mine_diver.developermode.client.Lang;
+import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.NbtInbox;
 import net.mine_diver.developermode.feature.net.NbtTarget;
@@ -45,7 +46,7 @@ public final class NbtPanel {
     private int statusSequence = DevStatus.sequence(DevStatus.ENTITY);
     private int requestCooldown;
 
-    private String status = "";
+    private Message status;
     private boolean statusIsError;
     private int statusTicks;
 
@@ -75,7 +76,7 @@ public final class NbtPanel {
 
     public void tick() {
         tree.tick();
-        if (statusTicks > 0 && --statusTicks == 0) status = "";
+        if (statusTicks > 0 && --statusTicks == 0) status = null;
         if (requestCooldown > 0) requestCooldown--;
         takeAnswers();
     }
@@ -123,8 +124,8 @@ public final class NbtPanel {
         rawButton.toggled = tree.isRaw();
         rawButton.render(minecraft, mouseX, mouseY);
 
-        String message = tree.error().isEmpty() ? status : tree.error();
-        int ink = !tree.error().isEmpty() || statusIsError ? Theme.DANGER : Theme.ACCENT;
+        String message = Lang.of(tree.error() == null ? status : tree.error());
+        int ink = tree.error() != null || statusIsError ? Theme.DANGER : Theme.ACCENT;
         if (!message.isEmpty()) {
             int messageX = x + (BUTTON_WIDTH + GAP) * 2 + TOGGLE_WIDTH + GAP;
             Draw.text(minecraft, Draw.ellipsize(minecraft, message, x + width - messageX),
@@ -153,7 +154,7 @@ public final class NbtPanel {
         }
         if (reloadButton.enabled && reloadButton.contains(mouseX, mouseY)) {
             reload();
-            setStatus(Lang.get("gui.developermode.nbt.reloaded"), false);
+            setStatus(Message.of("gui.developermode.nbt.reloaded"), false);
             return true;
         }
         if (rawButton.contains(mouseX, mouseY)) {
@@ -176,7 +177,7 @@ public final class NbtPanel {
         return tree.cancelEditing();
     }
 
-    public void setStatus(String message, boolean isError) {
+    public void setStatus(Message message, boolean isError) {
         status = message;
         statusIsError = isError;
         statusTicks = STATUS_DURATION_TICKS;
@@ -195,7 +196,7 @@ public final class NbtPanel {
         }
         if (DevStatus.sequence(DevStatus.ENTITY) != statusSequence) {
             statusSequence = DevStatus.sequence(DevStatus.ENTITY);
-            setStatus(Lang.of(DevStatus.message(DevStatus.ENTITY)), !DevStatus.ok(DevStatus.ENTITY));
+            setStatus(DevStatus.message(DevStatus.ENTITY), !DevStatus.ok(DevStatus.ENTITY));
         }
     }
 }

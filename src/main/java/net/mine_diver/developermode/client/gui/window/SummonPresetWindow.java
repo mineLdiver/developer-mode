@@ -71,7 +71,7 @@ public final class SummonPresetWindow extends DevWindow {
     private boolean previewBroken;
 
     private float turntable;
-    private String status = "";
+    private Message status;
     private boolean statusIsError;
     private int statusTicks;
 
@@ -95,7 +95,7 @@ public final class SummonPresetWindow extends DevWindow {
     /** Retargets at a type, on a fresh dump. Any unsaved edit is gone. */
     public void setType(String type) {
         this.type = type;
-        setTitle(() -> Lang.get("gui.developermode.preset.title.named", type));
+        setTitle(Message.of("gui.developermode.preset.title.named", type));
         refreshSaved();
         reload();
     }
@@ -104,7 +104,7 @@ public final class SummonPresetWindow extends DevWindow {
     public void tick() {
         tree.tick();
         nameField.tick();
-        if (statusTicks > 0 && --statusTicks == 0) status = "";
+        if (statusTicks > 0 && --statusTicks == 0) status = null;
         if (tree.revision() != lastRevision) {
             lastRevision = tree.revision();
             customized = true;
@@ -163,13 +163,13 @@ public final class SummonPresetWindow extends DevWindow {
         summonButton.enabled = working != null && preview != null && !previewBroken;
         summonButton.render(minecraft, mouseX, mouseY);
 
-        String message = !tree.error().isEmpty() ? tree.error()
+        String message = tree.error() != null ? Lang.of(tree.error())
                 : previewBroken ? Lang.get("gui.developermode.preset.unrenderable")
-                : !status.isEmpty() ? status
+                : status != null ? Lang.of(status)
                 : Lang.get("gui.developermode.preset.hint");
-        int ink = !tree.error().isEmpty() || previewBroken || (statusIsError && !status.isEmpty())
+        int ink = tree.error() != null || previewBroken || (statusIsError && status != null)
                 ? Theme.DANGER
-                : status.isEmpty() ? Theme.TEXT_FAINT : Theme.ACCENT;
+                : status == null ? Theme.TEXT_FAINT : Theme.ACCENT;
         Draw.text(minecraft, Draw.ellipsize(minecraft, message, contentWidth()),
                 contentX(), footerY + 17, ink);
     }
@@ -186,10 +186,10 @@ public final class SummonPresetWindow extends DevWindow {
         if (saveButton.enabled && saveButton.contains(mouseX, mouseY)) {
             Message failure = SummonPresets.save(type, nameField.text().trim(), working);
             if (failure == null) {
-                setStatus(Lang.get("gui.developermode.preset.saved", nameField.text().trim()), false);
+                setStatus(Message.of("gui.developermode.preset.saved", nameField.text().trim()), false);
                 refreshSaved();
             } else {
-                setStatus(Lang.of(failure), true);
+                setStatus(failure, true);
             }
             return;
         }
@@ -210,7 +210,7 @@ public final class SummonPresetWindow extends DevWindow {
             if (button == 1) {
                 SummonPresets.delete(type, clicked);
                 refreshSaved();
-                setStatus(Lang.get("gui.developermode.preset.deleted", clicked), false);
+                setStatus(Message.of("gui.developermode.preset.deleted", clicked), false);
             } else {
                 loadSaved(clicked);
             }
@@ -303,7 +303,7 @@ public final class SummonPresetWindow extends DevWindow {
     private void loadSaved(String name) {
         NbtCompound loaded = SummonPresets.load(type, name);
         if (loaded == null) {
-            setStatus(Lang.get("gui.developermode.preset.load_failed", name), true);
+            setStatus(Message.of("gui.developermode.preset.load_failed", name), true);
             return;
         }
         working = loaded;
@@ -312,7 +312,7 @@ public final class SummonPresetWindow extends DevWindow {
         customized = true;
         nameField.setText(name);
         rebuildPreview();
-        setStatus(Lang.get("gui.developermode.preset.loaded", name), false);
+        setStatus(Message.of("gui.developermode.preset.loaded", name), false);
     }
 
     private void refreshSaved() {
@@ -353,12 +353,12 @@ public final class SummonPresetWindow extends DevWindow {
 
         if (working != null) {
             Message failure = EntitySummoning.applyPreset(preview, working);
-            if (failure != null) setStatus(Lang.of(failure), true);
+            if (failure != null) setStatus(failure, true);
         }
         EntitySummoning.place(preview, 0, 0, 0, 0);
     }
 
-    private void setStatus(String message, boolean isError) {
+    private void setStatus(Message message, boolean isError) {
         status = message;
         statusIsError = isError;
         statusTicks = STATUS_DURATION_TICKS;
