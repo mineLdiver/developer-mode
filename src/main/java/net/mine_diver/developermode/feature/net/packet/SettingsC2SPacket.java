@@ -14,7 +14,6 @@ import net.modificationstation.stationapi.api.entity.player.PlayerHelper;
 import net.modificationstation.stationapi.api.network.packet.ManagedPacket;
 import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 import net.modificationstation.stationapi.api.network.packet.PacketType;
-import net.modificationstation.stationapi.api.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInputStream;
@@ -31,7 +30,10 @@ import java.util.List;
  * preset did not go through is said on the preset rather than scattered over
  * whichever slots its settings also have.
  *
- * <p>Settings go by identifier and are looked up again here. Everything a
+ * <p>Settings go by raw ID, which registry sync keeps the same on both sides.
+ * Values go by name, since sync covers which settings there are and not what
+ * values each has, and a value one side has renamed is refused by name here
+ * rather than mistaken for whichever value took its place. Everything a
  * setting could be handed wrong is checked before it is handed anything: that
  * it exists on this side, that the value is one of its own, and that a lock
  * is only asked of one that can be locked. Every change is tried even after
@@ -48,8 +50,8 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
 
     private static final SettingChange.Kind[] KINDS = SettingChange.Kind.values();
 
-    /** A change as it travels, by name, since the other side has its own objects. */
-    private record Entry(String id, SettingChange.Kind kind, String value) {}
+    /** A change as it travels, since the other side has its own objects. */
+    private record Entry(int rawId, SettingChange.Kind kind, String value) {}
 
     public String answerAs = "";
     private final List<Entry> entries = new ArrayList<>();
@@ -59,7 +61,7 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
     public SettingsC2SPacket(String answerAs, List<SettingChange> changes) {
         this.answerAs = answerAs;
         for (SettingChange change : changes)
-            entries.add(new Entry(String.valueOf(change.setting().id()), change.kind(), change.value()));
+            entries.add(new Entry(SettingRegistry.INSTANCE.getRawId(change.setting()), change.kind(), change.value()));
     }
 
     @Override
@@ -69,10 +71,10 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
             int count = in.readUnsignedByte();
             if (count > MAX_CHANGES) throw new IOException(count + " setting changes in one request");
             for (int i = 0; i < count; i++) {
-                String id = readString(in, MAX_LENGTH);
+                int rawId = in.readInt();
                 int kind = in.readUnsignedByte();
                 if (kind >= KINDS.length) throw new IOException("No such kind of setting change: " + kind);
-                entries.add(new Entry(id, KINDS[kind], readString(in, MAX_LENGTH)));
+                entries.add(new Entry(rawId, KINDS[kind], readString(in, MAX_LENGTH)));
             }
         } catch (IOException error) {
             throw new RuntimeException(error);
@@ -85,7 +87,7 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
             writeString(answerAs, out);
             out.writeByte(entries.size());
             for (Entry entry : entries) {
-                writeString(entry.id, out);
+                out.writeInt(entry.rawId);
                 out.writeByte(entry.kind.ordinal());
                 writeString(entry.value, out);
             }
@@ -114,9 +116,8 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
 
     /** @return why it could not be, or null if it is done */
     private static Message change(PlayerEntity player, Entry entry) {
-        Identifier id = Identifier.tryParse(entry.id);
-        Setting setting = id == null ? null : SettingRegistry.INSTANCE.get(id);
-        if (setting == null) return Message.of("message.developermode.no_such_setting", entry.id);
+        Setting setting = SettingRegistry.INSTANCE.get(entry.rawId);
+        if (setting == null) return Message.of("message.developermode.no_such_setting");
         LockableSetting lockable = setting instanceof LockableSetting it ? it : null;
         if (entry.kind != SettingChange.Kind.SET && lockable == null)
             return Message.of("message.developermode.nothing_to_lock");
@@ -132,8 +133,8 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
                 case UNLOCK -> lockable.unlock(player);
             };
         } catch (RuntimeException error) {
-            DeveloperMode.LOGGER.error("Setting {} failed to change for {}", entry.id, player.name, error);
-            return Message.of("message.developermode.setting_failed", entry.id);
+            DeveloperMode.LOGGER.error("Setting {} failed to change for {}", setting.id(), player.name, error);
+            return Message.of("message.developermode.setting_failed", String.valueOf(setting.id()));
         }
     }
 
@@ -144,7 +145,7 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
     @Override
     public int size() {
         int size = sizeOf(answerAs) + 1;
-        for (Entry entry : entries) size += sizeOf(entry.id) + 1 + sizeOf(entry.value);
+        for (Entry entry : entries) size += Integer.BYTES + 1 + sizeOf(entry.value);
         return size;
     }
 
