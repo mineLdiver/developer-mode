@@ -1,7 +1,7 @@
 package net.mine_diver.developermode.feature.setting;
 
 import net.mine_diver.developermode.api.Message;
-import net.mine_diver.developermode.api.setting.Setting;
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.feature.world.Locks;
 import net.mine_diver.developermode.feature.world.Weather;
 import net.minecraft.entity.player.PlayerEntity;
@@ -17,7 +17,7 @@ import java.util.List;
  * locked. Somewhere without a sky it has nothing to say, and the world turns
  * down anything asked of it there.
  */
-public final class WeatherSetting implements Setting {
+public final class WeatherSetting implements LockableSetting {
     public static final String CLEAR = "clear";
     public static final String RAIN = "rain";
     public static final String STORM = "storm";
@@ -30,16 +30,6 @@ public final class WeatherSetting implements Setting {
     @Override
     public List<String> values() {
         return VALUES;
-    }
-
-    @Override
-    public boolean stays() {
-        return false;
-    }
-
-    @Override
-    public boolean lockable() {
-        return true;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.feature.setting;
 
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.api.setting.Setting;
 import net.mine_diver.developermode.feature.net.packet.SettingsC2SPacket;
 import net.modificationstation.stationapi.api.network.packet.PacketHelper;
@@ -26,11 +27,11 @@ public record SettingChange(Setting setting, Kind kind, String value) {
         return new SettingChange(setting, Kind.SET, value);
     }
 
-    public static SettingChange lock(Setting setting, String value) {
+    public static SettingChange lock(LockableSetting setting, String value) {
         return new SettingChange(setting, Kind.LOCK, value);
     }
 
-    public static SettingChange unlock(Setting setting) {
+    public static SettingChange unlock(LockableSetting setting) {
         return new SettingChange(setting, Kind.UNLOCK, "");
     }
 

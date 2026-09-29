@@ -2,7 +2,7 @@ package net.mine_diver.developermode.feature.setting;
 
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.api.event.setting.SettingRegistryEvent;
-import net.mine_diver.developermode.api.setting.Setting;
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.api.setting.SettingRegistry;
 import net.mine_diver.developermode.api.setting.SwitchSetting;
 import net.mine_diver.developermode.feature.player.Power;
@@ -34,8 +34,8 @@ public final class DeveloperSettings {
     public static final SwitchSetting NOCLIP = new PowerSetting(Power.NOCLIP);
     public static final SwitchSetting INSTANT_BREAK = new PowerSetting(Power.INSTANT_BREAK);
     public static final SwitchSetting ENDLESS = new PowerSetting(Power.ENDLESS);
-    public static final Setting TIME = new TimeSetting();
-    public static final Setting WEATHER = new WeatherSetting();
+    public static final LockableSetting TIME = new TimeSetting();
+    public static final LockableSetting WEATHER = new WeatherSetting();
 
     @EventListener
     private static void registerSettings(AfterBlockAndItemRegisterEvent event) {

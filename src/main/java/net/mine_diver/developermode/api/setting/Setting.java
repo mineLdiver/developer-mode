@@ -22,20 +22,18 @@ import java.util.List;
  *
  * <p>A value, once set, does one of two things. It {@linkplain #stays() stays},
  * the way a power does, until something sets it again. Or it drifts, the way
- * the day moves on from noon, and a setting that drifts can be
- * {@linkplain #lockable() lockable}, held at a value until it is let go. A
- * preset is lit by what stays and what is locked, and choosing a lit one puts
- * what stays back at {@linkplain #rest() rest} and unlocks what it locked.
+ * the day moves on from noon, and a setting that drifts can be a
+ * {@link LockableSetting}, held at a value until it is let go. A preset is lit
+ * by what stays and what is locked, and choosing a lit one puts what stays
+ * back at {@linkplain #rest() rest} and unlocks what it locked.
  *
- * <p>Reading and changing happen on different sides. {@link #current} and
- * {@link #locked} are asked on the client, of its own copy of the player and
- * their world, every time a slot or a preset is drawn; keeping that copy up to
- * date is the setting's business, since only it knows where its state lives.
- * {@link #set}, {@link #lock} and {@link #unlock} are asked of the side that
- * owns the state, which is the server, or the client in singleplayer. By then
- * the request has been checked: the player may use the tools, the value is
- * one of this setting's, and a lock is only asked of a setting that is
- * lockable.
+ * <p>Reading and changing happen on different sides. {@link #current} is
+ * asked on the client, of its own copy of the player and their world, every
+ * time a slot or a preset is drawn; keeping that copy up to date is the
+ * setting's business, since only it knows where its state lives. {@link #set}
+ * is asked of the side that owns the state, which is the server, or the
+ * client in singleplayer. By then the request has been checked: the player
+ * may use the tools, and the value is one of this setting's.
  *
  * <p>Named for people through translation keys under {@link #translationKey()}:
  *
@@ -55,11 +53,6 @@ public interface Setting {
     /** Whether a value, once set, stays until something sets it again. */
     boolean stays();
 
-    /** Whether a setting that drifts can be held at a value. */
-    default boolean lockable() {
-        return false;
-    }
-
     /**
      * Where a preset that lets go of this puts it back, which only means
      * something for a setting that stays.
@@ -75,33 +68,8 @@ public interface Setting {
      */
     @Nullable String current(PlayerEntity player);
 
-    /** The value it is held at, or null if it is not held. */
-    default @Nullable String locked(PlayerEntity player) {
-        return null;
-    }
-
     /** @return why it could not be, or null if it is done */
     @Nullable Message set(PlayerEntity player, String value);
-
-    /**
-     * Holds it at a value, moving it there first. Only asked of a lockable
-     * setting.
-     *
-     * @return why it could not be, or null if it is done
-     */
-    default @Nullable Message lock(PlayerEntity player, String value) {
-        throw new UnsupportedOperationException(id() + " cannot be locked");
-    }
-
-    /**
-     * Lets go of a lock, and leaves it wherever it was held. Only asked of a
-     * lockable setting.
-     *
-     * @return why it could not be, or null if it is done
-     */
-    default @Nullable Message unlock(PlayerEntity player) {
-        throw new UnsupportedOperationException(id() + " cannot be locked");
-    }
 
     /** What it is registered as, or null before it is. */
     default @Nullable Identifier id() {

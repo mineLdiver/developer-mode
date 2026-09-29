@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.client.gui.radial;
 
 import net.mine_diver.developermode.api.Message;
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.api.setting.Setting;
 import net.mine_diver.developermode.api.setting.SwitchSetting;
 import net.mine_diver.developermode.client.DeveloperModeClient;
@@ -73,6 +74,7 @@ final class RequestEntry {
      * world where it already is does no harm and is sometimes the point.
      */
     static RadialEntry choice(Setting setting, String value, ItemStack icon) {
+        LockableSetting lockable = setting instanceof LockableSetting it ? it : null;
         return new RadialEntry(() -> setting.valueKey(value), icon,
                 returnTo -> request(setting, SettingChange.set(setting, value))) {
             @Override
@@ -83,18 +85,19 @@ final class RequestEntry {
 
             @Override
             public boolean lockable() {
-                return setting.lockable();
+                return lockable != null;
             }
 
             @Override
             public boolean locked() {
                 PlayerEntity player = player();
-                return player != null && setting.lockable() && value.equals(setting.locked(player));
+                return player != null && lockable != null && value.equals(lockable.locked(player));
             }
 
             @Override
             public void toggleLock() {
-                request(setting, locked() ? SettingChange.unlock(setting) : SettingChange.lock(setting, value));
+                if (lockable == null) return;
+                request(setting, locked() ? SettingChange.unlock(lockable) : SettingChange.lock(lockable, value));
             }
 
             @Override

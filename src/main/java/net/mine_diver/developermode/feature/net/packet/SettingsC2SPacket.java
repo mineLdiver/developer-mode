@@ -2,6 +2,7 @@ package net.mine_diver.developermode.feature.net.packet;
 
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.api.Message;
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.api.setting.Setting;
 import net.mine_diver.developermode.api.setting.SettingRegistry;
 import net.mine_diver.developermode.feature.net.Ops;
@@ -116,7 +117,8 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
         Identifier id = Identifier.tryParse(entry.id);
         Setting setting = id == null ? null : SettingRegistry.INSTANCE.get(id);
         if (setting == null) return Message.of("message.developermode.no_such_setting", entry.id);
-        if (entry.kind != SettingChange.Kind.SET && !setting.lockable())
+        LockableSetting lockable = setting instanceof LockableSetting it ? it : null;
+        if (entry.kind != SettingChange.Kind.SET && lockable == null)
             return Message.of("message.developermode.nothing_to_lock");
         if (entry.kind != SettingChange.Kind.UNLOCK && !setting.values().contains(entry.value))
             return Message.of("message.developermode.no_such_value", entry.value);
@@ -126,8 +128,8 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
         try {
             return switch (entry.kind) {
                 case SET -> setting.set(player, entry.value);
-                case LOCK -> setting.lock(player, entry.value);
-                case UNLOCK -> setting.unlock(player);
+                case LOCK -> lockable.lock(player, entry.value);
+                case UNLOCK -> lockable.unlock(player);
             };
         } catch (RuntimeException error) {
             DeveloperMode.LOGGER.error("Setting {} failed to change for {}", entry.id, player.name, error);

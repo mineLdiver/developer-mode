@@ -1,7 +1,7 @@
 package net.mine_diver.developermode.feature.setting;
 
 import net.mine_diver.developermode.api.Message;
-import net.mine_diver.developermode.api.setting.Setting;
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.feature.world.Locks;
 import net.mine_diver.developermode.feature.world.Time;
 import net.minecraft.entity.player.PlayerEntity;
@@ -16,7 +16,7 @@ import java.util.List;
  * locked. What it currently is is whichever of the four the day is nearest,
  * which is also how much of the day each of them stands for in the ring.
  */
-public final class TimeSetting implements Setting {
+public final class TimeSetting implements LockableSetting {
     public static final String DAWN = "dawn";
     public static final String NOON = "noon";
     public static final String DUSK = "dusk";
@@ -31,16 +31,6 @@ public final class TimeSetting implements Setting {
     @Override
     public List<String> values() {
         return VALUES;
-    }
-
-    @Override
-    public boolean stays() {
-        return false;
-    }
-
-    @Override
-    public boolean lockable() {
-        return true;
     }
 
     @Override
