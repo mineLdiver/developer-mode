@@ -7,10 +7,13 @@ import net.mine_diver.developermode.api.setting.Switch;
 import net.mine_diver.developermode.api.setting.SwitchSetting;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
+import net.mine_diver.developermode.client.preset.Preset;
+import net.mine_diver.developermode.client.preset.Presets;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.setting.SettingChange;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.modificationstation.stationapi.api.util.StringIdentifiable;
 
@@ -111,6 +114,44 @@ final class RequestEntry {
             @Override
             public String hint() {
                 return said(answerAs(setting), super.hint());
+            }
+        };
+    }
+
+    /**
+     * A preset, lit while everything it keeps is in place.
+     *
+     * <p>A switch when it keeps something, since choosing it again lets go of
+     * it. One that only moves what drifts carries no mark, because it does
+     * what a click on each of those slots does, and nothing more.
+     *
+     * <p>Its hint is what is in it, since a preset is named by whoever made it
+     * and the name is no promise about what it does.
+     */
+    static RadialEntry preset(Preset preset) {
+        ItemStack icon = preset.icon() == null ? new ItemStack(Item.BOOK) : preset.icon();
+        return new RadialEntry("gui.developermode.radial.preset", icon, returnTo -> Presets.choose(preset, player())) {
+            @Override
+            public Badge badge() {
+                return preset.lights() ? Badge.SWITCH : Badge.NONE;
+            }
+
+            @Override
+            public boolean on() {
+                return preset.inEffect(player());
+            }
+
+            @Override
+            public String label() {
+                // Named in its maker's own words rather than by a key.
+                String name = preset.name();
+                if (!preset.lights()) return name;
+                return name + "  " + Lang.get(Switch.of(on()).translationKey());
+            }
+
+            @Override
+            public String hint() {
+                return said(DevStatus.PRESET, Presets.describe(preset));
             }
         };
     }

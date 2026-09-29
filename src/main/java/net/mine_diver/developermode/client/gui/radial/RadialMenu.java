@@ -38,6 +38,12 @@ import java.util.function.Supplier;
  *
  * <p>A slot holding another menu is a category, and opening it replaces this
  * level rather than drawing beside it.
+ *
+ * <p>Most levels are built once, when the game starts. A level built from
+ * something the player keeps, like their presets, is asked for its slots
+ * whenever it is looked at instead, so it shows what is there now. It only
+ * changes while the ring is down, since editing is done in a window, so its
+ * angles do not move while the ring is up.
  */
 public final class RadialMenu {
     /** Enough for any level, and what the screen sizes its per slot state to. */
@@ -50,15 +56,32 @@ public final class RadialMenu {
 
     private final Supplier<String> key;
     private final List<RadialEntry> entries = new ArrayList<>();
+    /** Where a level built from data gets its slots, or null for one built once. */
+    private final Supplier<List<RadialEntry>> source;
 
     /** @param key the translation key of its name, usually the same as the slot that leads to it */
     public RadialMenu(String key) {
-        this(() -> key);
+        this(() -> key, null);
     }
 
     /** @param key asked for the translation key of its name each time it is drawn */
     public RadialMenu(Supplier<String> key) {
+        this(key, null);
+    }
+
+    /**
+     * A level whose slots come from data that can change while the game runs.
+     *
+     * @param source asked for the slots every time the level is looked at, so
+     *               it should hand back the same list until the data changes
+     */
+    public RadialMenu(String key, Supplier<List<RadialEntry>> source) {
+        this(() -> key, source);
+    }
+
+    private RadialMenu(Supplier<String> key, Supplier<List<RadialEntry>> source) {
         this.key = key;
+        this.source = source;
     }
 
     /** Named so that a level can say where you are once you are below the root. */
@@ -72,16 +95,16 @@ public final class RadialMenu {
     }
 
     public int size() {
-        return entries.size();
+        return Math.min(entries().size(), MAX_SLOTS);
     }
 
     public RadialEntry get(int slot) {
-        return slot < 0 || slot >= entries.size() ? null : entries.get(slot);
+        return slot < 0 || slot >= size() ? null : entries().get(slot);
     }
 
     /** Degrees each slot is given. A level with nothing on it still has a width. */
     public double slice() {
-        return 360.0 / Math.max(1, entries.size());
+        return 360.0 / Math.max(1, size());
     }
 
     /** Degrees clockwise from straight up to the middle of a slot. */
@@ -91,6 +114,10 @@ public final class RadialMenu {
 
     public static RadialMenu root() {
         return root;
+    }
+
+    private List<RadialEntry> entries() {
+        return source == null ? entries : source.get();
     }
 
     public static void bootstrap() {
@@ -157,6 +184,8 @@ public final class RadialMenu {
                         new ItemStack(Item.COOKED_PORKCHOP),
                         returnTo -> Heal.request()));
 
+        RadialMenu presets = new RadialMenu("gui.developermode.radial.presets", new PresetSlots());
+
         root = new RadialMenu("gui.developermode.radial.root")
                 .add(new RadialEntry(
                         "gui.developermode.radial.composer",
@@ -179,7 +208,11 @@ public final class RadialMenu {
                         "gui.developermode.radial.items",
                         new ItemStack(Block.CHEST),
                         returnTo -> ComposerScreen.reveal(ItemPickerWindow.class, ItemPickerWindow::new))
-                        .marked(RadialEntry.Badge.WINDOW));
+                        .marked(RadialEntry.Badge.WINDOW))
+                .add(new RadialEntry(
+                        "gui.developermode.radial.presets",
+                        new ItemStack(Block.BOOKSHELF),
+                        presets));
     }
 
     /** A tool, armed rather than used, and lit while it is the one in hand. */
