@@ -1,17 +1,20 @@
 package net.mine_diver.developermode.client.gui.radial;
 
+import net.mine_diver.developermode.api.Message;
+import net.mine_diver.developermode.api.setting.LockableSetting;
+import net.mine_diver.developermode.api.setting.Setting;
+import net.mine_diver.developermode.api.setting.Switch;
+import net.mine_diver.developermode.api.setting.SwitchSetting;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
-import net.mine_diver.developermode.feature.player.Powers;
+import net.mine_diver.developermode.feature.setting.SettingChange;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.world.World;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 
-import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.List;
 
 /**
  * Slots that ask the world for something, which all have the same problem.
@@ -20,18 +23,23 @@ import java.util.function.Predicate;
  * refusal looks exactly like a grant from in here: nothing opens, and nothing
  * in the world says anything. So each one gives up its description for the
  * reason the last attempt failed, and takes it back once one succeeds.
+ *
+ * <p>A slot for a setting is named by the setting and hears back under it, so
+ * every slot one setting has shares its last refusal: the four times of day
+ * all say why the sun would not move.
  */
 final class RequestEntry {
     private RequestEntry() {}
 
     /**
-     * A switch on one of the player's powers.
+     * A switch on a setting that is on or off.
      *
-     * <p>Lit from {@link Powers} rather than from what it last asked for, so
-     * the ring shows what was granted rather than what was wanted.
+     * <p>Lit from the setting rather than from what it last asked for, so the
+     * ring shows what was granted rather than what was wanted.
      */
-    static RadialEntry power(int power, String key, ItemStack icon) {
-        return new RadialEntry(key, icon, returnTo -> Powers.toggle(player(), power)) {
+    static RadialEntry toggle(SwitchSetting setting, ItemStack icon) {
+        return new RadialEntry(setting::translationKey, icon,
+                returnTo -> request(setting, SettingChange.set(setting, Switch.of(!isOn(setting))))) {
             @Override
             public Badge badge() {
                 return Badge.SWITCH;
@@ -39,7 +47,7 @@ final class RequestEntry {
 
             @Override
             public boolean on() {
-                return Powers.has(player(), power);
+                return isOn(setting);
             }
 
             @Override
@@ -47,13 +55,62 @@ final class RequestEntry {
                 // Said twice, the way a slot that leads somewhere is: lit in
                 // the ring, and carried on the name, since the name is what
                 // gets read before the click.
-                return super.label() + "  "
-                        + Lang.get(on() ? "gui.developermode.radial.on" : "gui.developermode.radial.off");
+                return super.label() + "  " + Lang.get(setting.valueKey(Switch.of(on())));
             }
 
             @Override
             public String hint() {
-                return said(DevStatus.POWERS, super.hint());
+                return said(answerAs(setting), super.hint());
+            }
+        };
+    }
+
+    /**
+     * One of the values of a setting, lit while it is the one the setting is
+     * at, and one it can be locked to if the setting can be locked.
+     *
+     * <p>Read from what this client holds rather than from what was last
+     * asked for, for the same reason a switch is: the ring shows what
+     * happened. Choosing the lit one again is not refused, since putting the
+     * world where it already is does no harm and is sometimes the point.
+     */
+    static <V extends Enum<V> & StringIdentifiable> RadialEntry choice(Setting<V> setting, V value, ItemStack icon) {
+        LockableSetting<V> lockable = setting instanceof LockableSetting<V> it ? it : null;
+        return new RadialEntry(() -> setting.valueKey(value), icon,
+                returnTo -> request(setting, SettingChange.set(setting, value))) {
+            @Override
+            public boolean on() {
+                PlayerEntity player = player();
+                return player != null && setting.current(player) == value;
+            }
+
+            @Override
+            public boolean lockable() {
+                return lockable != null;
+            }
+
+            @Override
+            public boolean locked() {
+                PlayerEntity player = player();
+                return player != null && lockable != null && lockable.locked(player) == value;
+            }
+
+            @Override
+            public void toggleLock() {
+                if (lockable == null) return;
+                request(setting, locked() ? SettingChange.unlock(lockable) : SettingChange.lock(lockable, value));
+            }
+
+            @Override
+            public String label() {
+                return locked()
+                        ? super.label() + "  " + Lang.get("gui.developermode.radial.locked")
+                        : super.label();
+            }
+
+            @Override
+            public String hint() {
+                return said(answerAs(setting), super.hint());
             }
         };
     }
@@ -68,59 +125,18 @@ final class RequestEntry {
         };
     }
 
-    /**
-     * One of several states the world can be put in, lit while it is the one
-     * the world is in, and one the world can be locked to.
-     *
-     * <p>Read from the world this client holds rather than from what was last
-     * asked for, for the same reason a power is: the ring shows what happened.
-     * Choosing the lit one again is not refused, since putting the world where
-     * it already is does no harm and is sometimes the point.
-     *
-     * @param lock asked with whether to lock or to unlock, which is the
-     *             opposite of what the slot shows
-     */
-    static RadialEntry state(String kind, String key, ItemStack icon,
-                             Predicate<World> current, RadialAction action,
-                             Predicate<World> locked, Consumer<Boolean> lock) {
-        return new RadialEntry(key, icon, action) {
-            @Override
-            public boolean on() {
-                return holds(current);
-            }
-
-            @Override
-            public boolean lockable() {
-                return true;
-            }
-
-            @Override
-            public boolean locked() {
-                return holds(locked);
-            }
-
-            @Override
-            public void toggleLock() {
-                lock.accept(!locked());
-            }
-
-            @Override
-            public String label() {
-                return locked()
-                        ? super.label() + "  " + Lang.get("gui.developermode.radial.locked")
-                        : super.label();
-            }
-
-            @Override
-            public String hint() {
-                return said(kind, super.hint());
-            }
-        };
+    private static boolean isOn(SwitchSetting setting) {
+        PlayerEntity player = player();
+        return player != null && setting.isOn(player);
     }
 
-    private static boolean holds(Predicate<World> test) {
-        World world = world();
-        return world != null && test.test(world);
+    private static void request(Setting<?> setting, SettingChange change) {
+        SettingChange.request(answerAs(setting), List.of(change));
+    }
+
+    /** The status a setting's slots hear back under, which is the setting's own name. */
+    private static String answerAs(Setting<?> setting) {
+        return String.valueOf(setting.id());
     }
 
     /** Why the last request of this kind was refused, or what the slot is for. */
@@ -133,11 +149,5 @@ final class RequestEntry {
     private static PlayerEntity player() {
         Minecraft minecraft = DeveloperModeClient.minecraft();
         return minecraft == null ? null : minecraft.player;
-    }
-
-    /** The world as this client last heard of it, or null before there is one. */
-    private static World world() {
-        Minecraft minecraft = DeveloperModeClient.minecraft();
-        return minecraft == null ? null : minecraft.world;
     }
 }

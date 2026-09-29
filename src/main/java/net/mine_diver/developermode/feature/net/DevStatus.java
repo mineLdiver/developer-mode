@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.feature.net;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,16 +16,16 @@ import java.util.Map;
  * <p>Kept per kind so the item picker does not report what the summon picker
  * asked for. {@link #sequence} changes with every message, including a repeat
  * of the one before it, so a window can tell "said again" from "still saying".
+ *
+ * <p>A setting's kind is its identifier, which is not one of these, so every
+ * slot one setting has hears the same answer.
  */
 public final class DevStatus {
     public static final String GIVE = "give";
     public static final String SUMMON = "summon";
     public static final String ENTITY = "entity";
-    public static final String POWERS = "powers";
     public static final String HEAL = "heal";
     public static final String WARP = "warp";
-    public static final String TIME = "time";
-    public static final String WEATHER = "weather";
     public static final String GROW = "grow";
     public static final String BLAST = "blast";
     public static final String SMITE = "smite";

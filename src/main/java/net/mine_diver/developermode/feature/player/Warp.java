@@ -1,7 +1,7 @@
 package net.mine_diver.developermode.feature.player;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.feature.Facing;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.net.packet.WarpC2SPacket;
 import net.mine_diver.developermode.mixin.EntityAccessor;
