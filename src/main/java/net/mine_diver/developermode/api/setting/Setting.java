@@ -3,6 +3,7 @@ package net.mine_diver.developermode.api.setting;
 import net.mine_diver.developermode.api.Message;
 import net.minecraft.entity.player.PlayerEntity;
 import net.modificationstation.stationapi.api.util.Identifier;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -16,9 +17,11 @@ import java.util.List;
  * Everything registered can be put in a preset without anything more being
  * asked of it.
  *
- * <p>A setting has a handful of values, each named the way a block state
- * property's are: lowercase and stable. Values are kept in preset files and
- * sent over the wire by name, so renaming one loses it everywhere it was kept.
+ * <p>A setting's values are a handful of constants of an enum, named the way
+ * an {@code EnumProperty}'s are, by {@link StringIdentifiable#asString()}:
+ * lowercase and stable. Values are kept in preset files and sent over the
+ * wire by that name, so renaming one loses it everywhere it was kept, and
+ * renaming the constant itself loses nothing.
  *
  * <p>A value, once set, does one of two things. It {@linkplain #stays() stays},
  * the way a power does, until something sets it again. Or it drifts, the way
@@ -41,14 +44,16 @@ import java.util.List;
  *   <li>the key itself, for its name, as a slot or a row of the preset editor
  *       shows it;
  *   <li>{@code .hint} beneath it, for a line saying what it is;
- *   <li>{@link #valueKey(String)}, for each value's name, with {@code .hint}
+ *   <li>{@link #valueKey}, for each value's name, with {@code .hint}
  *       beneath that for a line about the value, shown on a slot that sets
  *       it.
  * </ul>
+ *
+ * @param <V> the enum its values are constants of
  */
-public interface Setting {
+public interface Setting<V extends Enum<V> & StringIdentifiable> {
     /** Every value, in the order they are offered, with the one it rests at first. */
-    List<String> values();
+    List<V> values();
 
     /** Whether a value, once set, stays until something sets it again. */
     boolean stays();
@@ -57,7 +62,7 @@ public interface Setting {
      * Where a preset that lets go of this puts it back, which only means
      * something for a setting that stays.
      */
-    default String rest() {
+    default V rest() {
         return values().get(0);
     }
 
@@ -66,10 +71,18 @@ public interface Setting {
      * somewhere without a sky. For a setting that drifts, this is the value it
      * is nearest to.
      */
-    @Nullable String current(PlayerEntity player);
+    @Nullable V current(PlayerEntity player);
 
     /** @return why it could not be, or null if it is done */
-    @Nullable Message set(PlayerEntity player, String value);
+    @Nullable Message set(PlayerEntity player, V value);
+
+    /** The value of this setting's that goes by a name, or null if none does. */
+    default @Nullable V value(String name) {
+        for (V value : values()) {
+            if (value.asString().equals(name)) return value;
+        }
+        return null;
+    }
 
     /** What it is registered as, or null before it is. */
     default @Nullable Identifier id() {
@@ -83,7 +96,7 @@ public interface Setting {
     }
 
     /** The key a value is named by, which is under this setting's own. */
-    default String valueKey(String value) {
-        return translationKey() + "." + value;
+    default String valueKey(V value) {
+        return translationKey() + "." + value.asString();
     }
 }

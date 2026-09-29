@@ -14,6 +14,7 @@ import net.modificationstation.stationapi.api.entity.player.PlayerHelper;
 import net.modificationstation.stationapi.api.network.packet.ManagedPacket;
 import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 import net.modificationstation.stationapi.api.network.packet.PacketType;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInputStream;
@@ -116,20 +117,27 @@ public class SettingsC2SPacket extends Packet implements ManagedPacket<SettingsC
 
     /** @return why it could not be, or null if it is done */
     private static Message change(PlayerEntity player, Entry entry) {
-        Setting setting = SettingRegistry.INSTANCE.get(entry.rawId);
+        Setting<?> setting = SettingRegistry.INSTANCE.get(entry.rawId);
         if (setting == null) return Message.of("message.developermode.no_such_setting");
-        LockableSetting lockable = setting instanceof LockableSetting it ? it : null;
-        if (entry.kind != SettingChange.Kind.SET && lockable == null)
+        return change(player, setting, entry.kind, entry.value);
+    }
+
+    private static <V extends Enum<V> & StringIdentifiable> Message change(
+            PlayerEntity player, Setting<V> setting, SettingChange.Kind kind, String name
+    ) {
+        LockableSetting<V> lockable = setting instanceof LockableSetting<V> it ? it : null;
+        if (kind != SettingChange.Kind.SET && lockable == null)
             return Message.of("message.developermode.nothing_to_lock");
-        if (entry.kind != SettingChange.Kind.UNLOCK && !setting.values().contains(entry.value))
-            return Message.of("message.developermode.no_such_value", entry.value);
+        V value = setting.value(name);
+        if (kind != SettingChange.Kind.UNLOCK && value == null)
+            return Message.of("message.developermode.no_such_value", name);
 
         // A setting can come from any mod. One that throws is reported, and
         // does not get to take the connection down with it.
         try {
-            return switch (entry.kind) {
-                case SET -> setting.set(player, entry.value);
-                case LOCK -> lockable.lock(player, entry.value);
+            return switch (kind) {
+                case SET -> setting.set(player, value);
+                case LOCK -> lockable.lock(player, value);
                 case UNLOCK -> lockable.unlock(player);
             };
         } catch (RuntimeException error) {

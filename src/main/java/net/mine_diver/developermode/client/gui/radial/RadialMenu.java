@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.client.gui.radial;
 
-import net.mine_diver.developermode.api.setting.Setting;
+import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.window.EntityListWindow;
@@ -12,8 +12,8 @@ import net.mine_diver.developermode.client.tool.ToolMode;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Heal;
 import net.mine_diver.developermode.feature.setting.DeveloperSettings;
-import net.mine_diver.developermode.feature.setting.TimeSetting;
-import net.mine_diver.developermode.feature.setting.WeatherSetting;
+import net.mine_diver.developermode.feature.setting.TimeSetting.TimeOfDay;
+import net.mine_diver.developermode.feature.setting.WeatherSetting.WeatherKind;
 import net.mine_diver.developermode.feature.world.Clearing;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
@@ -96,18 +96,18 @@ public final class RadialMenu {
     public static void bootstrap() {
         // Laid out as the sky's own dial: noon at the top, midnight at the
         // bottom, and the day running clockwise between them.
-        Setting timeSetting = DeveloperSettings.TIME;
+        LockableSetting<TimeOfDay> timeSetting = DeveloperSettings.TIME;
         RadialMenu time = new RadialMenu(timeSetting::translationKey)
-                .add(RequestEntry.choice(timeSetting, TimeSetting.NOON, new ItemStack(Block.GLOWSTONE)))
-                .add(RequestEntry.choice(timeSetting, TimeSetting.DUSK, new ItemStack(Block.JACK_O_LANTERN)))
-                .add(RequestEntry.choice(timeSetting, TimeSetting.MIDNIGHT, new ItemStack(Block.OBSIDIAN)))
-                .add(RequestEntry.choice(timeSetting, TimeSetting.DAWN, new ItemStack(Block.DANDELION)));
+                .add(RequestEntry.choice(timeSetting, TimeOfDay.NOON, new ItemStack(Block.GLOWSTONE)))
+                .add(RequestEntry.choice(timeSetting, TimeOfDay.DUSK, new ItemStack(Block.JACK_O_LANTERN)))
+                .add(RequestEntry.choice(timeSetting, TimeOfDay.MIDNIGHT, new ItemStack(Block.OBSIDIAN)))
+                .add(RequestEntry.choice(timeSetting, TimeOfDay.DAWN, new ItemStack(Block.DANDELION)));
 
-        Setting weatherSetting = DeveloperSettings.WEATHER;
+        LockableSetting<WeatherKind> weatherSetting = DeveloperSettings.WEATHER;
         RadialMenu weather = new RadialMenu(weatherSetting::translationKey)
-                .add(RequestEntry.choice(weatherSetting, WeatherSetting.CLEAR, new ItemStack(Block.GLASS)))
-                .add(RequestEntry.choice(weatherSetting, WeatherSetting.RAIN, new ItemStack(Item.WATER_BUCKET)))
-                .add(RequestEntry.choice(weatherSetting, WeatherSetting.STORM, new ItemStack(Item.GUNPOWDER)));
+                .add(RequestEntry.choice(weatherSetting, WeatherKind.CLEAR, new ItemStack(Block.GLASS)))
+                .add(RequestEntry.choice(weatherSetting, WeatherKind.RAIN, new ItemStack(Item.WATER_BUCKET)))
+                .add(RequestEntry.choice(weatherSetting, WeatherKind.STORM, new ItemStack(Item.GUNPOWDER)));
 
         RadialMenu world = new RadialMenu("gui.developermode.radial.world")
                 .add(new RadialEntry(

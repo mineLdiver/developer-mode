@@ -4,6 +4,7 @@ import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.api.setting.Setting;
 import net.mine_diver.developermode.feature.net.packet.SettingsC2SPacket;
 import net.modificationstation.stationapi.api.network.packet.PacketHelper;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 
 import java.util.List;
 
@@ -14,24 +15,27 @@ import java.util.List;
  * should be, so two requests that cross on the wire, or several in one, cannot
  * leave it the opposite of what any of them asked for.
  *
- * @param value the value to set or lock at, and empty for an unlock
+ * <p>Kept by the value's name, which is what goes over the wire, and what a
+ * preset holds.
+ *
+ * @param value the name of the value to set or lock at, and empty for an unlock
  */
-public record SettingChange(Setting setting, Kind kind, String value) {
+public record SettingChange(Setting<?> setting, Kind kind, String value) {
     public enum Kind {
         SET,
         LOCK,
         UNLOCK
     }
 
-    public static SettingChange set(Setting setting, String value) {
-        return new SettingChange(setting, Kind.SET, value);
+    public static <V extends Enum<V> & StringIdentifiable> SettingChange set(Setting<V> setting, V value) {
+        return new SettingChange(setting, Kind.SET, value.asString());
     }
 
-    public static SettingChange lock(LockableSetting setting, String value) {
-        return new SettingChange(setting, Kind.LOCK, value);
+    public static <V extends Enum<V> & StringIdentifiable> SettingChange lock(LockableSetting<V> setting, V value) {
+        return new SettingChange(setting, Kind.LOCK, value.asString());
     }
 
-    public static SettingChange unlock(LockableSetting setting) {
+    public static SettingChange unlock(LockableSetting<?> setting) {
         return new SettingChange(setting, Kind.UNLOCK, "");
     }
 

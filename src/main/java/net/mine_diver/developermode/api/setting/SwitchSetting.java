@@ -13,15 +13,9 @@ import java.util.List;
  * worth a base of its own: implement {@link #isOn} and {@link #switchTo}, and
  * everything else a setting is asked follows from them. The ring shows one as
  * a switch rather than as a choice between two slots.
- *
- * <p>Its two values are named the same for every switch, so a switch only
- * needs translations for its own name and hint.
  */
-public abstract class SwitchSetting implements Setting {
-    public static final String OFF = "off";
-    public static final String ON = "on";
-
-    private static final List<String> VALUES = List.of(OFF, ON);
+public abstract class SwitchSetting implements Setting<Switch> {
+    private static final List<Switch> VALUES = List.of(Switch.values());
 
     /** Whether it is on for this player, as {@link Setting#current} would say. */
     public abstract boolean isOn(PlayerEntity player);
@@ -30,7 +24,7 @@ public abstract class SwitchSetting implements Setting {
     protected abstract @Nullable Message switchTo(PlayerEntity player, boolean on);
 
     @Override
-    public final List<String> values() {
+    public final List<Switch> values() {
         return VALUES;
     }
 
@@ -40,17 +34,17 @@ public abstract class SwitchSetting implements Setting {
     }
 
     @Override
-    public final String current(PlayerEntity player) {
-        return isOn(player) ? ON : OFF;
+    public final Switch current(PlayerEntity player) {
+        return Switch.of(isOn(player));
     }
 
     @Override
-    public final @Nullable Message set(PlayerEntity player, String value) {
-        return switchTo(player, ON.equals(value));
+    public final @Nullable Message set(PlayerEntity player, Switch value) {
+        return switchTo(player, value.isOn());
     }
 
     @Override
-    public String valueKey(String value) {
-        return "gui.developermode.setting." + value;
+    public String valueKey(Switch value) {
+        return value.translationKey();
     }
 }

@@ -5,6 +5,7 @@ import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.feature.world.Locks;
 import net.mine_diver.developermode.feature.world.Time;
 import net.minecraft.entity.player.PlayerEntity;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -16,46 +17,60 @@ import java.util.List;
  * locked. What it currently is is whichever of the four the day is nearest,
  * which is also how much of the day each of them stands for in the ring.
  */
-public final class TimeSetting implements LockableSetting {
-    public static final String DAWN = "dawn";
-    public static final String NOON = "noon";
-    public static final String DUSK = "dusk";
-    public static final String MIDNIGHT = "midnight";
+public final class TimeSetting implements LockableSetting<TimeSetting.TimeOfDay> {
+    /** In the order the day passes them. */
+    public enum TimeOfDay implements StringIdentifiable {
+        DAWN("dawn", Time.DAWN),
+        NOON("noon", Time.NOON),
+        DUSK("dusk", Time.DUSK),
+        MIDNIGHT("midnight", Time.MIDNIGHT);
 
-    /** In the order the day passes them, which is also the order of {@link #TICKS}. */
-    private static final List<String> VALUES = List.of(DAWN, NOON, DUSK, MIDNIGHT);
-    private static final int[] TICKS = { Time.DAWN, Time.NOON, Time.DUSK, Time.MIDNIGHT };
+        private final String name;
+        private final int ticks;
+
+        TimeOfDay(String name, int ticks) {
+            this.name = name;
+            this.ticks = ticks;
+        }
+
+        @Override
+        public String asString() {
+            return name;
+        }
+    }
+
+    private static final List<TimeOfDay> VALUES = List.of(TimeOfDay.values());
 
     TimeSetting() {}
 
     @Override
-    public List<String> values() {
+    public List<TimeOfDay> values() {
         return VALUES;
     }
 
     @Override
-    public @Nullable String current(PlayerEntity player) {
+    public @Nullable TimeOfDay current(PlayerEntity player) {
         if (player == null || player.world == null) return null;
-        for (int i = 0; i < TICKS.length; i++) {
-            if (Time.around(player.world, TICKS[i])) return VALUES.get(i);
+        for (TimeOfDay time : VALUES) {
+            if (Time.around(player.world, time.ticks)) return time;
         }
         return null;
     }
 
     @Override
-    public @Nullable String locked(PlayerEntity player) {
+    public @Nullable TimeOfDay locked(PlayerEntity player) {
         if (player == null || player.world == null) return null;
-        return named(Locks.lockedTime(player.world));
+        return at(Locks.lockedTime(player.world));
     }
 
     @Override
-    public Message set(PlayerEntity player, String value) {
-        return Time.set(player.world, ticks(value));
+    public Message set(PlayerEntity player, TimeOfDay value) {
+        return Time.set(player.world, value.ticks);
     }
 
     @Override
-    public Message lock(PlayerEntity player, String value) {
-        return Locks.lock(player.world, Locks.TIME, true, ticks(value));
+    public Message lock(PlayerEntity player, TimeOfDay value) {
+        return Locks.lock(player.world, Locks.TIME, true, value.ticks);
     }
 
     @Override
@@ -63,14 +78,10 @@ public final class TimeSetting implements LockableSetting {
         return Locks.lock(player.world, Locks.TIME, false, 0);
     }
 
-    private static int ticks(String value) {
-        return TICKS[VALUES.indexOf(value)];
-    }
-
     /** The time a lock holds, if it is one of the four, which a lock made here always is. */
-    private static @Nullable String named(int ticks) {
-        for (int i = 0; i < TICKS.length; i++) {
-            if (TICKS[i] == ticks) return VALUES.get(i);
+    private static @Nullable TimeOfDay at(int ticks) {
+        for (TimeOfDay time : VALUES) {
+            if (time.ticks == ticks) return time;
         }
         return null;
     }

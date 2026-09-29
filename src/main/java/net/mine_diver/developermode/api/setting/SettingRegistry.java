@@ -23,7 +23,7 @@ import net.modificationstation.stationapi.api.registry.SimpleRegistry;
  * client has is given a raw ID past the server's, and refused when it is
  * asked for.
  */
-public final class SettingRegistry extends SimpleRegistry<Setting> {
+public final class SettingRegistry extends SimpleRegistry<Setting<?>> {
     public static final RegistryKey<SettingRegistry> KEY =
             RegistryKey.ofRegistry(DeveloperMode.NAMESPACE.id("settings"));
     public static final SettingRegistry INSTANCE =

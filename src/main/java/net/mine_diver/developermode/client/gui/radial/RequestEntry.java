@@ -3,6 +3,7 @@ package net.mine_diver.developermode.client.gui.radial;
 import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.api.setting.LockableSetting;
 import net.mine_diver.developermode.api.setting.Setting;
+import net.mine_diver.developermode.api.setting.Switch;
 import net.mine_diver.developermode.api.setting.SwitchSetting;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
@@ -11,6 +12,7 @@ import net.mine_diver.developermode.feature.setting.SettingChange;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 
 import java.util.List;
 
@@ -37,7 +39,7 @@ final class RequestEntry {
      */
     static RadialEntry toggle(SwitchSetting setting, ItemStack icon) {
         return new RadialEntry(setting::translationKey, icon,
-                returnTo -> request(setting, SettingChange.set(setting, isOn(setting) ? SwitchSetting.OFF : SwitchSetting.ON))) {
+                returnTo -> request(setting, SettingChange.set(setting, Switch.of(!isOn(setting))))) {
             @Override
             public Badge badge() {
                 return Badge.SWITCH;
@@ -53,8 +55,7 @@ final class RequestEntry {
                 // Said twice, the way a slot that leads somewhere is: lit in
                 // the ring, and carried on the name, since the name is what
                 // gets read before the click.
-                String state = on() ? SwitchSetting.ON : SwitchSetting.OFF;
-                return super.label() + "  " + Lang.get(setting.valueKey(state));
+                return super.label() + "  " + Lang.get(setting.valueKey(Switch.of(on())));
             }
 
             @Override
@@ -73,14 +74,14 @@ final class RequestEntry {
      * happened. Choosing the lit one again is not refused, since putting the
      * world where it already is does no harm and is sometimes the point.
      */
-    static RadialEntry choice(Setting setting, String value, ItemStack icon) {
-        LockableSetting lockable = setting instanceof LockableSetting it ? it : null;
+    static <V extends Enum<V> & StringIdentifiable> RadialEntry choice(Setting<V> setting, V value, ItemStack icon) {
+        LockableSetting<V> lockable = setting instanceof LockableSetting<V> it ? it : null;
         return new RadialEntry(() -> setting.valueKey(value), icon,
                 returnTo -> request(setting, SettingChange.set(setting, value))) {
             @Override
             public boolean on() {
                 PlayerEntity player = player();
-                return player != null && value.equals(setting.current(player));
+                return player != null && setting.current(player) == value;
             }
 
             @Override
@@ -91,7 +92,7 @@ final class RequestEntry {
             @Override
             public boolean locked() {
                 PlayerEntity player = player();
-                return player != null && lockable != null && value.equals(lockable.locked(player));
+                return player != null && lockable != null && lockable.locked(player) == value;
             }
 
             @Override
@@ -129,12 +130,12 @@ final class RequestEntry {
         return player != null && setting.isOn(player);
     }
 
-    private static void request(Setting setting, SettingChange change) {
+    private static void request(Setting<?> setting, SettingChange change) {
         SettingChange.request(answerAs(setting), List.of(change));
     }
 
     /** The status a setting's slots hear back under, which is the setting's own name. */
-    private static String answerAs(Setting setting) {
+    private static String answerAs(Setting<?> setting) {
         return String.valueOf(setting.id());
     }
 

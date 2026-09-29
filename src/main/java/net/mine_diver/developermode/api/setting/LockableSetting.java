@@ -2,6 +2,7 @@ package net.mine_diver.developermode.api.setting;
 
 import net.mine_diver.developermode.api.Message;
 import net.minecraft.entity.player.PlayerEntity;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -15,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link #lock} and {@link #unlock} of the side that owns the state, the way
  * {@link #set} is, with the value already checked to be one of this setting's.
  */
-public interface LockableSetting extends Setting {
+public interface LockableSetting<V extends Enum<V> & StringIdentifiable> extends Setting<V> {
     /** Drifts, since a value that stays has no need of being held. */
     @Override
     default boolean stays() {
@@ -23,14 +24,14 @@ public interface LockableSetting extends Setting {
     }
 
     /** The value it is held at, or null if it is not held. */
-    @Nullable String locked(PlayerEntity player);
+    @Nullable V locked(PlayerEntity player);
 
     /**
      * Holds it at a value, moving it there first.
      *
      * @return why it could not be, or null if it is done
      */
-    @Nullable Message lock(PlayerEntity player, String value);
+    @Nullable Message lock(PlayerEntity player, V value);
 
     /**
      * Lets go of a lock, and leaves it wherever it was held.

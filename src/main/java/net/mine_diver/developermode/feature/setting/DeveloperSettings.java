@@ -34,8 +34,8 @@ public final class DeveloperSettings {
     public static final SwitchSetting NOCLIP = new PowerSetting(Power.NOCLIP);
     public static final SwitchSetting INSTANT_BREAK = new PowerSetting(Power.INSTANT_BREAK);
     public static final SwitchSetting ENDLESS = new PowerSetting(Power.ENDLESS);
-    public static final LockableSetting TIME = new TimeSetting();
-    public static final LockableSetting WEATHER = new WeatherSetting();
+    public static final LockableSetting<TimeSetting.TimeOfDay> TIME = new TimeSetting();
+    public static final LockableSetting<WeatherSetting.WeatherKind> WEATHER = new WeatherSetting();
 
     @EventListener
     private static void registerSettings(AfterBlockAndItemRegisterEvent event) {

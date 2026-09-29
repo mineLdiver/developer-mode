@@ -6,6 +6,7 @@ import net.mine_diver.developermode.feature.world.Locks;
 import net.mine_diver.developermode.feature.world.Weather;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.world.World;
+import net.modificationstation.stationapi.api.util.StringIdentifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -17,42 +18,56 @@ import java.util.List;
  * locked. Somewhere without a sky it has nothing to say, and the world turns
  * down anything asked of it there.
  */
-public final class WeatherSetting implements LockableSetting {
-    public static final String CLEAR = "clear";
-    public static final String RAIN = "rain";
-    public static final String STORM = "storm";
+public final class WeatherSetting implements LockableSetting<WeatherSetting.WeatherKind> {
+    public enum WeatherKind implements StringIdentifiable {
+        CLEAR("clear", Weather.CLEAR),
+        RAIN("rain", Weather.RAIN),
+        STORM("storm", Weather.STORM);
 
-    /** Indexed by the {@link Weather} kind each one is. */
-    private static final List<String> VALUES = List.of(CLEAR, RAIN, STORM);
+        private final String name;
+        private final byte kind;
+
+        WeatherKind(String name, byte kind) {
+            this.name = name;
+            this.kind = kind;
+        }
+
+        @Override
+        public String asString() {
+            return name;
+        }
+    }
+
+    private static final List<WeatherKind> VALUES = List.of(WeatherKind.values());
 
     WeatherSetting() {}
 
     @Override
-    public List<String> values() {
+    public List<WeatherKind> values() {
         return VALUES;
     }
 
     @Override
-    public @Nullable String current(PlayerEntity player) {
+    public @Nullable WeatherKind current(PlayerEntity player) {
         World world = skyOf(player);
-        return world == null ? null : VALUES.get(Weather.of(world));
+        return world == null ? null : of(Weather.of(world));
     }
 
     @Override
-    public @Nullable String locked(PlayerEntity player) {
+    public @Nullable WeatherKind locked(PlayerEntity player) {
         World world = skyOf(player);
         int locked = world == null ? Locks.NONE : Locks.lockedWeather(world);
-        return locked == Locks.NONE ? null : VALUES.get(locked);
+        return locked == Locks.NONE ? null : of(locked);
     }
 
     @Override
-    public Message set(PlayerEntity player, String value) {
-        return Weather.set(player.world, kind(value));
+    public Message set(PlayerEntity player, WeatherKind value) {
+        return Weather.set(player.world, value.kind);
     }
 
     @Override
-    public Message lock(PlayerEntity player, String value) {
-        return Locks.lock(player.world, Locks.WEATHER, true, kind(value));
+    public Message lock(PlayerEntity player, WeatherKind value) {
+        return Locks.lock(player.world, Locks.WEATHER, true, value.kind);
     }
 
     @Override
@@ -60,8 +75,11 @@ public final class WeatherSetting implements LockableSetting {
         return Locks.lock(player.world, Locks.WEATHER, false, 0);
     }
 
-    private static byte kind(String value) {
-        return (byte) VALUES.indexOf(value);
+    private static @Nullable WeatherKind of(int kind) {
+        for (WeatherKind weather : VALUES) {
+            if (weather.kind == kind) return weather;
+        }
+        return null;
     }
 
     /** The player's world, if it has a sky to have weather in. */

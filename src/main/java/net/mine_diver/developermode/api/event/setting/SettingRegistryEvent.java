@@ -11,7 +11,7 @@ import net.modificationstation.stationapi.api.event.registry.RegistryEvent;
  * setting can refer to either. Developer Mode's own settings are in the
  * registry by the time it is posted.
  */
-public class SettingRegistryEvent extends RegistryEvent.EntryTypeBound<Setting, SettingRegistry> {
+public class SettingRegistryEvent extends RegistryEvent.EntryTypeBound<Setting<?>, SettingRegistry> {
     public SettingRegistryEvent() {
         super(SettingRegistry.INSTANCE);
     }
