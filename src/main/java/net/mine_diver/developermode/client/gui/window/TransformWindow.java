@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.client.Clipboard;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.Workbench;
 import net.mine_diver.developermode.client.gui.Button;
@@ -8,6 +9,7 @@ import net.mine_diver.developermode.client.gui.Slider;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
+import net.mine_diver.developermode.feature.world.transform.Export;
 import net.mine_diver.developermode.feature.world.transform.Parameter;
 import net.mine_diver.developermode.feature.world.transform.Stack;
 import net.mine_diver.developermode.feature.world.transform.Threshold;
@@ -26,16 +28,25 @@ import java.util.Map;
  *
  * <p>A preview open beside this builds again whenever something here settles
  * on a new value, so the change can be watched as it is made.
+ *
+ * <p>What is tuned here leaves as code for the mod's own generator, with
+ * nothing of developer-mode in it, or as the recipe in words.
  */
 public final class TransformWindow extends DevWindow {
     private static final int HEADER_HEIGHT = 13;
     private static final int GAP = 2;
     private static final int SPACING = 5;
     private static final int SMALL = 12;
-    private static final int FOOTER_HEIGHT = Button.HEIGHT + 4;
+    private static final int FOOTER_HEIGHT = (Button.HEIGHT + 3) * 2 + 1;
+    private static final long STATUS_NANOS = 3_000_000_000L;
 
     private final Button addVortexButton = new Button("gui.developermode.transforms.add.vortex");
     private final Button addThresholdButton = new Button("gui.developermode.transforms.add.threshold");
+    private final Button copyCodeButton = new Button("gui.developermode.transforms.copy.code");
+    private final Button copyRecipeButton = new Button("gui.developermode.transforms.copy.recipe");
+    private String status;
+    private boolean statusOk;
+    private long statusUntil;
     private final Map<Transform, Row> rows = new IdentityHashMap<>();
     private int scroll;
 
@@ -80,6 +91,23 @@ public final class TransformWindow extends DevWindow {
         addVortexButton.render(minecraft, mouseX, mouseY);
         addThresholdButton.bounds(contentX() + half + GAP, footerY, half);
         addThresholdButton.render(minecraft, mouseX, mouseY);
+
+        int copyY = footerY + Button.HEIGHT + 3;
+        boolean any = !transforms.isEmpty();
+        copyCodeButton.bounds(contentX(), copyY, half);
+        copyCodeButton.enabled = any;
+        copyCodeButton.render(minecraft, mouseX, mouseY);
+        copyRecipeButton.bounds(contentX() + half + GAP, copyY, half);
+        copyRecipeButton.enabled = any;
+        copyRecipeButton.render(minecraft, mouseX, mouseY);
+
+        if (status != null && System.nanoTime() < statusUntil) {
+            int width = Draw.textWidth(minecraft, status) + 8;
+            int left = contentX() + (contentWidth() - width) / 2;
+            int top = footerY - 14;
+            Draw.rect(left, top, left + width, top + 11, Theme.PANEL_RAISED);
+            Draw.text(minecraft, status, left + 4, top + 2, statusOk ? Theme.ACCENT : Theme.DANGER);
+        }
     }
 
     @Override
@@ -93,6 +121,14 @@ public final class TransformWindow extends DevWindow {
             stack.add(new Threshold());
             return;
         }
+        if (copyCodeButton.enabled && copyCodeButton.contains(mouseX, mouseY)) {
+            copied(Clipboard.copy(Export.code(stack, Lang::get)), "gui.developermode.transforms.copied.code");
+            return;
+        }
+        if (copyRecipeButton.enabled && copyRecipeButton.contains(mouseX, mouseY)) {
+            copied(Clipboard.copy(Export.recipe(stack, Lang::get)), "gui.developermode.transforms.copied.recipe");
+            return;
+        }
         if (mouseY >= contentY() + contentHeight() - FOOTER_HEIGHT) return;
         for (Transform transform : new ArrayList<>(stack.transforms())) {
             if (row(transform).click(stack, mouseX, mouseY)) return;
@@ -102,6 +138,12 @@ public final class TransformWindow extends DevWindow {
     @Override
     public void mouseScrolled(int mouseX, int mouseY, int direction) {
         scroll -= direction * 24;
+    }
+
+    private void copied(boolean ok, String key) {
+        status = Lang.get(ok ? key : "gui.developermode.transforms.copy_failed");
+        statusOk = ok;
+        statusUntil = System.nanoTime() + STATUS_NANOS;
     }
 
     private Row row(Transform transform) {
