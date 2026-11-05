@@ -2,6 +2,7 @@ package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.feature.Message;
+import net.minecraft.block.Block;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSource;
@@ -25,29 +26,55 @@ import java.util.Comparator;
  * the main thread, since StationAPI's generation keeps its working arrays in
  * static fields and a second thread would trample the world's own generation.
  *
- * <p>This is the Terrain step: the blocks a generator's {@code getChunk} hands
- * back, which is the shape, the surface and the caves, with no decoration.
+ * <p>A preview stops the generator at the step the question needs, and the
+ * earlier the step, the cheaper it is.
  */
 public final class Preview {
+    /** How far a preview lets the generator go. */
+    public enum Step {
+        /**
+         * The density the generator shapes terrain from, shown as solid
+         * wherever it is above zero: the bare shape, with no surface and no
+         * caves. Only for a generator {@link Noise} knows.
+         */
+        NOISE("gui.developermode.preview.step.noise"),
+        /**
+         * The blocks {@code getChunk} hands back: the shape, the surface and
+         * the caves, before any decoration.
+         */
+        TERRAIN("gui.developermode.preview.step.terrain");
+
+        public final String key;
+
+        Step(String key) {
+            this.key = key;
+        }
+    }
+
     private final World world;
     private final ChunkSource generator;
+    private final Step step;
     private final int fromX;
     private final int fromZ;
     private final int across;
     private final FlattenedChunk[] chunks;
+    /** The density of each chunk, at the Noise step, and null at any other. */
+    private final Noise.Field[] noise;
     /** Indices into {@link #chunks}, nearest the middle first. */
     private final int[] order;
 
     private int made;
     private Message failure;
 
-    private Preview(World world, ChunkSource generator, int centerX, int centerZ, int radius) {
+    private Preview(World world, ChunkSource generator, Step step, int centerX, int centerZ, int radius) {
         this.world = world;
         this.generator = generator;
+        this.step = step;
         this.across = radius * 2 + 1;
         this.fromX = centerX - radius;
         this.fromZ = centerZ - radius;
         this.chunks = new FlattenedChunk[across * across];
+        this.noise = step == Step.NOISE ? new Noise.Field[chunks.length] : null;
 
         Integer[] byDistance = new Integer[chunks.length];
         for (int i = 0; i < byDistance.length; i++) byDistance[i] = i;
@@ -64,8 +91,8 @@ public final class Preview {
      *
      * @param radius how far out from that chunk, in chunks
      */
-    public static Preview around(World world, int chunkX, int chunkZ, int radius) {
-        return new Preview(world, world.dimension.createChunkGenerator(), chunkX, chunkZ, radius);
+    public static Preview around(World world, Step step, int chunkX, int chunkZ, int radius) {
+        return new Preview(world, world.dimension.createChunkGenerator(), step, chunkX, chunkZ, radius);
     }
 
     /**
@@ -82,12 +109,22 @@ public final class Preview {
             int x = fromX + index % across;
             int z = fromZ + index / across;
             try {
-                Chunk chunk = generator.getChunk(x, z);
-                if (!(chunk instanceof FlattenedChunk flattened)) {
-                    failure = Message.of("message.developermode.cannot_preview");
-                    return true;
+                if (step == Step.NOISE) {
+                    Noise.Field field = Noise.sample(generator, world, x, z);
+                    if (field == null) {
+                        failure = Message.of("message.developermode.no_noise");
+                        return true;
+                    }
+                    noise[index] = field;
+                    chunks[index] = solidOf(field, x, z);
+                } else {
+                    Chunk chunk = generator.getChunk(x, z);
+                    if (!(chunk instanceof FlattenedChunk flattened)) {
+                        failure = Message.of("message.developermode.cannot_preview");
+                        return true;
+                    }
+                    chunks[index] = flattened;
                 }
-                chunks[index] = flattened;
             } catch (RuntimeException | LinkageError error) {
                 DeveloperMode.LOGGER.error("Generating preview chunk {}, {} threw", x, z, error);
                 failure = Message.of("message.developermode.preview_threw", error.getClass().getSimpleName(), x, z);
@@ -97,6 +134,43 @@ public final class Preview {
             if (System.nanoTime() >= until) break;
         }
         return done();
+    }
+
+    /**
+     * A chunk of stone wherever the density is above zero, for drawing the
+     * Noise step the way every other step is drawn. Written into its sections
+     * directly, since setting blocks through the chunk would tell the world
+     * about them.
+     */
+    private FlattenedChunk solidOf(Noise.Field field, int chunkX, int chunkZ) {
+        FlattenedChunk chunk = new FlattenedChunk(world, chunkX, chunkZ);
+        var stone = Block.STONE.getDefaultState();
+        int bottom = field.bottomY();
+        for (int x = 0; x < 16; x++)
+            for (int z = 0; z < 16; z++)
+                for (int y = bottom; y < bottom + field.height(); y++)
+                    if (field.solid(x, y, z)) chunk.getOrCreateSection(y, false).setBlockState(x, y & 15, z, stone);
+        return chunk;
+    }
+
+    public Step step() {
+        return step;
+    }
+
+    /**
+     * The density at a block, in world coordinates.
+     *
+     * @return NaN where there is none: at any step but Noise, outside the
+     *         preview, or in a chunk not made yet
+     */
+    public float density(int x, int y, int z) {
+        if (noise == null) return Float.NaN;
+        int chunkX = (x >> 4) - fromX;
+        int chunkZ = (z >> 4) - fromZ;
+        if (chunkX < 0 || chunkZ < 0 || chunkX >= across || chunkZ >= across) return Float.NaN;
+        Noise.Field field = noise[chunkZ * across + chunkX];
+        if (field == null || y < field.bottomY() || y >= field.bottomY() + field.height()) return Float.NaN;
+        return field.at(x & 15, y, z & 15);
     }
 
     public boolean done() {

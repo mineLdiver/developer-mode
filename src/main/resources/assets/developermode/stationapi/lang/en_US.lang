@@ -208,7 +208,10 @@ gui.@.preview.larger=+
 gui.@.preview.area=%sx%s chunks
 gui.@.preview.generating=%s of %s chunks generated
 gui.@.preview.drawing=drawing
-gui.@.preview.terrain=terrain, before decoration
+gui.@.preview.step.noise=Noise
+gui.@.preview.step.terrain=Terrain
+gui.@.preview.mode.blocks=3D
+gui.@.preview.mode.slices=Slices
 gui.@.preview.turn_left=<
 gui.@.preview.turn_right=>
 gui.@.preview.lower=-
@@ -217,9 +220,14 @@ gui.@.preview.cut=cut at y %s
 gui.@.preview.cut.none=cut
 gui.@.preview.color.blocks=Blocks
 gui.@.preview.color.height=Height
+gui.@.preview.color.density=Density
 gui.@.preview.empty=Build to generate the chunks around you
 gui.@.preview.hovered=%s at %s, %s, %s, click to go there
 gui.@.preview.hint=scroll to zoom, shift scroll to cut, drag to move
+gui.@.preview.hint.slices=scroll to move the level cut, click it to move the upright one
+gui.@.preview.hovered.density=%s, %s, %s: density %s
+gui.@.preview.hovered.slice=%s at %s, %s, %s
+gui.@.preview.hovered.air=air at %s, %s, %s
 
 # What comes back from a request. Built on whichever side answered it, and
 # translated on the client that shows it.
@@ -231,6 +239,7 @@ message.@.too_far=Too far away
 message.@.nothing_in_reach=Nothing in reach
 message.@.nothing_in_sight=Nothing in sight
 message.@.cannot_preview=This generator's chunks can't be previewed
+message.@.no_noise=Only the Overworld, Sky and Nether generators have a Noise step
 message.@.preview_threw=The generator threw %s on chunk %s, %s
 message.@.cleared=Cleared %s
 message.@.given=Given %s

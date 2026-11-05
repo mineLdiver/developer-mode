@@ -38,14 +38,14 @@ public final class IsometricView {
     private static final float SHADE_Z = 0.8F;
     /** For a block whose material has no color of its own. */
     private static final int UNCOLORED = 0x8C8C8C;
-    /** Low to high, for coloring by height. */
-    private static final int[] HEIGHT_RAMP = { 0x1E2A4A, 0x2F5F8A, 0x4FA38A, 0xA8C66C, 0xE8D38B, 0xFFFFFF };
     /** How finely a click is followed into the preview, in blocks. */
     private static final double PICK_STEP = 0.05;
 
     public enum Coloring {
         BLOCKS("gui.developermode.preview.color.blocks"),
-        HEIGHT("gui.developermode.preview.color.height");
+        HEIGHT("gui.developermode.preview.color.height"),
+        /** How far above zero the noise is, which is how deep inside the land a block sits. */
+        DENSITY("gui.developermode.preview.color.density");
 
         public final String key;
 
@@ -287,7 +287,7 @@ public final class IsometricView {
                         if (state.isAir()) continue;
                         int x = originX + lx;
                         int z = originZ + lz;
-                        int color = color(state, worldY);
+                        int color = color(state, preview.fromX() * 16 + x, worldY, preview.fromZ() * 16 + z);
 
                         if (solidAt(x, y + 1, z) == null) face(tessellator, color, SHADE_TOP, x, y + 1, z, 0);
                         if (solidAt(x + sideX, y, z) == null)
@@ -348,11 +348,13 @@ public final class IsometricView {
         return state.isAir() ? null : state;
     }
 
-    private int color(BlockState state, int worldY) {
-        if (coloring == Coloring.HEIGHT) {
-            float along = (worldY - preview.bottomY()) / (float) Math.max(1, preview.height() - 1) * (HEIGHT_RAMP.length - 1);
-            int low = Math.min((int) along, HEIGHT_RAMP.length - 2);
-            return blend(HEIGHT_RAMP[low], HEIGHT_RAMP[low + 1], along - low);
+    private int color(BlockState state, int worldX, int worldY, int worldZ) {
+        if (coloring == Coloring.DENSITY) {
+            float density = preview.density(worldX, worldY, worldZ);
+            if (!Float.isNaN(density)) return Shades.density(density);
+        }
+        if (coloring == Coloring.HEIGHT || coloring == Coloring.DENSITY) {
+            return Shades.height((worldY - preview.bottomY()) / (float) Math.max(1, preview.height() - 1));
         }
         int color = state.getBlock().material.mapColor.color;
         return color == 0 ? UNCOLORED : color;
@@ -360,13 +362,6 @@ public final class IsometricView {
 
     private int top() {
         return preview == null ? Integer.MAX_VALUE : preview.bottomY() + preview.height() - 1;
-    }
-
-    private static int blend(int from, int to, float amount) {
-        int r = (int) ((from >> 16 & 0xFF) + ((to >> 16 & 0xFF) - (from >> 16 & 0xFF)) * amount);
-        int g = (int) ((from >> 8 & 0xFF) + ((to >> 8 & 0xFF) - (from >> 8 & 0xFF)) * amount);
-        int b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * amount);
-        return r << 16 | g << 8 | b;
     }
 
     private static float clamp(float value, float min, float max) {

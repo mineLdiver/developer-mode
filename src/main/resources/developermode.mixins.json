@@ -12,6 +12,7 @@
     "PlayerEntityMixin",
     "PlayerInteractMixin",
     "PlayerInventoryMixin",
+    "TerrainNoiseAccessor",
     "WorldLocksMixin",
     "WorldMixin"
   ],

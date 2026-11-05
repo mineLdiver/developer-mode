@@ -5,16 +5,20 @@ import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.IsometricView;
+import net.mine_diver.developermode.client.gui.SliceView;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Preview;
 import net.minecraft.client.Minecraft;
+import net.modificationstation.stationapi.api.block.BlockState;
 import net.modificationstation.stationapi.api.registry.BlockRegistry;
 import net.modificationstation.stationapi.api.util.Identifier;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
+
+import java.util.Locale;
 
 /**
  * What the generator makes of the chunks around you, drawn from above at an
@@ -29,6 +33,11 @@ import org.lwjgl.input.Mouse;
  * everything above a height, with the shift key held while scrolling to move
  * it, which is how to see inside. Clicking a block goes to that spot in the
  * world.
+ *
+ * <p>It can stop at the Noise step instead, for the bare shape the generator
+ * makes before laying a surface or cutting caves, and it can be shown as two
+ * flat cuts through the preview instead of from above, which is the cheapest
+ * way to read the noise.
  */
 public final class PreviewWindow extends DevWindow {
     private static final int GAP = 3;
@@ -49,11 +58,19 @@ public final class PreviewWindow extends DevWindow {
     private final Button turnRightButton = new Button("gui.developermode.preview.turn_right");
     private final Button lowerButton = new Button("gui.developermode.preview.lower");
     private final Button raiseButton = new Button("gui.developermode.preview.raise");
+    private final Button stepButton = new Button(Preview.Step.TERRAIN.key);
+    private final Button modeButton = new Button("gui.developermode.preview.mode.blocks");
 
     private final IsometricView view = new IsometricView();
+    private final SliceView slices = new SliceView();
 
     private int radius = DEFAULT_RADIUS;
+    private Preview.Step step = Preview.Step.TERRAIN;
+    private boolean showSlices;
+    private int centerX;
+    private int centerZ;
     private IsometricView.Hit hovered;
+    private SliceView.Hit hoveredSlice;
     private boolean pressedInView;
     private boolean dragging;
     private int pressX;
@@ -72,6 +89,7 @@ public final class PreviewWindow extends DevWindow {
     @Override
     public void onClosed() {
         view.release();
+        slices.release();
     }
 
     @Override
@@ -91,11 +109,12 @@ public final class PreviewWindow extends DevWindow {
             Draw.textCentered(minecraft, Lang.get("gui.developermode.preview.empty"),
                     contentX() + contentWidth() / 2, viewY + viewHeight() / 2 - 4, Theme.TEXT_FAINT);
         }
-        view.render(minecraft, contentX(), viewY, contentWidth(), viewHeight());
+        if (showSlices) slices.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), view.cut());
+        else view.render(minecraft, contentX(), viewY, contentWidth(), viewHeight());
 
-        hovered = overView(mouseX, mouseY) && !dragging
-                ? view.pick(mouseX, mouseY, contentX(), viewY, contentWidth(), viewHeight())
-                : null;
+        boolean over = overView(mouseX, mouseY) && !dragging;
+        hovered = over && !showSlices ? view.pick(mouseX, mouseY, contentX(), viewY, contentWidth(), viewHeight()) : null;
+        hoveredSlice = over && showSlices ? slices.pick(mouseX, mouseY, view.cut()) : null;
         renderFooter(minecraft);
     }
 
@@ -118,6 +137,14 @@ public final class PreviewWindow extends DevWindow {
             view.setCut(view.cut() - cutStep());
         } else if (raiseButton.enabled && raiseButton.contains(mouseX, mouseY)) {
             view.setCut(view.cut() + cutStep());
+        } else if (stepButton.enabled && stepButton.contains(mouseX, mouseY)) {
+            Preview.Step[] all = Preview.Step.values();
+            step = all[(step.ordinal() + 1) % all.length];
+            if (view.preview() != null) build(centerX, centerZ);
+        } else if (modeButton.enabled && modeButton.contains(mouseX, mouseY)) {
+            showSlices = !showSlices;
+        } else if (showSlices) {
+            if (button == 0) slices.click(mouseX, mouseY);
         } else if (button == 0 && overView(mouseX, mouseY)) {
             pressedInView = true;
             dragging = false;
@@ -141,16 +168,26 @@ public final class PreviewWindow extends DevWindow {
     @Override
     public void mouseScrolled(int mouseX, int mouseY, int direction) {
         if (!overView(mouseX, mouseY)) return;
-        if (shiftDown()) view.setCut(view.cut() + direction);
+        if (shiftDown() || showSlices) view.setCut(view.cut() + direction);
         else view.zoom(direction);
     }
 
+    /** Builds around where you stand. */
     private void build() {
         Minecraft minecraft = DeveloperModeClient.minecraft();
-        if (minecraft.world == null || minecraft.player == null) return;
-        int chunkX = (int) Math.floor(minecraft.player.x) >> 4;
-        int chunkZ = (int) Math.floor(minecraft.player.z) >> 4;
-        view.show(Preview.around(minecraft.world, chunkX, chunkZ, radius));
+        if (minecraft.player == null) return;
+        build((int) Math.floor(minecraft.player.x) >> 4, (int) Math.floor(minecraft.player.z) >> 4);
+    }
+
+    /** Builds around a chunk, dropping whatever was being built before. */
+    private void build(int chunkX, int chunkZ) {
+        Minecraft minecraft = DeveloperModeClient.minecraft();
+        if (minecraft.world == null) return;
+        centerX = chunkX;
+        centerZ = chunkZ;
+        Preview preview = Preview.around(minecraft.world, step, chunkX, chunkZ, radius);
+        view.show(preview);
+        slices.show(preview);
     }
 
     /**
@@ -197,10 +234,16 @@ public final class PreviewWindow extends DevWindow {
         largerButton.render(minecraft, mouseX, mouseY);
         x += 12 + GAP + 2;
 
+        int stepWidth = 44;
+        stepButton.bounds(x, y, stepWidth);
+        stepButton.key = step.key;
+        stepButton.render(minecraft, mouseX, mouseY);
+        x += stepWidth + GAP + 2;
+
         String progress = preview == null ? ""
                 : !preview.done() ? Lang.get("gui.developermode.preview.generating", preview.made(), preview.count())
-                : !view.settled() ? Lang.get("gui.developermode.preview.drawing")
-                : Lang.get("gui.developermode.preview.terrain");
+                : !view.settled() && !showSlices ? Lang.get("gui.developermode.preview.drawing")
+                : "";
         Draw.text(minecraft, progress, x, y + 2, Theme.TEXT_FAINT);
 
         int y2 = y + 12 + GAP;
@@ -208,11 +251,11 @@ public final class PreviewWindow extends DevWindow {
         boolean shown = preview != null;
 
         turnLeftButton.bounds(x, y2, 14);
-        turnLeftButton.enabled = shown;
+        turnLeftButton.enabled = shown && !showSlices;
         turnLeftButton.render(minecraft, mouseX, mouseY);
         x += 14 + 1;
         turnRightButton.bounds(x, y2, 14);
-        turnRightButton.enabled = shown;
+        turnRightButton.enabled = shown && !showSlices;
         turnRightButton.render(minecraft, mouseX, mouseY);
         x += 14 + GAP * 2;
 
@@ -227,10 +270,16 @@ public final class PreviewWindow extends DevWindow {
         raiseButton.enabled = shown;
         raiseButton.render(minecraft, mouseX, mouseY);
 
+        int modeWidth = 40;
+        modeButton.bounds(contentX() + contentWidth() - modeWidth, y2, modeWidth);
+        modeButton.key = showSlices ? "gui.developermode.preview.mode.slices" : "gui.developermode.preview.mode.blocks";
+        modeButton.enabled = shown;
+        modeButton.render(minecraft, mouseX, mouseY);
+
         int coloringWidth = 50;
-        coloringButton.bounds(contentX() + contentWidth() - coloringWidth, y2, coloringWidth);
+        coloringButton.bounds(modeButton.x - GAP - coloringWidth, y2, coloringWidth);
         coloringButton.key = view.coloring().key;
-        coloringButton.enabled = shown;
+        coloringButton.enabled = shown && !showSlices;
         coloringButton.render(minecraft, mouseX, mouseY);
     }
 
@@ -243,15 +292,28 @@ public final class PreviewWindow extends DevWindow {
             text = Lang.of(preview.failure());
             color = Theme.DANGER;
         } else if (hovered != null) {
-            Identifier id = BlockRegistry.INSTANCE.getId(hovered.state().getBlock());
-            String name = hovered.state().getBlock().getTranslatedName();
-            if (name == null || name.isEmpty() || name.endsWith(".name")) name = String.valueOf(id);
-            text = Lang.get("gui.developermode.preview.hovered", name, hovered.x(), hovered.y(), hovered.z());
+            text = Lang.get("gui.developermode.preview.hovered", name(hovered.state()), hovered.x(), hovered.y(), hovered.z());
+            color = Theme.TEXT_DIM;
+        } else if (hoveredSlice != null) {
+            text = !Float.isNaN(hoveredSlice.density())
+                    ? Lang.get("gui.developermode.preview.hovered.density", hoveredSlice.x(), hoveredSlice.y(), hoveredSlice.z(),
+                            String.format(Locale.ROOT, "%.2f", hoveredSlice.density()))
+                    : hoveredSlice.state() != null
+                            ? Lang.get("gui.developermode.preview.hovered.slice", name(hoveredSlice.state()), hoveredSlice.x(), hoveredSlice.y(), hoveredSlice.z())
+                            : Lang.get("gui.developermode.preview.hovered.air", hoveredSlice.x(), hoveredSlice.y(), hoveredSlice.z());
             color = Theme.TEXT_DIM;
         } else {
-            text = preview == null ? "" : Lang.get("gui.developermode.preview.hint");
+            text = preview == null ? ""
+                    : showSlices ? Lang.get("gui.developermode.preview.hint.slices")
+                    : Lang.get("gui.developermode.preview.hint");
         }
         Draw.text(minecraft, Draw.ellipsize(minecraft, text, contentWidth()), contentX(), y, color);
+    }
+
+    private static String name(BlockState state) {
+        Identifier id = BlockRegistry.INSTANCE.getId(state.getBlock());
+        String name = state.getBlock().getTranslatedName();
+        return name == null || name.isEmpty() || name.endsWith(".name") ? String.valueOf(id) : name;
     }
 
     /** From the buttons the cut moves eight blocks at a time, or one with shift held. */
