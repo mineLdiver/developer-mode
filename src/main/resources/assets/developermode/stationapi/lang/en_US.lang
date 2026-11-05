@@ -145,6 +145,7 @@ gui.@.census.larger=+
 gui.@.census.area=%sx%s chunks
 gui.@.census.keep=Keep
 gui.@.census.kept=Kept
+gui.@.census.lens=Lens
 gui.@.census.filter=filter blocks
 gui.@.census.counting=%s of %s chunks counted
 gui.@.census.grouping=grouping veins

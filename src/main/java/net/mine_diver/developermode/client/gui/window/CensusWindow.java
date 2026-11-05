@@ -2,6 +2,7 @@ package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
+import net.mine_diver.developermode.client.census.OreLens;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.ItemDraw;
@@ -38,6 +39,9 @@ import java.util.Map;
  * each block has moved since. That is the loop for tuning a generator:
  * count, change it, regenerate, count again.
  *
+ * <p>The lens outlines every block of the kind picked around you in the
+ * world, through the walls, for seeing how it really sits in the ground.
+ *
  * <p>Counting runs a few milliseconds each frame the window is drawn, so the
  * rows fill in as you watch and the game keeps its frame rate.
  */
@@ -68,6 +72,7 @@ public final class CensusWindow extends DevWindow {
     private final Button smallerButton = new Button("gui.developermode.census.smaller");
     private final Button largerButton = new Button("gui.developermode.census.larger");
     private final Button keepButton = new Button("gui.developermode.census.keep");
+    private final Button lensButton = new Button("gui.developermode.census.lens");
     private final TextField filter = new TextField(48);
 
     private final Map<BlockState, Label> labels = new IdentityHashMap<>();
@@ -127,6 +132,9 @@ public final class CensusWindow extends DevWindow {
             radius = Math.max(MIN_RADIUS, radius - 1);
         } else if (largerButton.enabled && largerButton.contains(mouseX, mouseY)) {
             radius = Math.min(MAX_RADIUS, radius + 1);
+        } else if (lensButton.enabled && lensButton.contains(mouseX, mouseY)) {
+            if (OreLens.watched() == picked) OreLens.stop();
+            else OreLens.watch(picked);
         } else if (keepButton.enabled && keepButton.contains(mouseX, mouseY)) {
             kept = kept == census ? null : census;
             builtAt = -1;
@@ -197,9 +205,15 @@ public final class CensusWindow extends DevWindow {
         keepButton.key = keepButton.toggled ? "gui.developermode.census.kept" : "gui.developermode.census.keep";
         keepButton.render(minecraft, mouseX, mouseY);
 
+        int lensWidth = 34;
+        lensButton.bounds(keepButton.x - GAP - lensWidth, y, lensWidth);
+        lensButton.enabled = picked != null || OreLens.watched() != null;
+        lensButton.toggled = OreLens.watched() != null && OreLens.watched() == picked;
+        lensButton.render(minecraft, mouseX, mouseY);
+
         String progress = progress();
         int progressX = x + 12 + GAP + 2;
-        Draw.text(minecraft, Draw.ellipsize(minecraft, progress, keepButton.x - progressX - GAP),
+        Draw.text(minecraft, Draw.ellipsize(minecraft, progress, lensButton.x - progressX - GAP),
                 progressX, y + 2, Theme.TEXT_FAINT);
     }
 

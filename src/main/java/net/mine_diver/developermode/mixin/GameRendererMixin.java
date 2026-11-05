@@ -1,6 +1,7 @@
 package net.mine_diver.developermode.mixin;
 
 import net.mine_diver.developermode.client.DeveloperUi;
+import net.mine_diver.developermode.client.census.OreLens;
 import net.mine_diver.developermode.client.gui.Projection;
 import net.mine_diver.developermode.client.inspect.InspectMode;
 import net.mine_diver.developermode.client.inspect.InspectRenderer;
@@ -41,5 +42,7 @@ class GameRendererMixin {
         InspectRenderer.renderWorld(tickDelta);
         SummonRenderer.renderWorld(tickDelta);
         ToolRenderer.renderWorld(tickDelta);
+        OreLens.update();
+        OreLens.renderWorld(tickDelta);
     }
 }
