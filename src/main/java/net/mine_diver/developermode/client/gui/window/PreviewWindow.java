@@ -3,6 +3,7 @@ package net.mine_diver.developermode.client.gui.window;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.Workbench;
+import net.mine_diver.developermode.client.gui.BiomeMapView;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.IsometricView;
@@ -49,7 +50,8 @@ import java.util.Locale;
  * <p>It is built with the transforms in the transforms window laid over the
  * noise, and builds again by itself once they settle on new values, reusing
  * the noise it already worked out. The placement map and the warp grid show
- * what the transforms do with no terrain at all.
+ * what the transforms do with no terrain at all, and the biome map shows the
+ * biomes around the preview, thousands of blocks across.
  *
  * <p>Applying regenerates the previewed square in the world with the same
  * transforms, decoration and all, so what was tuned here can be walked around
@@ -77,7 +79,8 @@ public final class PreviewWindow extends DevWindow {
         BLOCKS("gui.developermode.preview.mode.blocks"),
         SLICES("gui.developermode.preview.mode.slices"),
         MAP("gui.developermode.preview.mode.map"),
-        GRID("gui.developermode.preview.mode.grid");
+        GRID("gui.developermode.preview.mode.grid"),
+        BIOMES("gui.developermode.preview.mode.biomes");
 
         final String key;
 
@@ -103,6 +106,7 @@ public final class PreviewWindow extends DevWindow {
     private final SliceView slices = new SliceView();
     private final PlacementView placement = new PlacementView();
     private final WarpGridView grid = new WarpGridView();
+    private final BiomeMapView biomes = new BiomeMapView();
 
     private int radius = DEFAULT_RADIUS;
     private Preview.Step step = Preview.Step.TERRAIN;
@@ -113,6 +117,7 @@ public final class PreviewWindow extends DevWindow {
     private long settlingSince;
     /** The world coordinates under the pointer on the map or the grid, or null. */
     private int[] hoveredSpot;
+    private BiomeMapView.Hit hoveredBiome;
     /** The last answer to applying, shown for a while. */
     private Message status;
     private boolean statusOk;
@@ -143,6 +148,7 @@ public final class PreviewWindow extends DevWindow {
         slices.release();
         placement.release();
         grid.release();
+        biomes.release();
     }
 
     @Override
@@ -168,6 +174,7 @@ public final class PreviewWindow extends DevWindow {
         hovered = null;
         hoveredSlice = null;
         hoveredSpot = null;
+        hoveredBiome = null;
         if (preview != null) {
             switch (mode) {
                 case BLOCKS -> {
@@ -189,6 +196,10 @@ public final class PreviewWindow extends DevWindow {
                 case GRID -> {
                     grid.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), preview, Workbench.STACK, view.cut());
                     if (over) hoveredSpot = grid.pick(mouseX, mouseY, preview);
+                }
+                case BIOMES -> {
+                    biomes.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), preview);
+                    if (over) hoveredBiome = biomes.pick(mouseX, mouseY, preview);
                 }
             }
         }
@@ -251,6 +262,7 @@ public final class PreviewWindow extends DevWindow {
     public void mouseScrolled(int mouseX, int mouseY, int direction) {
         if (!overView(mouseX, mouseY)) return;
         if (mode == Mode.MAP) placement.zoom(direction);
+        else if (mode == Mode.BIOMES) biomes.zoom(direction);
         else if (shiftDown() || mode != Mode.BLOCKS) view.setCut(view.cut() + direction);
         else view.zoom(direction);
     }
@@ -423,6 +435,10 @@ public final class PreviewWindow extends DevWindow {
         } else if (hovered != null) {
             text = Lang.get("gui.developermode.preview.hovered", name(hovered.state()), hovered.x(), hovered.y(), hovered.z());
             color = Theme.TEXT_DIM;
+        } else if (hoveredBiome != null) {
+            String name = hoveredBiome.biome() == null ? "?" : hoveredBiome.biome().name;
+            text = Lang.get("gui.developermode.preview.hovered.biome", name, hoveredBiome.x(), hoveredBiome.z());
+            color = Theme.TEXT_DIM;
         } else if (hoveredSpot != null) {
             text = Lang.get("gui.developermode.preview.hovered.spot", hoveredSpot[0], hoveredSpot[1]);
             color = Theme.TEXT_DIM;
@@ -439,6 +455,7 @@ public final class PreviewWindow extends DevWindow {
                     : mode == Mode.SLICES ? Lang.get("gui.developermode.preview.hint.slices")
                     : mode == Mode.MAP ? Lang.get("gui.developermode.preview.hint.map")
                     : mode == Mode.GRID ? Lang.get("gui.developermode.preview.hint.grid")
+                    : mode == Mode.BIOMES ? Lang.get("gui.developermode.preview.hint.biomes")
                     : Lang.get("gui.developermode.preview.hint");
         }
         Draw.text(minecraft, Draw.ellipsize(minecraft, text, contentWidth()), contentX(), y, color);
