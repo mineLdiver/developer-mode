@@ -2,12 +2,15 @@ package net.mine_diver.developermode.client.gui.window;
 
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
+import net.mine_diver.developermode.client.Workbench;
 import net.mine_diver.developermode.client.gui.Button;
 import net.mine_diver.developermode.client.gui.Draw;
 import net.mine_diver.developermode.client.gui.IsometricView;
+import net.mine_diver.developermode.client.gui.PlacementView;
 import net.mine_diver.developermode.client.gui.SliceView;
 import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
+import net.mine_diver.developermode.client.gui.WarpGridView;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Preview;
@@ -38,6 +41,11 @@ import java.util.Locale;
  * makes before laying a surface or cutting caves, and it can be shown as two
  * flat cuts through the preview instead of from above, which is the cheapest
  * way to read the noise.
+ *
+ * <p>It is built with the transforms in the transforms window laid over the
+ * noise, and builds again by itself once they settle on new values, reusing
+ * the noise it already worked out. The placement map and the warp grid show
+ * what the transforms do with no terrain at all.
  */
 public final class PreviewWindow extends DevWindow {
     private static final int GAP = 3;
@@ -49,6 +57,26 @@ public final class PreviewWindow extends DevWindow {
     private static final int DRAG_THRESHOLD = 3;
     /** Split between generating and drawing, each small beside a frame. */
     private static final long BUDGET_NANOS = 3_000_000;
+    /**
+     * How long the transforms have to stay as they are before building again,
+     * so dragging a slider builds when it stops rather than every frame, and
+     * never leaves a picture half of one setting and half of another.
+     */
+    private static final long SETTLE_NANOS = 120_000_000;
+
+    /** What the view shows. */
+    private enum Mode {
+        BLOCKS("gui.developermode.preview.mode.blocks"),
+        SLICES("gui.developermode.preview.mode.slices"),
+        MAP("gui.developermode.preview.mode.map"),
+        GRID("gui.developermode.preview.mode.grid");
+
+        final String key;
+
+        Mode(String key) {
+            this.key = key;
+        }
+    }
 
     private final Button buildButton = new Button("gui.developermode.preview.build");
     private final Button smallerButton = new Button("gui.developermode.preview.smaller");
@@ -59,14 +87,23 @@ public final class PreviewWindow extends DevWindow {
     private final Button lowerButton = new Button("gui.developermode.preview.lower");
     private final Button raiseButton = new Button("gui.developermode.preview.raise");
     private final Button stepButton = new Button(Preview.Step.TERRAIN.key);
-    private final Button modeButton = new Button("gui.developermode.preview.mode.blocks");
+    private final Button modeButton = new Button(Mode.BLOCKS.key);
+    private final Button transformsButton = new Button("gui.developermode.preview.transforms");
 
     private final IsometricView view = new IsometricView();
     private final SliceView slices = new SliceView();
+    private final PlacementView placement = new PlacementView();
+    private final WarpGridView grid = new WarpGridView();
 
     private int radius = DEFAULT_RADIUS;
     private Preview.Step step = Preview.Step.TERRAIN;
-    private boolean showSlices;
+    private Mode mode = Mode.BLOCKS;
+    /** The transforms' fingerprint the preview was built with, and one they are waiting to settle on. */
+    private long builtWith;
+    private long settling;
+    private long settlingSince;
+    /** The world coordinates under the pointer on the map or the grid, or null. */
+    private int[] hoveredSpot;
     private int centerX;
     private int centerZ;
     private IsometricView.Hit hovered;
@@ -90,10 +127,13 @@ public final class PreviewWindow extends DevWindow {
     public void onClosed() {
         view.release();
         slices.release();
+        placement.release();
+        grid.release();
     }
 
     @Override
     protected void renderContent(Minecraft minecraft, int mouseX, int mouseY, float delta, boolean focused) {
+        rebuildIfTransformsSettled();
         Preview preview = view.preview();
         if (preview != null) {
             if (!preview.done()) preview.step(BUDGET_NANOS);
@@ -109,12 +149,34 @@ public final class PreviewWindow extends DevWindow {
             Draw.textCentered(minecraft, Lang.get("gui.developermode.preview.empty"),
                     contentX() + contentWidth() / 2, viewY + viewHeight() / 2 - 4, Theme.TEXT_FAINT);
         }
-        if (showSlices) slices.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), view.cut());
-        else view.render(minecraft, contentX(), viewY, contentWidth(), viewHeight());
-
         boolean over = overView(mouseX, mouseY) && !dragging;
-        hovered = over && !showSlices ? view.pick(mouseX, mouseY, contentX(), viewY, contentWidth(), viewHeight()) : null;
-        hoveredSlice = over && showSlices ? slices.pick(mouseX, mouseY, view.cut()) : null;
+        hovered = null;
+        hoveredSlice = null;
+        hoveredSpot = null;
+        if (preview != null) {
+            switch (mode) {
+                case BLOCKS -> {
+                    view.render(minecraft, contentX(), viewY, contentWidth(), viewHeight());
+                    if (over) hovered = view.pick(mouseX, mouseY, contentX(), viewY, contentWidth(), viewHeight());
+                }
+                case SLICES -> {
+                    slices.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), view.cut());
+                    if (over) hoveredSlice = slices.pick(mouseX, mouseY, view.cut());
+                }
+                case MAP -> {
+                    if (placement.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), preview, Workbench.STACK)) {
+                        if (over) hoveredSpot = placement.pick(mouseX, mouseY, preview);
+                    } else {
+                        Draw.textCentered(minecraft, Lang.get("gui.developermode.preview.map.empty"),
+                                contentX() + contentWidth() / 2, viewY + viewHeight() / 2 - 4, Theme.TEXT_FAINT);
+                    }
+                }
+                case GRID -> {
+                    grid.render(minecraft, contentX(), viewY, contentWidth(), viewHeight(), preview, Workbench.STACK, view.cut());
+                    if (over) hoveredSpot = grid.pick(mouseX, mouseY, preview);
+                }
+            }
+        }
         renderFooter(minecraft);
     }
 
@@ -140,12 +202,15 @@ public final class PreviewWindow extends DevWindow {
         } else if (stepButton.enabled && stepButton.contains(mouseX, mouseY)) {
             Preview.Step[] all = Preview.Step.values();
             step = all[(step.ordinal() + 1) % all.length];
-            if (view.preview() != null) build(centerX, centerZ);
+            if (view.preview() != null) build(centerX, centerZ, true);
         } else if (modeButton.enabled && modeButton.contains(mouseX, mouseY)) {
-            showSlices = !showSlices;
-        } else if (showSlices) {
+            Mode[] all = Mode.values();
+            mode = all[(mode.ordinal() + (button == 1 ? all.length - 1 : 1)) % all.length];
+        } else if (transformsButton.contains(mouseX, mouseY)) {
+            TransformWindow.open();
+        } else if (mode == Mode.SLICES) {
             if (button == 0) slices.click(mouseX, mouseY);
-        } else if (button == 0 && overView(mouseX, mouseY)) {
+        } else if (mode == Mode.BLOCKS && button == 0 && overView(mouseX, mouseY)) {
             pressedInView = true;
             dragging = false;
             pressX = lastX = mouseX;
@@ -168,26 +233,50 @@ public final class PreviewWindow extends DevWindow {
     @Override
     public void mouseScrolled(int mouseX, int mouseY, int direction) {
         if (!overView(mouseX, mouseY)) return;
-        if (shiftDown() || showSlices) view.setCut(view.cut() + direction);
+        if (mode == Mode.MAP) placement.zoom(direction);
+        else if (shiftDown() || mode != Mode.BLOCKS) view.setCut(view.cut() + direction);
         else view.zoom(direction);
     }
 
-    /** Builds around where you stand. */
+    /**
+     * Builds around where you stand, from nothing, so a change to the
+     * generator's code since the last build shows up.
+     */
     private void build() {
         Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft.player == null) return;
-        build((int) Math.floor(minecraft.player.x) >> 4, (int) Math.floor(minecraft.player.z) >> 4);
+        build((int) Math.floor(minecraft.player.x) >> 4, (int) Math.floor(minecraft.player.z) >> 4, false);
     }
 
-    /** Builds around a chunk, dropping whatever was being built before. */
-    private void build(int chunkX, int chunkZ) {
+    /**
+     * Builds around a chunk, dropping whatever was being built before.
+     *
+     * @param reuse whether to keep the noise already worked out, which holds
+     *              while only the transforms or the step have changed
+     */
+    private void build(int chunkX, int chunkZ, boolean reuse) {
         Minecraft minecraft = DeveloperModeClient.minecraft();
         if (minecraft.world == null) return;
         centerX = chunkX;
         centerZ = chunkZ;
-        Preview preview = Preview.around(minecraft.world, step, chunkX, chunkZ, radius);
+        builtWith = settling = Workbench.STACK.fingerprint();
+        Preview preview = Preview.around(minecraft.world, step, Workbench.STACK, reuse ? view.preview() : null,
+                chunkX, chunkZ, radius);
         view.show(preview);
         slices.show(preview);
+    }
+
+    private void rebuildIfTransformsSettled() {
+        if (view.preview() == null) return;
+        long fingerprint = Workbench.STACK.fingerprint();
+        if (fingerprint == builtWith) return;
+        long now = System.nanoTime();
+        if (fingerprint != settling) {
+            settling = fingerprint;
+            settlingSince = now;
+        } else if (now - settlingSince >= SETTLE_NANOS) {
+            build(centerX, centerZ, true);
+        }
     }
 
     /**
@@ -242,20 +331,24 @@ public final class PreviewWindow extends DevWindow {
 
         String progress = preview == null ? ""
                 : !preview.done() ? Lang.get("gui.developermode.preview.generating", preview.made(), preview.count())
-                : !view.settled() && !showSlices ? Lang.get("gui.developermode.preview.drawing")
+                : !view.settled() && mode == Mode.BLOCKS ? Lang.get("gui.developermode.preview.drawing")
                 : "";
-        Draw.text(minecraft, progress, x, y + 2, Theme.TEXT_FAINT);
+        int transformsWidth = 58;
+        transformsButton.bounds(contentX() + contentWidth() - transformsWidth, y, transformsWidth);
+        transformsButton.toggled = Workbench.STACK.active();
+        transformsButton.render(minecraft, mouseX, mouseY);
+        Draw.text(minecraft, Draw.ellipsize(minecraft, progress, transformsButton.x - x - GAP), x, y + 2, Theme.TEXT_FAINT);
 
         int y2 = y + 12 + GAP;
         x = contentX();
         boolean shown = preview != null;
 
         turnLeftButton.bounds(x, y2, 14);
-        turnLeftButton.enabled = shown && !showSlices;
+        turnLeftButton.enabled = shown && mode == Mode.BLOCKS;
         turnLeftButton.render(minecraft, mouseX, mouseY);
         x += 14 + 1;
         turnRightButton.bounds(x, y2, 14);
-        turnRightButton.enabled = shown && !showSlices;
+        turnRightButton.enabled = shown && mode == Mode.BLOCKS;
         turnRightButton.render(minecraft, mouseX, mouseY);
         x += 14 + GAP * 2;
 
@@ -272,14 +365,14 @@ public final class PreviewWindow extends DevWindow {
 
         int modeWidth = 40;
         modeButton.bounds(contentX() + contentWidth() - modeWidth, y2, modeWidth);
-        modeButton.key = showSlices ? "gui.developermode.preview.mode.slices" : "gui.developermode.preview.mode.blocks";
+        modeButton.key = mode.key;
         modeButton.enabled = shown;
         modeButton.render(minecraft, mouseX, mouseY);
 
         int coloringWidth = 50;
         coloringButton.bounds(modeButton.x - GAP - coloringWidth, y2, coloringWidth);
         coloringButton.key = view.coloring().key;
-        coloringButton.enabled = shown && !showSlices;
+        coloringButton.enabled = shown && mode == Mode.BLOCKS;
         coloringButton.render(minecraft, mouseX, mouseY);
     }
 
@@ -294,6 +387,9 @@ public final class PreviewWindow extends DevWindow {
         } else if (hovered != null) {
             text = Lang.get("gui.developermode.preview.hovered", name(hovered.state()), hovered.x(), hovered.y(), hovered.z());
             color = Theme.TEXT_DIM;
+        } else if (hoveredSpot != null) {
+            text = Lang.get("gui.developermode.preview.hovered.spot", hoveredSpot[0], hoveredSpot[1]);
+            color = Theme.TEXT_DIM;
         } else if (hoveredSlice != null) {
             text = !Float.isNaN(hoveredSlice.density())
                     ? Lang.get("gui.developermode.preview.hovered.density", hoveredSlice.x(), hoveredSlice.y(), hoveredSlice.z(),
@@ -304,7 +400,9 @@ public final class PreviewWindow extends DevWindow {
             color = Theme.TEXT_DIM;
         } else {
             text = preview == null ? ""
-                    : showSlices ? Lang.get("gui.developermode.preview.hint.slices")
+                    : mode == Mode.SLICES ? Lang.get("gui.developermode.preview.hint.slices")
+                    : mode == Mode.MAP ? Lang.get("gui.developermode.preview.hint.map")
+                    : mode == Mode.GRID ? Lang.get("gui.developermode.preview.hint.grid")
                     : Lang.get("gui.developermode.preview.hint");
         }
         Draw.text(minecraft, Draw.ellipsize(minecraft, text, contentWidth()), contentX(), y, color);

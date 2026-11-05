@@ -2,6 +2,9 @@ package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.feature.world.transform.Sampler;
+import net.mine_diver.developermode.feature.world.transform.Stack;
+import net.mine_diver.developermode.feature.world.transform.Substitution;
 import net.minecraft.block.Block;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
@@ -10,6 +13,8 @@ import net.modificationstation.stationapi.impl.world.chunk.FlattenedChunk;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Chunks generated off to the side, for looking at what a generator makes
@@ -28,6 +33,14 @@ import java.util.Comparator;
  *
  * <p>A preview stops the generator at the step the question needs, and the
  * earlier the step, the cheaper it is.
+ *
+ * <p>It can carry a stack of transforms laid over the generator's noise. At
+ * the Noise step that is the whole of it; at the Terrain step the transformed
+ * noise stands in for the generator's own while it builds each chunk, so the
+ * surface and the caves are made on top of the transformed shape. A transform
+ * can look for its value sideways, so the noise is worked out a little past
+ * the edges too, and kept: a preview built again over the same ground with
+ * different settings reuses it and only lays the transforms over again.
  */
 public final class Preview {
     /** How far a preview lets the generator go. */
@@ -54,6 +67,10 @@ public final class Preview {
     private final World world;
     private final ChunkSource generator;
     private final Step step;
+    private final Stack stack;
+    /** The generator's own noise by chunk, inside the preview and past its edges, shared with a rebuild. */
+    private final Map<Long, Noise.Field> raw;
+    private Sampler transformed;
     private final int fromX;
     private final int fromZ;
     private final int across;
@@ -66,10 +83,13 @@ public final class Preview {
     private int made;
     private Message failure;
 
-    private Preview(World world, ChunkSource generator, Step step, int centerX, int centerZ, int radius) {
+    private Preview(World world, ChunkSource generator, Step step, Stack stack, Map<Long, Noise.Field> raw,
+                    int centerX, int centerZ, int radius) {
         this.world = world;
         this.generator = generator;
         this.step = step;
+        this.stack = stack;
+        this.raw = raw;
         this.across = radius * 2 + 1;
         this.fromX = centerX - radius;
         this.fromZ = centerZ - radius;
@@ -89,10 +109,16 @@ public final class Preview {
     /**
      * A preview of the square of chunks around one, not generated yet.
      *
-     * @param radius how far out from that chunk, in chunks
+     * @param radius   how far out from that chunk, in chunks
+     * @param stack    the transforms to lay over the noise, copied so tuning
+     *                 them further does not change this one
+     * @param previous a preview of the same world whose noise can be reused,
+     *                 or null to work it all out afresh, as after the
+     *                 generator's code has changed
      */
-    public static Preview around(World world, Step step, int chunkX, int chunkZ, int radius) {
-        return new Preview(world, world.dimension.createChunkGenerator(), step, chunkX, chunkZ, radius);
+    public static Preview around(World world, Step step, Stack stack, Preview previous, int chunkX, int chunkZ, int radius) {
+        Map<Long, Noise.Field> raw = previous != null && previous.world == world ? previous.raw : new HashMap<>();
+        return new Preview(world, world.dimension.createChunkGenerator(), step, stack.copy(), raw, chunkX, chunkZ, radius);
     }
 
     /**
@@ -109,16 +135,20 @@ public final class Preview {
             int x = fromX + index % across;
             int z = fromZ + index / across;
             try {
+                boolean transforming = stack.active();
+                if ((step == Step.NOISE || transforming) && !Noise.knows(generator)) {
+                    failure = Message.of(step == Step.NOISE ? "message.developermode.no_noise" : "message.developermode.no_transforms");
+                    return true;
+                }
                 if (step == Step.NOISE) {
-                    Noise.Field field = Noise.sample(generator, world, x, z);
-                    if (field == null) {
-                        failure = Message.of("message.developermode.no_noise");
-                        return true;
-                    }
+                    Noise.Field field = transforming ? transformed(x, z) : raw(x, z);
                     noise[index] = field;
                     chunks[index] = solidOf(field, x, z);
                 } else {
-                    Chunk chunk = generator.getChunk(x, z);
+                    Noise.Field field = transforming ? transformed(x, z) : null;
+                    Chunk chunk = field == null
+                            ? generator.getChunk(x, z)
+                            : Substitution.during(generator, field, () -> generator.getChunk(x, z));
                     if (!(chunk instanceof FlattenedChunk flattened)) {
                         failure = Message.of("message.developermode.cannot_preview");
                         return true;
@@ -134,6 +164,35 @@ public final class Preview {
             if (System.nanoTime() >= until) break;
         }
         return done();
+    }
+
+    /** The generator's own noise for a chunk, worked out once. */
+    private Noise.Field raw(int chunkX, int chunkZ) {
+        return raw.computeIfAbsent((long) chunkX << 32 | chunkZ & 0xFFFFFFFFL, key -> Noise.sample(generator, world, chunkX, chunkZ));
+    }
+
+    /** A chunk's noise with the stack laid over it, worked out block by block. */
+    private Noise.Field transformed(int chunkX, int chunkZ) {
+        if (transformed == null) {
+            Sampler noise = (x, y, z) -> {
+                Noise.Field field = raw(x >> 4, z >> 4);
+                if (field == null || y < field.bottomY() || y >= field.bottomY() + field.height()) return Double.NaN;
+                return field.at(x & 15, y, z & 15);
+            };
+            transformed = stack.over(noise, world.getSeed());
+        }
+        int bottom = world.getBottomY();
+        int height = world.getHeight();
+        float[] values = new float[16 * 16 * height];
+        for (int x = 0; x < 16; x++)
+            for (int z = 0; z < 16; z++)
+                for (int y = 0; y < height; y++)
+                    values[Noise.index(x, y, z, height)] = (float) transformed.at(chunkX * 16 + x, bottom + y, chunkZ * 16 + z);
+        return new Noise.Field(values, bottom, height);
+    }
+
+    public Stack stack() {
+        return stack;
     }
 
     /**

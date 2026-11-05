@@ -9,10 +9,12 @@
     "EntityMixin",
     "EntityRegistryAccessor",
     "ItemStackMixin",
+    "NetherTerrainSubstitutionMixin",
     "PlayerEntityMixin",
     "PlayerInteractMixin",
     "PlayerInventoryMixin",
     "TerrainNoiseAccessor",
+    "TerrainSubstitutionMixin",
     "WorldLocksMixin",
     "WorldMixin"
   ],

@@ -6,6 +6,7 @@ import net.mine_diver.developermode.client.gui.window.EntityListWindow;
 import net.mine_diver.developermode.client.gui.window.SummonWindow;
 import net.mine_diver.developermode.client.gui.window.ItemPickerWindow;
 import net.mine_diver.developermode.client.gui.window.PreviewWindow;
+import net.mine_diver.developermode.client.gui.window.TransformWindow;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.tool.Tool;
 import net.mine_diver.developermode.client.tool.ToolMode;
@@ -138,6 +139,11 @@ public final class RadialMenu {
                         "gui.developermode.radial.preview",
                         new ItemStack(Item.PAINTING),
                         returnTo -> PreviewWindow.open())
+                        .marked(RadialEntry.Badge.WINDOW))
+                .add(new RadialEntry(
+                        "gui.developermode.radial.transforms",
+                        new ItemStack(Item.REDSTONE),
+                        returnTo -> TransformWindow.open())
                         .marked(RadialEntry.Badge.WINDOW));
 
         // Grouped by what choosing one does rather than by what it acts on,
