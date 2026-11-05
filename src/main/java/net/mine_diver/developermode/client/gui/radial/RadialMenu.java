@@ -158,7 +158,9 @@ public final class RadialMenu {
                 .add(tool(Tool.WARP, new ItemStack(Item.MAP)))
                 .add(tool(Tool.GROW, new ItemStack(Item.DYE, 1, BONE_MEAL)))
                 .add(tool(Tool.BLAST, new ItemStack(Block.TNT)))
-                .add(tool(Tool.SMITE, new ItemStack(Item.GLOWSTONE_DUST)));
+                .add(tool(Tool.SMITE, new ItemStack(Item.GLOWSTONE_DUST)))
+                // Seeds, for what the world is grown from again.
+                .add(tool(Tool.REGENERATE, new ItemStack(Item.SEEDS)));
 
         RadialMenu player = new RadialMenu("gui.developermode.radial.player")
                 .add(RequestEntry.power(

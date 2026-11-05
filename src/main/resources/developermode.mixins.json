@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "BlockStateMixin",
+    "ChunkCacheAccessor",
     "EntityAccessor",
     "EntityMixin",
     "EntityRegistryAccessor",
@@ -20,6 +21,7 @@
   ],
   "server": [
     "PlayerManagerMixin",
+    "ServerChunkCacheAccessor",
     "ServerPlayNetworkHandlerMixin"
   ],
   "client": [

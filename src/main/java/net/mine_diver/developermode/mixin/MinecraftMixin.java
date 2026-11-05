@@ -1,10 +1,12 @@
 package net.mine_diver.developermode.mixin;
 
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.mine_diver.developermode.client.summon.SummonMode;
 import net.mine_diver.developermode.client.tool.ToolMode;
 import net.mine_diver.developermode.feature.player.Powers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.ClientPlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -14,7 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Keeps clicks made while placing entities or holding a tool away from the
- * world, and keeps a player's powers when the game swaps their player out.
+ * world, hands the scroll wheel to a tool that sizes with it, and keeps a
+ * player's powers when the game swaps their player out.
  *
  * <p>Without the first, putting a mob down would also swing at whatever is
  * there, holding the button would start mining it, and putting a tool away
@@ -46,6 +49,17 @@ class MinecraftMixin {
     @Inject(method = "handleMouseDown(IZ)V", at = @At("HEAD"), cancellable = true)
     private void developermode_inspectHold(int button, boolean holdingAttack, CallbackInfo ci) {
         if (SummonMode.isActive() || ToolMode.isArmed()) ci.cancel();
+    }
+
+    @WrapWithCondition(
+            method = "tick()V",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/entity/player/PlayerInventory;scrollInHotbar(I)V"
+            )
+    )
+    private boolean developermode_scrollTool(PlayerInventory inventory, int wheel) {
+        return !ToolMode.scroll(wheel);
     }
 
     @Inject(method = "respawnPlayer(ZI)V", at = @At("HEAD"))

@@ -7,12 +7,14 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.WorldDraw;
 import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Blast;
+import net.mine_diver.developermode.feature.world.Regenerate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.util.ScreenScaler;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -27,6 +29,8 @@ public final class ToolRenderer {
     private static final int GROW_COLOR = Theme.NBT_STRING;
     private static final int BLAST_COLOR = Theme.DANGER;
     private static final int SMITE_COLOR = Theme.NBT_NUMBER;
+    /** Off the theme, whose colors already belong to another tool or say something else. */
+    private static final int REGENERATE_COLOR = 0xFFC678DD;
 
     /** How far above the strike the bolt is drawn, which is far enough to read as coming down from the sky. */
     private static final double BOLT_HEIGHT = 24;
@@ -83,9 +87,36 @@ public final class ToolRenderer {
                         x - SCORCH, y + LIFT, z - SCORCH,
                         x + SCORCH, y + LIFT, z + SCORCH));
             }
+            case REGENERATE -> chunks(minecraft.world, target, ToolMode.radius(), cameraX, cameraY, cameraZ);
         }
 
         WorldDraw.endLines();
+    }
+
+    /**
+     * The chunks an area tool would act on: the columns they stand in, from
+     * the bottom of the world to the top, and the grid of their borders laid
+     * across the height of the point aimed at, which is where the eye already
+     * is.
+     */
+    private static void chunks(World world, HitResult target, int radius,
+                               double cameraX, double cameraY, double cameraZ) {
+        int across = Regenerate.across(radius);
+        double minX = ((target.blockX >> 4) - radius) * 16 - cameraX;
+        double minZ = ((target.blockZ >> 4) - radius) * 16 - cameraZ;
+        double maxX = minX + across * 16;
+        double maxZ = minZ + across * 16;
+
+        WorldDraw.outline(Box.create(
+                minX, world.getBottomY() - cameraY, minZ,
+                maxX, world.getTopY() - cameraY, maxZ));
+
+        double level = target.pos.y - cameraY + LIFT;
+        for (int border = 0; border <= across; border++) {
+            double along = border * 16;
+            WorldDraw.line(minX + along, level, minZ, minX + along, level, maxZ);
+            WorldDraw.line(minX, level, minZ + along, maxX, level, minZ + along);
+        }
     }
 
     public static void renderHud(Minecraft minecraft) {
@@ -102,10 +133,14 @@ public final class ToolRenderer {
                 ? Lang.of(ToolMode.error())
                 : target == null
                         ? Lang.get("gui.developermode.armed.no_target")
-                        : Lang.get("gui.developermode.armed.target", target.blockX, target.blockY, target.blockZ);
+                        : tool.hasArea()
+                                ? Lang.get("gui.developermode.armed.area", tool.area(ToolMode.radius()),
+                                        target.blockX, target.blockY, target.blockZ)
+                                : Lang.get("gui.developermode.armed.target", target.blockX, target.blockY, target.blockZ);
+        String helpKey = tool.hasArea() ? "gui.developermode.armed.help.area" : "gui.developermode.armed.help";
         String help = ToolMode.used() > 0
-                ? Lang.get("gui.developermode.armed.help.used", tool.verb(), tool.count(ToolMode.used()))
-                : Lang.get("gui.developermode.armed.help", tool.verb());
+                ? Lang.get(helpKey + ".used", tool.verb(), tool.count(ToolMode.used()))
+                : Lang.get(helpKey, tool.verb());
 
         int panelWidth = Math.max(Math.max(Draw.textWidth(minecraft, title), Draw.textWidth(minecraft, detail)),
                 Draw.textWidth(minecraft, help)) + 10;
@@ -127,6 +162,7 @@ public final class ToolRenderer {
             case GROW -> GROW_COLOR;
             case BLAST -> BLAST_COLOR;
             case SMITE -> SMITE_COLOR;
+            case REGENERATE -> REGENERATE_COLOR;
         };
     }
 }
