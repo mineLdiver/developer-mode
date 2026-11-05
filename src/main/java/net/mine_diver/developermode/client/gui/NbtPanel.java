@@ -1,7 +1,7 @@
 package net.mine_diver.developermode.client.gui;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.client.Lang;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.net.NbtInbox;
 import net.mine_diver.developermode.feature.net.NbtTarget;

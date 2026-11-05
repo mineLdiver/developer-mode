@@ -1,7 +1,6 @@
 package net.mine_diver.developermode.feature.player;
 
 import net.mine_diver.developermode.feature.net.Ops;
-import net.mine_diver.developermode.feature.net.packet.PowersC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.PowersS2CPacket;
 import net.minecraft.entity.player.PlayerEntity;
 import net.modificationstation.stationapi.api.network.packet.PacketHelper;
@@ -51,22 +50,5 @@ public final class Powers {
     public static void arrive(PlayerEntity player) {
         if (of(player) != Power.NONE && !Ops.allows(player)) set(player, Power.NONE);
         PacketHelper.sendTo(player, new PowersS2CPacket(of(player)));
-    }
-
-    /**
-     * Asks for one power to change, and leaves the answer to come back as a
-     * packet.
-     *
-     * <p>Flipping a switch can move the other one with it, which is the
-     * {@link Power#legal} rule seen from the side that is asking: turning
-     * noclip on asks for the flight it needs, and turning flight off gives up
-     * the noclip that was resting on it.
-     */
-    public static void toggle(PlayerEntity player, int power) {
-        if (player == null) return;
-
-        int wanted = of(player) ^ power;
-        if (power == Power.NOCLIP && (wanted & Power.NOCLIP) != 0) wanted |= Power.FLIGHT;
-        PacketHelper.send(new PowersC2SPacket(Power.legal(wanted)));
     }
 }

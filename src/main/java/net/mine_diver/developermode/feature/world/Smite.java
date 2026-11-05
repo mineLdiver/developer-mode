@@ -1,7 +1,7 @@
 package net.mine_diver.developermode.feature.world;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.feature.Aim;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.SmiteC2SPacket;
 import net.minecraft.entity.LightningEntity;
 import net.minecraft.entity.player.PlayerEntity;

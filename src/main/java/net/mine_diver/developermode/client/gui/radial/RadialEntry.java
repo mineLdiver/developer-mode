@@ -6,6 +6,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.item.ItemStack;
 
+import java.util.function.Supplier;
+
 /**
  * One slot of the radial menu.
  *
@@ -13,7 +15,9 @@ import net.minecraft.item.ItemStack;
  * slot can describe whatever it is pointed at right now.
  *
  * <p>Named by a translation key, with its hint under {@code .hint} beneath it,
- * and translated each time it is drawn.
+ * and translated each time it is drawn. The key itself can be asked for as
+ * late as that too, for a slot named after something that only learns its own
+ * name once it is registered, which is later than the ring is built.
  *
  * <p>A slot either does something or leads somewhere. Which one it is decides
  * what a click on it means, so the two are kept apart rather than left to a
@@ -41,22 +45,30 @@ public class RadialEntry {
         LOCK
     }
 
-    private final String key;
+    private final Supplier<String> key;
     private final ItemStack icon;
     private final RadialAction action;
     private final RadialMenu submenu;
     private Badge badge = Badge.NONE;
 
     public RadialEntry(String key, ItemStack icon, RadialAction action) {
+        this(() -> key, icon, action, null);
+    }
+
+    public RadialEntry(Supplier<String> key, ItemStack icon, RadialAction action) {
         this(key, icon, action, null);
     }
 
     /** A category: clicking it descends instead of doing anything. */
     public RadialEntry(String key, ItemStack icon, RadialMenu submenu) {
+        this(() -> key, icon, null, submenu);
+    }
+
+    public RadialEntry(Supplier<String> key, ItemStack icon, RadialMenu submenu) {
         this(key, icon, null, submenu);
     }
 
-    private RadialEntry(String key, ItemStack icon, RadialAction action, RadialMenu submenu) {
+    private RadialEntry(Supplier<String> key, ItemStack icon, RadialAction action, RadialMenu submenu) {
         this.key = key;
         this.icon = icon;
         this.action = action;
@@ -80,11 +92,11 @@ public class RadialEntry {
     }
 
     public String label() {
-        return Lang.get(key);
+        return Lang.get(key.get());
     }
 
     public String hint() {
-        return Lang.get(key + ".hint");
+        return Lang.get(key.get() + ".hint");
     }
 
     /** A disabled slot still shows, and its hint should say why it is off. */

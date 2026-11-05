@@ -1,4 +1,4 @@
-package net.mine_diver.developermode.feature;
+package net.mine_diver.developermode.api;
 
 /**
  * Something to tell the player, kept as a translation key until it is shown.

@@ -1,10 +1,8 @@
 package net.mine_diver.developermode.feature.world;
 
-import net.mine_diver.developermode.feature.Message;
-import net.mine_diver.developermode.feature.net.packet.WeatherC2SPacket;
+import net.mine_diver.developermode.api.Message;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProperties;
-import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 
 /**
  * Changing the sky.
@@ -29,10 +27,6 @@ public final class Weather {
     public static final byte STORM = 2;
 
     private Weather() {}
-
-    public static void request(byte weather) {
-        PacketHelper.send(new WeatherC2SPacket(weather));
-    }
 
     public static boolean legal(byte weather) {
         return weather == CLEAR || weather == RAIN || weather == STORM;

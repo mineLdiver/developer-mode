@@ -1,10 +1,10 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.gui.NbtPanel;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.NbtTarget;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.Minecraft;

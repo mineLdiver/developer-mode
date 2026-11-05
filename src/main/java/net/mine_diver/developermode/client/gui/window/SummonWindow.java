@@ -1,5 +1,6 @@
 package net.mine_diver.developermode.client.gui.window;
 
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.client.DeveloperModeClient;
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.Draw;
@@ -9,7 +10,6 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
 import net.mine_diver.developermode.client.summon.SummonMode;
-import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.entity.EntitySummoning;
 import net.mine_diver.developermode.feature.entity.SummonPresets;
 import net.minecraft.client.Minecraft;

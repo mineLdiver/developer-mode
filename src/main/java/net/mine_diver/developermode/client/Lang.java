@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.client;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 import net.minecraft.client.resource.language.I18n;
 
 /**

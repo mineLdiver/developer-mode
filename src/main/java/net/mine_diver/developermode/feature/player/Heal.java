@@ -1,6 +1,6 @@
 package net.mine_diver.developermode.feature.player;
 
-import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.api.Message;
 import net.mine_diver.developermode.feature.net.packet.HealC2SPacket;
 import net.mine_diver.developermode.mixin.EntityAccessor;
 import net.minecraft.entity.player.PlayerEntity;

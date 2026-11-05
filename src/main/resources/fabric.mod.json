@@ -17,7 +17,8 @@
   "entrypoints": {
     "stationapi:event_bus": [
       "net.mine_diver.developermode.DeveloperMode",
-      "net.mine_diver.developermode.feature.net.DevPackets"
+      "net.mine_diver.developermode.feature.net.DevPackets",
+      "net.mine_diver.developermode.feature.setting.DeveloperSettings"
     ],
     "stationapi:event_bus_client": [
       "net.mine_diver.developermode.client.DeveloperModeClient"
