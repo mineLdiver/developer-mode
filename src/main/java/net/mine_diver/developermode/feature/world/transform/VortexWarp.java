@@ -27,6 +27,8 @@ import java.util.Random;
  * it.
  */
 public final class VortexWarp extends Transform {
+    public static final String KIND = "vortex";
+
     private static final int CELL = 0;
     private static final int CHANCE = 1;
     private static final int RADIUS = 2;
@@ -37,7 +39,7 @@ public final class VortexWarp extends Transform {
     private static final int STRENGTH = 7;
 
     public VortexWarp() {
-        super("gui.developermode.transform.vortex",
+        super(KIND, "gui.developermode.transform.vortex",
                 new Parameter("gui.developermode.transform.vortex.cell", 16, 512, 128, true),
                 new Parameter("gui.developermode.transform.vortex.chance", 0, 1, 0.6, false),
                 new Parameter("gui.developermode.transform.vortex.radius", 4, 256, 40, true),

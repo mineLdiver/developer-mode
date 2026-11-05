@@ -15,6 +15,7 @@ import net.mine_diver.developermode.feature.net.packet.LockS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.HealC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.PowersC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.PowersS2CPacket;
+import net.mine_diver.developermode.feature.net.packet.ApplyPreviewC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.RegenerateC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.RequestNbtC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.SmiteC2SPacket;
@@ -62,6 +63,7 @@ public final class DevPackets {
         event.register(DeveloperMode.NAMESPACE.id("blast"), BlastC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("smite"), SmiteC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("regenerate"), RegenerateC2SPacket.TYPE);
+        event.register(DeveloperMode.NAMESPACE.id("apply_preview"), ApplyPreviewC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("clear"), ClearC2SPacket.TYPE);
     }
 }

@@ -9,8 +9,10 @@ package net.mine_diver.developermode.feature.world.transform;
  * opposite.
  */
 public final class Threshold extends Transform {
+    public static final String KIND = "threshold";
+
     public Threshold() {
-        super("gui.developermode.transform.threshold",
+        super(KIND, "gui.developermode.transform.threshold",
                 new Parameter("gui.developermode.transform.threshold.level", -200, 200, 0, false));
     }
 

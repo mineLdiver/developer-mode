@@ -13,14 +13,23 @@ import java.util.List;
  * from it.
  */
 public abstract class Transform {
+    private final String kind;
     private final String key;
     private final List<Parameter> parameters;
     private boolean enabled = true;
 
-    /** @param key the translation key of its name, with each parameter's name beneath it */
-    protected Transform(String key, Parameter... parameters) {
+    /**
+     * @param kind what it is called when it is sent somewhere, see {@link Stack#write}
+     * @param key  the translation key of its name, with each parameter's name beneath it
+     */
+    protected Transform(String kind, String key, Parameter... parameters) {
+        this.kind = kind;
         this.key = key;
         this.parameters = List.of(parameters);
+    }
+
+    public String kind() {
+        return kind;
     }
 
     public String key() {

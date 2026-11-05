@@ -12,8 +12,12 @@ import net.mine_diver.developermode.client.gui.Theme;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.WarpGridView;
 import net.mine_diver.developermode.client.gui.composer.DevWindow;
+import net.mine_diver.developermode.feature.Message;
+import net.mine_diver.developermode.feature.net.DevStatus;
+import net.mine_diver.developermode.feature.net.packet.ApplyPreviewC2SPacket;
 import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Preview;
+import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 import net.minecraft.client.Minecraft;
 import net.modificationstation.stationapi.api.block.BlockState;
 import net.modificationstation.stationapi.api.registry.BlockRegistry;
@@ -46,6 +50,10 @@ import java.util.Locale;
  * noise, and builds again by itself once they settle on new values, reusing
  * the noise it already worked out. The placement map and the warp grid show
  * what the transforms do with no terrain at all.
+ *
+ * <p>Applying regenerates the previewed square in the world with the same
+ * transforms, decoration and all, so what was tuned here can be walked around
+ * in. It is as destructive as regenerating.
  */
 public final class PreviewWindow extends DevWindow {
     private static final int GAP = 3;
@@ -89,6 +97,7 @@ public final class PreviewWindow extends DevWindow {
     private final Button stepButton = new Button(Preview.Step.TERRAIN.key);
     private final Button modeButton = new Button(Mode.BLOCKS.key);
     private final Button transformsButton = new Button("gui.developermode.preview.transforms");
+    private final Button applyButton = new Button("gui.developermode.preview.apply");
 
     private final IsometricView view = new IsometricView();
     private final SliceView slices = new SliceView();
@@ -104,6 +113,11 @@ public final class PreviewWindow extends DevWindow {
     private long settlingSince;
     /** The world coordinates under the pointer on the map or the grid, or null. */
     private int[] hoveredSpot;
+    /** The last answer to applying, shown for a while. */
+    private Message status;
+    private boolean statusOk;
+    private long statusUntil;
+    private int statusSequence = DevStatus.sequence(DevStatus.REGENERATE);
     private int centerX;
     private int centerZ;
     private IsometricView.Hit hovered;
@@ -134,6 +148,7 @@ public final class PreviewWindow extends DevWindow {
     @Override
     protected void renderContent(Minecraft minecraft, int mouseX, int mouseY, float delta, boolean focused) {
         rebuildIfTransformsSettled();
+        readAnswer();
         Preview preview = view.preview();
         if (preview != null) {
             if (!preview.done()) preview.step(BUDGET_NANOS);
@@ -208,6 +223,8 @@ public final class PreviewWindow extends DevWindow {
             mode = all[(mode.ordinal() + (button == 1 ? all.length - 1 : 1)) % all.length];
         } else if (transformsButton.contains(mouseX, mouseY)) {
             TransformWindow.open();
+        } else if (applyButton.enabled && applyButton.contains(mouseX, mouseY)) {
+            PacketHelper.send(new ApplyPreviewC2SPacket(centerX, centerZ, view.preview().across() / 2, Workbench.STACK));
         } else if (mode == Mode.SLICES) {
             if (button == 0) slices.click(mouseX, mouseY);
         } else if (mode == Mode.BLOCKS && button == 0 && overView(mouseX, mouseY)) {
@@ -264,6 +281,16 @@ public final class PreviewWindow extends DevWindow {
                 chunkX, chunkZ, radius);
         view.show(preview);
         slices.show(preview);
+    }
+
+    /** Picks up what came of applying, which is answered long after the click. */
+    private void readAnswer() {
+        int sequence = DevStatus.sequence(DevStatus.REGENERATE);
+        if (sequence == statusSequence) return;
+        statusSequence = sequence;
+        status = DevStatus.message(DevStatus.REGENERATE);
+        statusOk = DevStatus.ok(DevStatus.REGENERATE);
+        statusUntil = System.nanoTime() + 4_000_000_000L;
     }
 
     private void rebuildIfTransformsSettled() {
@@ -329,7 +356,9 @@ public final class PreviewWindow extends DevWindow {
         stepButton.render(minecraft, mouseX, mouseY);
         x += stepWidth + GAP + 2;
 
+        Message materializing = preview == null ? null : preview.materializing();
         String progress = preview == null ? ""
+                : materializing != null ? Lang.of(materializing)
                 : !preview.done() ? Lang.get("gui.developermode.preview.generating", preview.made(), preview.count())
                 : !view.settled() && mode == Mode.BLOCKS ? Lang.get("gui.developermode.preview.drawing")
                 : "";
@@ -337,7 +366,11 @@ public final class PreviewWindow extends DevWindow {
         transformsButton.bounds(contentX() + contentWidth() - transformsWidth, y, transformsWidth);
         transformsButton.toggled = Workbench.STACK.active();
         transformsButton.render(minecraft, mouseX, mouseY);
-        Draw.text(minecraft, Draw.ellipsize(minecraft, progress, transformsButton.x - x - GAP), x, y + 2, Theme.TEXT_FAINT);
+        int applyWidth = 36;
+        applyButton.bounds(transformsButton.x - GAP - applyWidth, y, applyWidth);
+        applyButton.enabled = preview != null && preview.across() / 2 <= ApplyPreviewC2SPacket.MAX_RADIUS;
+        applyButton.render(minecraft, mouseX, mouseY);
+        Draw.text(minecraft, Draw.ellipsize(minecraft, progress, applyButton.x - x - GAP), x, y + 2, Theme.TEXT_FAINT);
 
         int y2 = y + 12 + GAP;
         x = contentX();
@@ -384,6 +417,9 @@ public final class PreviewWindow extends DevWindow {
         if (preview != null && preview.failure() != null) {
             text = Lang.of(preview.failure());
             color = Theme.DANGER;
+        } else if (status != null && System.nanoTime() < statusUntil) {
+            text = Lang.of(status);
+            color = statusOk ? Theme.ACCENT : Theme.DANGER;
         } else if (hovered != null) {
             text = Lang.get("gui.developermode.preview.hovered", name(hovered.state()), hovered.x(), hovered.y(), hovered.z());
             color = Theme.TEXT_DIM;

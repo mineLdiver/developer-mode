@@ -2,11 +2,12 @@ package net.mine_diver.developermode.feature.world;
 
 import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.feature.Message;
-import net.mine_diver.developermode.feature.world.transform.Sampler;
 import net.mine_diver.developermode.feature.world.transform.Stack;
 import net.mine_diver.developermode.feature.world.transform.Substitution;
 import net.minecraft.block.Block;
 import net.minecraft.world.World;
+import net.modificationstation.stationapi.api.StationAPI;
+import net.modificationstation.stationapi.api.event.world.gen.WorldGenEvent;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSource;
 import net.modificationstation.stationapi.impl.world.chunk.FlattenedChunk;
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Chunks generated off to the side, for looking at what a generator makes
@@ -55,7 +57,13 @@ public final class Preview {
          * The blocks {@code getChunk} hands back: the shape, the surface and
          * the caves, before any decoration.
          */
-        TERRAIN("gui.developermode.preview.step.terrain");
+        TERRAIN("gui.developermode.preview.step.terrain"),
+        /**
+         * Everything, decoration included, decorated in a world of the
+         * preview's own and drawn with the blocks' real textures. The slowest
+         * by far.
+         */
+        MATERIALIZED("gui.developermode.preview.step.materialized");
 
         public final String key;
 
@@ -70,7 +78,7 @@ public final class Preview {
     private final Stack stack;
     /** The generator's own noise by chunk, inside the preview and past its edges, shared with a rebuild. */
     private final Map<Long, Noise.Field> raw;
-    private Sampler transformed;
+    private TransformedNoise transformed;
     private final int fromX;
     private final int fromZ;
     private final int across;
@@ -83,9 +91,23 @@ public final class Preview {
     private int made;
     private Message failure;
 
-    private Preview(World world, ChunkSource generator, Step step, Stack stack, Map<Long, Noise.Field> raw,
-                    int centerX, int centerZ, int radius) {
+    /**
+     * The world a Materialized preview decorates in, holding a ring of chunks
+     * one wider than the preview, since decorating a chunk writes into the
+     * ones beside it. Null at any other step.
+     */
+    private final PreviewWorld decorated;
+    /** The ring's chunks in the order they are made, nearest the middle first, as positions across it. */
+    private final int[] ring;
+    /** The chunks decorated, one fewer across than the ring and short of it on the far side. */
+    private final int[] decorating;
+    private int generated;
+    private int decoratedCount;
+
+    private Preview(World world, PreviewWorld decorated, ChunkSource generator, Step step, Stack stack,
+                    Map<Long, Noise.Field> raw, int centerX, int centerZ, int radius) {
         this.world = world;
+        this.decorated = decorated;
         this.generator = generator;
         this.step = step;
         this.stack = stack;
@@ -96,14 +118,21 @@ public final class Preview {
         this.chunks = new FlattenedChunk[across * across];
         this.noise = step == Step.NOISE ? new Noise.Field[chunks.length] : null;
 
-        Integer[] byDistance = new Integer[chunks.length];
+        this.order = centerOut(across, radius);
+        this.ring = decorated == null ? new int[0] : centerOut(across + 2, radius + 1);
+        this.decorating = decorated == null ? new int[0] : centerOut(across + 1, radius + 1);
+    }
+
+    /** The positions of a square, nearest a point first, as {@code x + z * side}. */
+    private static int[] centerOut(int side, int center) {
+        Integer[] byDistance = new Integer[side * side];
         for (int i = 0; i < byDistance.length; i++) byDistance[i] = i;
         Arrays.sort(byDistance, Comparator.comparingInt(i -> {
-            int dx = i % across - radius;
-            int dz = i / across - radius;
+            int dx = i % side - center;
+            int dz = i / side - center;
             return dx * dx + dz * dz;
         }));
-        this.order = Arrays.stream(byDistance).mapToInt(Integer::intValue).toArray();
+        return Arrays.stream(byDistance).mapToInt(Integer::intValue).toArray();
     }
 
     /**
@@ -118,7 +147,11 @@ public final class Preview {
      */
     public static Preview around(World world, Step step, Stack stack, Preview previous, int chunkX, int chunkZ, int radius) {
         Map<Long, Noise.Field> raw = previous != null && previous.world == world ? previous.raw : new HashMap<>();
-        return new Preview(world, world.dimension.createChunkGenerator(), step, stack.copy(), raw, chunkX, chunkZ, radius);
+        // Decorating writes through the generator's own world, so a
+        // Materialized preview's generator is made for a world of its own.
+        PreviewWorld decorated = step == Step.MATERIALIZED ? new PreviewWorld(world) : null;
+        ChunkSource generator = (decorated == null ? world : decorated).dimension.createChunkGenerator();
+        return new Preview(world, decorated, generator, step, stack.copy(), raw, chunkX, chunkZ, radius);
     }
 
     /**
@@ -130,6 +163,7 @@ public final class Preview {
      */
     public boolean step(long budgetNanos) {
         long until = System.nanoTime() + budgetNanos;
+        if (step == Step.MATERIALIZED) return materialize(until);
         while (!done()) {
             int index = order[made];
             int x = fromX + index % across;
@@ -145,15 +179,9 @@ public final class Preview {
                     noise[index] = field;
                     chunks[index] = solidOf(field, x, z);
                 } else {
-                    Noise.Field field = transforming ? transformed(x, z) : null;
-                    Chunk chunk = field == null
-                            ? generator.getChunk(x, z)
-                            : Substitution.during(generator, field, () -> generator.getChunk(x, z));
-                    if (!(chunk instanceof FlattenedChunk flattened)) {
-                        failure = Message.of("message.developermode.cannot_preview");
-                        return true;
-                    }
-                    chunks[index] = flattened;
+                    FlattenedChunk chunk = terrain(x, z);
+                    if (chunk == null) return true;
+                    chunks[index] = chunk;
                 }
             } catch (RuntimeException | LinkageError error) {
                 DeveloperMode.LOGGER.error("Generating preview chunk {}, {} threw", x, z, error);
@@ -166,29 +194,122 @@ public final class Preview {
         return done();
     }
 
-    /** The generator's own noise for a chunk, worked out once. */
-    private Noise.Field raw(int chunkX, int chunkZ) {
-        return raw.computeIfAbsent((long) chunkX << 32 | chunkZ & 0xFFFFFFFFL, key -> Noise.sample(generator, world, chunkX, chunkZ));
+    /**
+     * A chunk as getChunk hands it back, with the transformed noise standing
+     * in for the generator's when there are transforms.
+     *
+     * @return null once something has failed, which is then said in {@link #failure}
+     */
+    private FlattenedChunk terrain(int x, int z) {
+        Noise.Field field = stack.active() ? transformed(x, z) : null;
+        Chunk chunk = field == null
+                ? generator.getChunk(x, z)
+                : Substitution.during(generator, field, () -> generator.getChunk(x, z));
+        if (chunk instanceof FlattenedChunk flattened) return flattened;
+        failure = Message.of("message.developermode.cannot_preview");
+        return null;
     }
 
-    /** A chunk's noise with the stack laid over it, worked out block by block. */
-    private Noise.Field transformed(int chunkX, int chunkZ) {
-        if (transformed == null) {
-            Sampler noise = (x, y, z) -> {
-                Noise.Field field = raw(x >> 4, z >> 4);
-                if (field == null || y < field.bottomY() || y >= field.bottomY() + field.height()) return Double.NaN;
-                return field.at(x & 15, y, z & 15);
-            };
-            transformed = stack.over(noise, world.getSeed());
+    /**
+     * The Materialized step: the whole ring's terrain first, then the
+     * decoration, each nearest the middle first, and the preview's chunks
+     * handed over only once every one of them has all the decoration that
+     * reaches into it.
+     */
+    private boolean materialize(long until) {
+        while (!done()) {
+            int x = 0;
+            int z = 0;
+            try {
+                if (stack.active() && !Noise.knows(generator)) {
+                    failure = Message.of("message.developermode.no_transforms");
+                    return true;
+                }
+                if (generated < ring.length) {
+                    x = fromX - 1 + ring[generated] % (across + 2);
+                    z = fromZ - 1 + ring[generated] / (across + 2);
+                    FlattenedChunk chunk = terrain(x, z);
+                    if (chunk == null) return true;
+                    decorated.put(chunk);
+                    int areaX = x - fromX;
+                    int areaZ = z - fromZ;
+                    if (areaX >= 0 && areaZ >= 0 && areaX < across && areaZ < across) chunks[areaZ * across + areaX] = chunk;
+                    generated++;
+                } else if (decoratedCount < decorating.length) {
+                    x = fromX - 1 + decorating[decoratedCount] % (across + 1);
+                    z = fromZ - 1 + decorating[decoratedCount] / (across + 1);
+                    decorate(x, z);
+                    decoratedCount++;
+                } else {
+                    made = chunks.length;
+                }
+            } catch (RuntimeException | LinkageError error) {
+                boolean decorating = generated == ring.length;
+                DeveloperMode.LOGGER.error("{} preview chunk {}, {} threw", decorating ? "Decorating" : "Generating", x, z, error);
+                failure = Message.of(decorating ? "message.developermode.preview_decoration_threw" : "message.developermode.preview_threw",
+                        error.getClass().getSimpleName(), x, z);
+                return true;
+            }
+            if (System.nanoTime() >= until) break;
         }
-        int bottom = world.getBottomY();
-        int height = world.getHeight();
-        float[] values = new float[16 * 16 * height];
-        for (int x = 0; x < 16; x++)
-            for (int z = 0; z < 16; z++)
-                for (int y = 0; y < height; y++)
-                    values[Noise.index(x, y, z, height)] = (float) transformed.at(chunkX * 16 + x, bottom + y, chunkZ * 16 + z);
-        return new Noise.Field(values, bottom, height);
+        return done();
+    }
+
+    /**
+     * Decorates a chunk of the preview's world, and then lets every mod
+     * decorate it too, with the event StationAPI posts after decorating a
+     * chunk of a real world, seeded the same way.
+     */
+    private void decorate(int chunkX, int chunkZ) {
+        decorated.getChunk(chunkX, chunkZ).terrainPopulated = true;
+        generator.decorate(decorated.getChunkSource(), chunkX, chunkZ);
+
+        int blockX = chunkX * 16;
+        int blockZ = chunkZ * 16;
+        long seed = decorated.getSeed();
+        Random random = new Random(seed);
+        long xMultiplier = random.nextLong() / 2L * 2L + 1L;
+        long zMultiplier = random.nextLong() / 2L * 2L + 1L;
+        random.setSeed((long) chunkX * xMultiplier + (long) chunkZ * zMultiplier ^ seed);
+        StationAPI.EVENT_BUS.post(WorldGenEvent.ChunkDecoration.builder()
+                .world(decorated)
+                .worldSource(generator)
+                .biome(decorated.method_1781().getBiome(blockX + 16, blockZ + 16))
+                .x(blockX)
+                .z(blockZ)
+                .random(random)
+                .build());
+    }
+
+    /**
+     * Where the Materialized step has got to, as a fraction of each of its
+     * two parts, or null at any other step.
+     */
+    public Message materializing() {
+        if (decorated == null || done()) return null;
+        return generated < ring.length
+                ? Message.of("gui.developermode.preview.generating", generated, ring.length)
+                : Message.of("gui.developermode.preview.decorating", decoratedCount, decorating.length);
+    }
+
+    /** The world a Materialized preview's chunks live in, or null at any other step. */
+    public PreviewWorld decorated() {
+        return decorated;
+    }
+
+    private Noise.Field raw(int chunkX, int chunkZ) {
+        return noise().raw(chunkX, chunkZ);
+    }
+
+    private Noise.Field transformed(int chunkX, int chunkZ) {
+        return noise().transformed(chunkX, chunkZ);
+    }
+
+    private TransformedNoise noise() {
+        // Through the generator's own world, whose biomes are the ones it
+        // reads while it builds the noise.
+        if (transformed == null) transformed = new TransformedNoise(generator, decorated == null ? world : decorated, stack, raw);
+        return transformed;
     }
 
     public Stack stack() {

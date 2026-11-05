@@ -57,6 +57,8 @@ public final class Noise {
     }
 
     /**
+     * @param world the generator's own world, since the generator reads that
+     *              world's biomes while it builds the noise
      * @return the chunk's density, or null for a generator this does not
      *         know the grid of
      */

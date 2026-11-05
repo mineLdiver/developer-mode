@@ -2,8 +2,11 @@ package net.mine_diver.developermode.client.gui;
 
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.feature.world.Preview;
+import net.mine_diver.developermode.feature.world.PreviewWorld;
+import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.block.BlockRenderManager;
 import net.modificationstation.stationapi.api.block.BlockState;
 import net.modificationstation.stationapi.impl.world.chunk.ChunkSection;
 import net.modificationstation.stationapi.impl.world.chunk.FlattenedChunk;
@@ -25,6 +28,12 @@ import org.lwjgl.opengl.GL11;
  * been. Only faces that can be seen are kept: a camera above never sees a
  * face pointing down, and of the four sides only the two turned toward it, so
  * turning the view works them out again.
+ *
+ * <p>A Materialized preview is drawn instead with Beta's own block renderer
+ * and the blocks' real textures, so modded blocks look as they do in the
+ * world with no extra work. Its faces are kept in two lists per chunk, the
+ * solid ones and the see-through ones such as water, drawn in that order the
+ * way the world draws them.
  */
 public final class IsometricView {
     /** Degrees down from level, enough to see the tops and the sides about equally. */
@@ -60,6 +69,8 @@ public final class IsometricView {
     private Preview preview;
     /** A display list per chunk, by the preview's index, or 0 for none yet. */
     private int[] lists = new int[0];
+    /** The see-through faces of a Materialized preview's chunks, drawn after everything else. */
+    private int[] translucent = new int[0];
     /** How many chunks, in the order they were made, have faces for the current settings. */
     private int meshed;
 
@@ -76,6 +87,7 @@ public final class IsometricView {
         release();
         this.preview = preview;
         this.lists = new int[preview.count()];
+        this.translucent = new int[preview.count()];
         this.meshed = 0;
         this.zoom = -1;
         this.panX = 0;
@@ -89,9 +101,11 @@ public final class IsometricView {
 
     /** Hands the display lists back. Safe to call more than once. */
     public void release() {
-        for (int i = 0; i < lists.length; i++) {
-            if (lists[i] != 0) GL11.glDeleteLists(lists[i], 1);
-            lists[i] = 0;
+        for (int[] kept : new int[][] { lists, translucent }) {
+            for (int i = 0; i < kept.length; i++) {
+                if (kept[i] != 0) GL11.glDeleteLists(kept[i], 1);
+                kept[i] = 0;
+            }
         }
     }
 
@@ -172,7 +186,19 @@ public final class IsometricView {
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
         GL11.glColor4f(1, 1, 1, 1);
 
-        for (int list : lists) if (list != 0) GL11.glCallList(list);
+        if (preview.step() == Preview.Step.MATERIALIZED) {
+            minecraft.textureManager.bindTexture(minecraft.textureManager.getTextureId("/terrain.png"));
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_ALPHA_TEST);
+            GL11.glAlphaFunc(GL11.GL_GREATER, 0.1F);
+            for (int list : lists) if (list != 0) GL11.glCallList(list);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            for (int list : translucent) if (list != 0) GL11.glCallList(list);
+            GL11.glDisable(GL11.GL_BLEND);
+        } else {
+            for (int list : lists) if (list != 0) GL11.glCallList(list);
+        }
 
         // The depth written here is in the middle of a 2D screen. Clearing is
         // safe because the scissor keeps it inside this rectangle.
@@ -259,6 +285,10 @@ public final class IsometricView {
         int chunkZ = preview.fromZ() + index / across;
         FlattenedChunk chunk = preview.chunk(chunkX, chunkZ);
         if (chunk == null) return;
+        if (preview.step() == Preview.Step.MATERIALIZED) {
+            meshTextured(index, chunk);
+            return;
+        }
 
         // Which two sides are turned toward the camera: the normal of a face
         // seen from where the view looks from has a positive share of it.
@@ -300,6 +330,54 @@ public final class IsometricView {
         }
         tessellator.draw();
         GL11.glEndList();
+    }
+
+    /**
+     * A Materialized chunk's faces, by Beta's own block renderer working on
+     * the preview's world, which hides everything above the cut and outside
+     * the preview while it does.
+     * Beta renders a block only in the pass its kind asks for, the second
+     * being the see-through one.
+     */
+    private void meshTextured(int index, FlattenedChunk chunk) {
+        PreviewWorld world = preview.decorated();
+        BlockRenderManager renderer = new BlockRenderManager(world);
+        int originX = preview.fromX() * 16;
+        int originZ = preview.fromZ() * 16;
+        int cut = cut();
+        Tessellator tessellator = Tessellator.INSTANCE;
+
+        for (int pass = 0; pass < 2; pass++) {
+            int[] kept = pass == 0 ? lists : translucent;
+            if (kept[index] == 0) kept[index] = GL11.glGenLists(1);
+            int layer = pass;
+            GL11.glNewList(kept[index], GL11.GL_COMPILE);
+            tessellator.startQuads();
+            // Drawn in the preview's own coordinates, like the flat faces.
+            tessellator.setOffset(-originX, -preview.bottomY(), -originZ);
+            int side = preview.across() * 16;
+            world.showing(cut, originX, originZ, originX + side - 1, originZ + side - 1, () -> {
+                for (ChunkSection section : chunk.sections) {
+                    if (section == null || section.isEmpty()) continue;
+                    for (int sy = 0; sy < 16; sy++) {
+                        int y = section.getYOffset() + sy;
+                        if (y > cut) break;
+                        for (int lz = 0; lz < 16; lz++) {
+                            for (int lx = 0; lx < 16; lx++) {
+                                BlockState state = section.getBlockState(lx, sy, lz);
+                                if (state.isAir()) continue;
+                                Block block = state.getBlock();
+                                if (block.getRenderLayer() != layer) continue;
+                                renderer.render(block, chunk.x * 16 + lx, y, chunk.z * 16 + lz);
+                            }
+                        }
+                    }
+                }
+            });
+            tessellator.draw();
+            tessellator.setOffset(0, 0, 0);
+            GL11.glEndList();
+        }
     }
 
     /**

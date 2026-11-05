@@ -4,6 +4,8 @@ import net.mine_diver.developermode.DeveloperMode;
 import net.mine_diver.developermode.feature.Aim;
 import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.net.packet.RegenerateC2SPacket;
+import net.mine_diver.developermode.feature.world.transform.Stack;
+import net.mine_diver.developermode.feature.world.transform.Substitution;
 import net.mine_diver.developermode.mixin.ChunkCacheAccessor;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
@@ -17,6 +19,7 @@ import net.modificationstation.stationapi.api.network.packet.PacketHelper;
 import net.modificationstation.stationapi.api.util.SideUtil;
 import net.modificationstation.stationapi.impl.world.chunk.FlattenedChunk;
 
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -97,9 +100,26 @@ public final class Regenerate {
      * @return what went wrong, or null if the whole area was regenerated
      */
     public static Message regenerate(World world, int chunkX, int chunkZ, int radius) {
+        return regenerate(world, chunkX, chunkZ, radius, null);
+    }
+
+    /**
+     * Regenerates the square of chunks around one with transforms laid over
+     * the generator's noise, the way a preview of it was built, so what was
+     * tuned in a preview can be walked around in. The transformed noise
+     * stands in for the generator's own while it builds each chunk, the way it
+     * does for the preview's generator.
+     *
+     * @param stack null, or one with nothing switched on, for the generator as it is
+     * @return what went wrong, or null if the whole area was regenerated
+     */
+    public static Message regenerate(World world, int chunkX, int chunkZ, int radius, Stack stack) {
         ChunkSource cache = world.getChunkSource();
         ChunkSource generator = generatorOf(cache);
         if (generator == null) return Message.of("message.developermode.cannot_regenerate");
+        boolean transforming = stack != null && stack.active();
+        if (transforming && !Noise.knows(generator)) return Message.of("message.developermode.no_transforms");
+        TransformedNoise noise = transforming ? new TransformedNoise(generator, world, stack, new HashMap<>()) : null;
 
         int across = across(radius);
         int fromX = chunkX - radius;
@@ -122,7 +142,9 @@ public final class Regenerate {
             int z = fromZ + i / across;
             Chunk made;
             try {
-                made = generator.getChunk(x, z);
+                made = noise == null
+                        ? generator.getChunk(x, z)
+                        : Substitution.during(generator, noise.transformed(x, z), () -> generator.getChunk(x, z));
             } catch (RuntimeException | LinkageError error) {
                 DeveloperMode.LOGGER.error("Generating chunk {}, {} threw, so nothing was regenerated", x, z, error);
                 return Message.of("message.developermode.generator_threw", error.getClass().getSimpleName(), x, z);

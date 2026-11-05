@@ -1,8 +1,13 @@
 package net.mine_diver.developermode.feature.world.transform;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Transforms in the order they are laid over the noise, each switchable and
@@ -13,6 +18,13 @@ import java.util.List;
  * and off without losing its settings.
  */
 public final class Stack {
+    /** Every kind of transform, by the name it is sent under. */
+    private static final Map<String, Supplier<Transform>> KINDS = Map.of(
+            VortexWarp.KIND, VortexWarp::new,
+            Threshold.KIND, Threshold::new);
+    /** More than anyone would stack, so a longer one off the wire is refused rather than built. */
+    private static final int MOST = 32;
+
     private final List<Transform> transforms = new ArrayList<>();
 
     public List<Transform> transforms() {
@@ -80,6 +92,47 @@ public final class Stack {
         Stack copy = new Stack();
         for (Transform transform : transforms) copy.add(transform.copy());
         return copy;
+    }
+
+    /**
+     * Writes the stack for sending, so the side that applies it builds the
+     * same one: each transform by its kind, whether it is on, and its numbers.
+     */
+    public void write(DataOutputStream out) throws IOException {
+        out.writeByte(transforms.size());
+        for (Transform transform : transforms) {
+            out.writeUTF(transform.kind());
+            out.writeBoolean(transform.enabled());
+            out.writeByte(transform.parameters().size());
+            for (Parameter parameter : transform.parameters()) out.writeDouble(parameter.get());
+        }
+    }
+
+    /**
+     * Reads a stack written by {@link #write}. It came off a socket, so a
+     * kind not known here, a count that does not match, or a number that is
+     * not a number is refused rather than built; numbers out of range are
+     * held to it, as a slider would hold them.
+     */
+    public static Stack read(DataInputStream in) throws IOException {
+        int count = in.readUnsignedByte();
+        if (count > MOST) throw new IOException("A stack of " + count + " transforms");
+        Stack stack = new Stack();
+        for (int i = 0; i < count; i++) {
+            Supplier<Transform> kind = KINDS.get(in.readUTF());
+            if (kind == null) throw new IOException("A transform of an unknown kind");
+            Transform transform = kind.get();
+            transform.setEnabled(in.readBoolean());
+            int parameters = in.readUnsignedByte();
+            if (parameters != transform.parameters().size()) throw new IOException("A transform with " + parameters + " numbers");
+            for (Parameter parameter : transform.parameters()) {
+                double value = in.readDouble();
+                if (!Double.isFinite(value)) throw new IOException("A transform with a number that is not one");
+                parameter.set(value);
+            }
+            stack.add(transform);
+        }
+        return stack;
     }
 
     /**
