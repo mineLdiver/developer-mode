@@ -5,6 +5,7 @@ import net.mine_diver.developermode.feature.net.DevStatus;
 import net.mine_diver.developermode.feature.player.Warp;
 import net.mine_diver.developermode.feature.world.Blast;
 import net.mine_diver.developermode.feature.world.Grow;
+import net.mine_diver.developermode.feature.world.Regenerate;
 import net.mine_diver.developermode.feature.world.Smite;
 
 import java.util.function.DoubleConsumer;
@@ -17,23 +18,38 @@ import java.util.function.DoubleConsumer;
  * the HUD needs to keep it impossible to forget: a name, what a click does,
  * and how to count what it has done.
  *
+ * <p>Some act on an area of chunks around the one pointed at rather than on a
+ * point, and say how far out they can reach. The scroll wheel sets how far
+ * while one of them is armed.
+ *
  * <p>All of it is under one translation key: the name is the key itself, and
  * the rest are {@code .hint}, {@code .verb}, {@code .one} and {@code .many}
- * beneath it.
+ * beneath it, and for a tool with an area {@code .area.one} and
+ * {@code .area.many}, which name it.
  */
 public enum Tool {
     WARP("gui.developermode.tool.warp", DevStatus.WARP, Warp::request),
     GROW("gui.developermode.tool.grow", DevStatus.GROW, Grow::request),
     BLAST("gui.developermode.tool.blast", DevStatus.BLAST, Blast::request),
-    SMITE("gui.developermode.tool.smite", DevStatus.SMITE, Smite::request);
+    SMITE("gui.developermode.tool.smite", DevStatus.SMITE, Smite::request),
+    REGENERATE("gui.developermode.tool.regenerate", DevStatus.REGENERATE,
+            Regenerate.MAX_RADIUS, Regenerate.DEFAULT_RADIUS, Regenerate::request);
 
     private final String key;
     private final String kind;
-    private final DoubleConsumer request;
+    private final int maxRadius;
+    private final int defaultRadius;
+    private final Request request;
 
     Tool(String key, String kind, DoubleConsumer request) {
+        this(key, kind, 0, 0, (reach, radius) -> request.accept(reach));
+    }
+
+    Tool(String key, String kind, int maxRadius, int defaultRadius, Request request) {
         this.key = key;
         this.kind = kind;
+        this.maxRadius = maxRadius;
+        this.defaultRadius = defaultRadius;
         this.request = request;
     }
 
@@ -61,8 +77,37 @@ public enum Tool {
         return kind;
     }
 
-    /** @param reach how far the sender can see, in blocks */
-    public void use(double reach) {
-        request.accept(reach);
+    /** Whether it acts on chunks around the one pointed at, rather than on a point. */
+    public boolean hasArea() {
+        return maxRadius > 0;
+    }
+
+    /** How far out it can reach, in chunks, and 0 for one without an area. */
+    public int maxRadius() {
+        return maxRadius;
+    }
+
+    /** How far out it reaches until the wheel says otherwise. */
+    public int defaultRadius() {
+        return defaultRadius;
+    }
+
+    /** What the area at a radius covers, as in "3×3 chunks". */
+    public String area(int radius) {
+        int across = radius * 2 + 1;
+        return radius == 0 ? Lang.get(key + ".area.one") : Lang.get(key + ".area.many", across, across);
+    }
+
+    /**
+     * @param reach  how far the sender can see, in blocks
+     * @param radius how far out from the chunk pointed at, which only a tool with an area reads
+     */
+    public void use(double reach, int radius) {
+        request.send(reach, radius);
+    }
+
+    @FunctionalInterface
+    private interface Request {
+        void send(double reach, int radius);
     }
 }

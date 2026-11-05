@@ -87,11 +87,24 @@ gui.@.tool.smite.hint=Lightning wherever you point
 gui.@.tool.smite.verb=strike
 gui.@.tool.smite.one=%s strike
 gui.@.tool.smite.many=%s strikes
+# A tool that acts on the chunks around where it points names that area
+# under .area.one, for the chunk pointed at alone, and .area.many, which is
+# given how many chunks across it is once for each side.
+gui.@.tool.regenerate=Regenerate
+gui.@.tool.regenerate.hint=Build the chunks you point at again, from the world's own generator
+gui.@.tool.regenerate.verb=regenerate
+gui.@.tool.regenerate.one=%s regenerated
+gui.@.tool.regenerate.many=%s regenerated
+gui.@.tool.regenerate.area.one=one chunk
+gui.@.tool.regenerate.area.many=%s\u00D7%s chunks
 gui.@.armed=%s armed
 gui.@.armed.no_target=nothing in reach
 gui.@.armed.target=at %s, %s, %s
+gui.@.armed.area=%s at %s, %s, %s
 gui.@.armed.help=left click to %s    right click to put away
 gui.@.armed.help.used=left click to %s    right click to put away    %s
+gui.@.armed.help.area=left click to %s    scroll to resize    right click to put away
+gui.@.armed.help.area.used=left click to %s    scroll to resize    right click to put away    %s
 
 gui.@.summoning=Summoning %s
 gui.@.summoning.preset=Summoning %s with preset
@@ -203,6 +216,7 @@ message.@.requires_operator=Requires operator
 message.@.nonsense_reach=Nonsense reach
 message.@.nonsense_time=Nonsense time
 message.@.nonsense_position=Nonsense position
+message.@.nonsense_radius=Nonsense radius
 message.@.too_far=Too far away
 message.@.nothing_in_reach=Nothing in reach
 message.@.nothing_in_sight=Nothing in sight
@@ -241,3 +255,8 @@ message.@.target.entity=entity %s
 message.@.target.block=block entity at %s %s %s
 message.@.target.slot=slot %s
 message.@.target.none=nothing
+message.@.regenerated=Regenerated
+message.@.area_not_loaded=Not all of that area is loaded
+message.@.cannot_regenerate=These chunks can't be regenerated
+message.@.generator_threw=The generator threw %s on chunk %s, %s, so nothing changed
+message.@.decoration_threw=Decorating chunk %s, %s threw %s, so the area is only partly decorated

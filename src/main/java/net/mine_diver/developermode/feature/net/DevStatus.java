@@ -29,6 +29,7 @@ public final class DevStatus {
     public static final String GROW = "grow";
     public static final String BLAST = "blast";
     public static final String SMITE = "smite";
+    public static final String REGENERATE = "regenerate";
     public static final String SWEEP = "sweep";
     public static final String PURGE = "purge";
 

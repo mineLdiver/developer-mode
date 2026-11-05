@@ -23,8 +23,19 @@ import org.lwjgl.input.Mouse;
  * <p>Nothing but the right click puts it away. Opening the ring, a window or
  * the pause menu only holds it, so a tool is exactly as armed after them as
  * it was before, and the HUD says so the whole time.
+ *
+ * <p>While a tool with an area is armed, the scroll wheel sizes the area
+ * instead of moving along the hotbar. Each tool keeps its size between arms
+ * for as long as the game runs, so putting one away to do something else does
+ * not undo the size it was set to.
  */
 public final class ToolMode {
+    private static final int[] RADII = new int[Tool.values().length];
+
+    static {
+        for (Tool tool : Tool.values()) RADII[tool.ordinal()] = tool.defaultRadius();
+    }
+
     private static Tool armed;
     /** The block face in front of you, or null when there is none in reach. */
     private static HitResult target;
@@ -58,6 +69,24 @@ public final class ToolMode {
 
     public static Message error() {
         return error;
+    }
+
+    /** How far out the armed tool reaches, in chunks, and 0 for one without an area. */
+    public static int radius() {
+        return armed == null ? 0 : RADII[armed.ordinal()];
+    }
+
+    /**
+     * Offered every turn of the wheel in the world, before the hotbar sees it.
+     *
+     * @param wheel which way and how far it turned, up being positive
+     * @return whether the armed tool took it, which keeps it from the hotbar
+     */
+    public static boolean scroll(int wheel) {
+        if (armed == null || !armed.hasArea() || wheel == 0) return false;
+        int radius = RADII[armed.ordinal()] + (wheel > 0 ? 1 : -1);
+        RADII[armed.ordinal()] = Math.max(0, Math.min(radius, armed.maxRadius()));
+        return true;
     }
 
     public static void arm(Tool tool) {
@@ -116,7 +145,7 @@ public final class ToolMode {
         // Edge detected, like summoning, since vanilla's click handler repeats
         // while the button is held and one click should be one use.
         boolean useDown = Mouse.isButtonDown(0);
-        if (useDown && !useWasDown) armed.use(Sight.reach());
+        if (useDown && !useWasDown) armed.use(Sight.reach(), radius());
         useWasDown = useDown;
 
         boolean cancelDown = Mouse.isButtonDown(1);
