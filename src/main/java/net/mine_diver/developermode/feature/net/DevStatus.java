@@ -31,6 +31,7 @@ public final class DevStatus {
     public static final String SMITE = "smite";
     public static final String SWEEP = "sweep";
     public static final String PURGE = "purge";
+    public static final String PRESET = "preset";
 
     private static final Map<String, Message> MESSAGES = new HashMap<>();
     private static final Map<String, Integer> SEQUENCES = new HashMap<>();
