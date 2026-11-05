@@ -92,7 +92,7 @@ public enum Tool {
         return defaultRadius;
     }
 
-    /** What the area at a radius covers, as in "3×3 chunks". */
+    /** What the area at a radius covers, as in "3x3 chunks". */
     public String area(int radius) {
         int across = radius * 2 + 1;
         return radius == 0 ? Lang.get(key + ".area.one") : Lang.get(key + ".area.many", across, across);
