@@ -2,6 +2,7 @@ package net.mine_diver.developermode.client.gui.radial;
 
 import net.mine_diver.developermode.client.Lang;
 import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
+import net.mine_diver.developermode.client.gui.window.CensusWindow;
 import net.mine_diver.developermode.client.gui.window.EntityListWindow;
 import net.mine_diver.developermode.client.gui.window.SummonWindow;
 import net.mine_diver.developermode.client.gui.window.ItemPickerWindow;
@@ -113,6 +114,11 @@ public final class RadialMenu {
                         "gui.developermode.radial.entities",
                         new ItemStack(Item.COMPASS),
                         returnTo -> EntityListWindow.open())
+                        .marked(RadialEntry.Badge.WINDOW))
+                .add(new RadialEntry(
+                        "gui.developermode.radial.census",
+                        new ItemStack(Block.DIAMOND_ORE),
+                        returnTo -> CensusWindow.open())
                         .marked(RadialEntry.Badge.WINDOW))
                 .add(RequestEntry.action(
                         DevStatus.SWEEP, "gui.developermode.radial.sweep",
