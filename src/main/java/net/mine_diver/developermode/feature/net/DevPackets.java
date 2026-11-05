@@ -8,6 +8,7 @@ import net.mine_diver.developermode.feature.net.packet.NbtS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.FreezeC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.FrozenS2CPacket;
 import net.mine_diver.developermode.feature.net.packet.GiveC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.WarpOntoC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.GrowC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.LockC2SPacket;
 import net.mine_diver.developermode.feature.net.packet.LockS2CPacket;
@@ -50,6 +51,7 @@ public final class DevPackets {
         event.register(DeveloperMode.NAMESPACE.id("powers"), PowersC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("granted"), PowersS2CPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("heal"), HealC2SPacket.TYPE);
+        event.register(DeveloperMode.NAMESPACE.id("warp_onto"), WarpOntoC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("warp"), WarpC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("time"), TimeC2SPacket.TYPE);
         event.register(DeveloperMode.NAMESPACE.id("weather"), WeatherC2SPacket.TYPE);

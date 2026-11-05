@@ -4,6 +4,7 @@ import net.mine_diver.developermode.feature.Facing;
 import net.mine_diver.developermode.feature.Message;
 import net.mine_diver.developermode.feature.Ray;
 import net.mine_diver.developermode.feature.net.packet.WarpC2SPacket;
+import net.mine_diver.developermode.feature.net.packet.WarpOntoC2SPacket;
 import net.mine_diver.developermode.mixin.EntityAccessor;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.hit.HitResult;
@@ -24,6 +25,10 @@ import net.modificationstation.stationapi.api.util.SideUtil;
  *
  * <p>The ring holds the head still while it is up, so the direction this finds
  * is the one you were facing when you opened it. Aim first, then flick.
+ *
+ * <p>A spot picked somewhere other than the world in front of you, such as on
+ * a preview of it, is asked for by its position instead, since there is
+ * nothing in front of the sender to cast at.
  */
 public final class Warp {
     /** Clear of the face, once the player's own size is out of the way. */
@@ -46,7 +51,27 @@ public final class Warp {
         HitResult hit = Ray.cast(player.world, origin, look, reach);
         if (hit == null || hit.type != HitResultType.BLOCK) return Message.of("message.developermode.nothing_in_reach");
 
-        Vec3d feet = landing(player.boundingBox, hit);
+        arrive(player, landing(player.boundingBox, hit));
+        return null;
+    }
+
+    /**
+     * Asks to stand on top of a block, wherever it is. For pointing at a spot
+     * somewhere other than the world in front of you, such as a preview of it.
+     */
+    public static void requestOnto(int x, int y, int z) {
+        PacketHelper.send(new WarpOntoC2SPacket(x, y, z));
+    }
+
+    /**
+     * Stands the player in the middle of a block's top face. Whatever is
+     * really there now is not asked about: the point is to go and look.
+     */
+    public static void onto(PlayerEntity player, int x, int y, int z) {
+        arrive(player, Vec3d.create(x + 0.5, y + 1, z + 0.5));
+    }
+
+    private static void arrive(PlayerEntity player, Vec3d feet) {
         // Back into Beta's terms, where the coordinate asked for is the eyes.
         double eyeY = feet.y + (player.y - player.boundingBox.minY);
 
@@ -63,7 +88,6 @@ public final class Warp {
         SideUtil.run(
                 () -> player.setPositionAndAngles(feet.x, eyeY, feet.z, player.yaw, player.pitch),
                 () -> ServerWarp.teleport(player, feet.x, eyeY, feet.z));
-        return null;
     }
 
     /**

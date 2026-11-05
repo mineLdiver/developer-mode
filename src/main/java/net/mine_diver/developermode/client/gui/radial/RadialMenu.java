@@ -5,6 +5,7 @@ import net.mine_diver.developermode.client.gui.composer.ComposerScreen;
 import net.mine_diver.developermode.client.gui.window.EntityListWindow;
 import net.mine_diver.developermode.client.gui.window.SummonWindow;
 import net.mine_diver.developermode.client.gui.window.ItemPickerWindow;
+import net.mine_diver.developermode.client.gui.window.PreviewWindow;
 import net.mine_diver.developermode.client.Sight;
 import net.mine_diver.developermode.client.tool.Tool;
 import net.mine_diver.developermode.client.tool.ToolMode;
@@ -131,6 +132,14 @@ public final class RadialMenu {
                         new ItemStack(Item.CLOCK),
                         time));
 
+        // What a generator makes, looked at and measured without a new world.
+        RadialMenu generation = new RadialMenu("gui.developermode.radial.generation")
+                .add(new RadialEntry(
+                        "gui.developermode.radial.preview",
+                        new ItemStack(Item.PAINTING),
+                        returnTo -> PreviewWindow.open())
+                        .marked(RadialEntry.Badge.WINDOW));
+
         // Grouped by what choosing one does rather than by what it acts on,
         // which is sometimes the world and sometimes you: each one closes the
         // ring on something to point with, and does nothing until you do.
@@ -184,6 +193,10 @@ public final class RadialMenu {
                         "gui.developermode.radial.tools",
                         new ItemStack(Item.STICK),
                         tools))
+                .add(new RadialEntry(
+                        "gui.developermode.radial.generation",
+                        new ItemStack(Block.SAPLING),
+                        generation))
                 .add(new RadialEntry(
                         "gui.developermode.radial.items",
                         new ItemStack(Block.CHEST),

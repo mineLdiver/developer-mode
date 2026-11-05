@@ -12,6 +12,10 @@ gui.@.radial.player=Player
 gui.@.radial.player.hint=What you are while you test
 gui.@.radial.tools=Tools
 gui.@.radial.tools.hint=Something to point at the world
+gui.@.radial.generation=Generation
+gui.@.radial.generation.hint=What the generator makes, without a new world
+gui.@.radial.preview=Preview
+gui.@.radial.preview.hint=The chunks around you, generated off to the side
 gui.@.radial.items=Items
 gui.@.radial.items.hint=Pick something to give yourself
 gui.@.radial.entities=Entities
@@ -197,6 +201,26 @@ gui.@.nbt.type.compound=compound
 gui.@.nbt.type.list=list
 gui.@.nbt.type.tag=tag
 
+gui.@.preview.title=Preview
+gui.@.preview.build=Build
+gui.@.preview.smaller=-
+gui.@.preview.larger=+
+gui.@.preview.area=%sx%s chunks
+gui.@.preview.generating=%s of %s chunks generated
+gui.@.preview.drawing=drawing
+gui.@.preview.terrain=terrain, before decoration
+gui.@.preview.turn_left=<
+gui.@.preview.turn_right=>
+gui.@.preview.lower=-
+gui.@.preview.raise=+
+gui.@.preview.cut=cut at y %s
+gui.@.preview.cut.none=cut
+gui.@.preview.color.blocks=Blocks
+gui.@.preview.color.height=Height
+gui.@.preview.empty=Build to generate the chunks around you
+gui.@.preview.hovered=%s at %s, %s, %s, click to go there
+gui.@.preview.hint=scroll to zoom, shift scroll to cut, drag to move
+
 # What comes back from a request. Built on whichever side answered it, and
 # translated on the client that shows it.
 message.@.requires_operator=Requires operator
@@ -206,6 +230,8 @@ message.@.nonsense_position=Nonsense position
 message.@.too_far=Too far away
 message.@.nothing_in_reach=Nothing in reach
 message.@.nothing_in_sight=Nothing in sight
+message.@.cannot_preview=This generator's chunks can't be previewed
+message.@.preview_threw=The generator threw %s on chunk %s, %s
 message.@.cleared=Cleared %s
 message.@.given=Given %s
 message.@.no_such_item=No such item
